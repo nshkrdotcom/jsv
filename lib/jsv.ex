@@ -60,6 +60,13 @@ defmodule JSV do
     {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?)}}}
   end
 
+  def build!(raw_schema, opts) do
+    case build(raw_schema, opts) do
+      {:ok, root} -> root
+      {:error, reason} -> raise JSV.BuildError, reason: reason
+    end
+  end
+
   @doc """
   Returns the default meta schema used when the `:default_meta` option is not
   set in `build/2`.

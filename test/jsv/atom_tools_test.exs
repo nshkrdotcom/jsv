@@ -3,30 +3,45 @@ defmodule JSV.AtomToolsTest do
   alias JSV.Schema
   use ExUnit.Case, async: true
 
+  doctest AtomTools, import: true
+
   test "remove all atoms from map" do
     # handles maps with atom keys
-    assert %{"hello" => "world"} == AtomTools.deatom(%{hello: "world"})
+    assert %{"hello" => "world"} == AtomTools.deatomize(%{hello: "world"})
 
     # handles maps with atom values
-    assert %{"hello" => "world"} == AtomTools.deatom(%{hello: :world})
+    assert %{"hello" => "world"} == AtomTools.deatomize(%{hello: :world})
 
     # keeps booleans and nil as values but not keys
-    assert %{"true" => true} == AtomTools.deatom(%{true: true})
-    assert %{"false" => false} == AtomTools.deatom(%{false: false})
-    assert %{"nil" => nil} == AtomTools.deatom(%{nil: nil})
+    assert %{"true" => true} == AtomTools.deatomize(%{true: true})
+    assert %{"false" => false} == AtomTools.deatomize(%{false: false})
+    assert %{"nil" => nil} == AtomTools.deatomize(%{nil: nil})
 
     # keeps basic types
-    assert %{"i" => 1, "f" => 2.3, "l" => [4]} == AtomTools.deatom(%{i: 1, f: 2.3, l: [4]})
+    assert %{"i" => 1, "f" => 2.3, "l" => [4]} == AtomTools.deatomize(%{i: 1, f: 2.3, l: [4]})
   end
 
   test "removes all atoms and nil values from Schema struct" do
     # handles structs with a special treatment for the schema struct, it removes
     # all nil values.
 
-    assert %{"title" => "stuff"} == AtomTools.deatom(%Schema{title: "stuff"})
+    assert %{"title" => "stuff"} == AtomTools.deatomize(%Schema{title: "stuff"})
 
     assert %{"anyOf" => [%{"properties" => %{"foo" => 1}}]} ==
-             AtomTools.deatom(%Schema{anyOf: [%Schema{properties: %{foo: 1}}]})
+             AtomTools.deatomize(%Schema{anyOf: [%Schema{properties: %{foo: 1}}]})
+  end
+
+  defmodule MyStruct do
+    defstruct a: nil, b: nil
+  end
+
+  test "removes struct fields from any struct" do
+    # It does not removes nil values as for JSV.Schema
+
+    assert %{"a" => "hello", "b" => nil} == AtomTools.deatomize(%MyStruct{a: "hello"})
+
+    assert %{"a" => "hello", "b" => %{"a" => "goodbye", "b" => nil}} ==
+             AtomTools.deatomize(%MyStruct{a: "hello", b: %MyStruct{a: "goodbye"}})
   end
 
   test "contains atoms check" do

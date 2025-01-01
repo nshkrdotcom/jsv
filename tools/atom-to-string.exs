@@ -134,7 +134,7 @@ end
 Benchee.run(
   %{
     "direct_convert" => fn input ->
-      _converted = AtomTools.deatom(input)
+      _converted = AtomTools.deatomize(input)
 
       # precheck
       # false = AtomTools.atom_props?(converted)
@@ -142,7 +142,7 @@ Benchee.run(
     "check_before" => fn input ->
       _converted =
         if AtomTools.atom_props?(input) do
-          AtomTools.deatom(input)
+          AtomTools.deatomize(input)
         else
           input
         end

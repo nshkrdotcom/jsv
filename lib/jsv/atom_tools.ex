@@ -2,98 +2,79 @@ defmodule JSV.AtomTools do
   @moduledoc false
   alias JSV.Schema
 
-  # # Tries Map.fetch/2 with both atom and binary key.  The first attempt is made
-  # # with the binary key because we expect to work more often with raw schemas.
-  # #
-  # # Schemas defined with atom, as structs, are expected to be used and
-  # # transformed to validators at compile-time, where a loss of performance is
-  # # acceptable.
-  # defmacro map_fetch_prop(map, atom_form) when is_atom(atom_form) do
-  #   str_form = Atom.to_string(atom_form)
+  @doc """
+  Returns the given term with all atoms converted to binaries, except for
+  `true`, `false` and `nil` when not used as a map key. Map keys are always
+  converted.
 
-  #   quote bind_quoted: binding() do
-  #     case map do
-  #       %{^str_form => value} -> {:ok, value}
-  #       %{^atom_form => value} -> {:ok, value}
-  #       %{} -> :error
-  #       other -> :erlang.error({:badmap, other}, [map, atom_form])
-  #     end
-  #   end
-  # end
+  The term is checked for atom presence before conversion. When it is certain
+  that the term contains atoms, the `deatomize/1` function can be used instead
+  to skip that check.
 
-  # defmacro map_fetch_prop!(map, atom_form) when is_atom(atom_form) do
-  #   str_form = Atom.to_string(atom_form)
+  The function accepts struct and will simply remove the `:__struct__` field
+  from any map, but there is a special case: given a `JSV.Schema` struct, the
+  function will also strip all key-value pairs where the value is nil.
 
-  #   quote bind_quoted: binding() do
-  #     case map do
-  #       %{^str_form => value} -> value
-  #       %{^atom_form => value} -> value
-  #       %{} -> raise KeyError, key: atom_form, term: map
-  #       other -> :erlang.error({:badmap, other}, [map, atom_form])
-  #     end
-  #   end
-  # end
+  ### Examples
 
-  # defmacro map_get_prop(map, atom_form, default) when is_atom(atom_form) do
-  #   str_form = Atom.to_string(atom_form)
+      iex> fmap_atom_to_binary(%{name: :joe})
+      %{"name" => "joe"}
 
-  #   quote bind_quoted: binding() do
-  #     case map do
-  #       %{^str_form => value} -> value
-  #       %{^atom_form => value} -> value
-  #       %{} -> default
-  #       other -> :erlang.error({:badmap, other}, [map, atom_form, default])
-  #     end
-  #   end
-  # end
+      iex> fmap_atom_to_binary(%{true: false})
+      %{"true" => false}
 
-  # # This is the only place in this library where the string $id is defined. So
-  # # we are sure to always use the atom/binary compatible functions.
-  # defmacro id_bin do
-  #   "$id"
-  # end
+      iex> fmap_atom_to_binary(%{specials: [true, false, nil]})
+      %{"specials" => [true, false, nil]}
 
+      iex> map_size(fmap_atom_to_binary(%JSV.Schema{}))
+      0
+
+      iex> fmap_atom_to_binary(1..10)
+      %{"first" => 1, "last" => 10, "step" => 1}
+  """
   def fmap_atom_to_binary(term) do
     # Checking before is faster (benchmark in ./tools)
     if atom_props?(term) do
-      deatom(term)
+      deatomize(term)
     else
       term
     end
   end
 
-  @doc false
-  def deatom(term)
+  @doc """
+  Converts atoms to binaries in the given term. See `fmap_atom_to_binary/1`.
+  """
+  def deatomize(term)
 
-  def deatom(term) when term == nil when term == true when term == false do
+  def deatomize(term) when term == nil when term == true when term == false do
     term
   end
 
-  def deatom(term) when is_atom(term) do
+  def deatomize(term) when is_atom(term) do
     Atom.to_string(term)
   end
 
-  def deatom(term) when is_binary(term) when is_number(term) do
+  def deatomize(term) when is_binary(term) when is_number(term) do
     term
   end
 
-  def deatom(%Schema{} = term) do
+  def deatomize(%Schema{} = term) do
     deatom_schema_struct(term)
   end
 
-  def deatom(term) when is_struct(term) do
-    deatom(Map.from_struct(term))
+  def deatomize(term) when is_struct(term) do
+    deatomize(Map.from_struct(term))
   end
 
-  def deatom(term) when is_map(term) do
-    Map.new(term, fn {k, v} -> {deatom_key(k), deatom(v)} end)
+  def deatomize(term) when is_map(term) do
+    Map.new(term, fn {k, v} -> {deatom_key(k), deatomize(v)} end)
   end
 
-  def deatom([h | t]) do
-    [deatom(h) | deatom(t)]
+  def deatomize([h | t]) do
+    [deatomize(h) | deatomize(t)]
   end
 
-  def deatom([]) do
+  def deatomize([]) do
     []
   end
 
@@ -102,7 +83,7 @@ defmodule JSV.AtomTools do
   end
 
   defp deatom_key(term) do
-    deatom(term)
+    deatomize(term)
   end
 
   def deatom_schema_struct(schema) do
@@ -111,7 +92,7 @@ defmodule JSV.AtomTools do
     |> Enum.flat_map(fn
       {_, nil} -> []
       {:__struct__, _} -> []
-      {k, v} -> [{deatom_key(k), deatom(v)}]
+      {k, v} -> [{deatom_key(k), deatomize(v)}]
     end)
     |> Map.new()
   end
