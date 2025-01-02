@@ -22,15 +22,11 @@ defmodule JSV.FormatValidator.Default do
 
   @behaviour JSV.FormatValidator
 
-  # TODO "content" is not validated
-
   @supports_duration mod_exists?(Duration)
   @supports_email mod_exists?(MailAddress.Parser)
   @supports_iri mod_exists?(AbnfParsec)
   @supports_uri_template mod_exists?(AbnfParsec)
   @supports_json_pointer mod_exists?(AbnfParsec)
-
-  # TODO document hostname accepts numerical TLDs and single letter TLDs
 
   @re_hostname ~r/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/
 

@@ -39,7 +39,7 @@ specs = %{
   "hostname" => %{
     input: "some-host",
     support: "Native",
-    notes: []
+    notes: ["Accepts numerical TLDs and single letter TLDs."]
   },
   "ipv4" => %{
     input: "127.0.0.1",
@@ -84,7 +84,7 @@ specs = %{
     support: "Native",
     notes: [
       "The format is implemented with the native `Time` module.",
-      "The native `Time` implementation will completely discards the time offset information. Invalid offsets will be valid.",
+      "The native `Time` implementation will completely discard the time offset information. Invalid offsets will be valid.",
       "Decimal precision is not capped to milliseconds. `23:10:00.500000001` will be valid."
     ]
   },
@@ -152,7 +152,7 @@ generated =
 
     output =
       case casted do
-        ^input -> "`#{inspect(casted)}` (same value) "
+        ^input -> "`#{inspect(casted)}` (same value)"
         _ -> "`#{inspect(casted)}`"
       end
 
