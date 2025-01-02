@@ -9,8 +9,11 @@ test:
   mix test
 
 lint:
+  mix compile --force --warnings-as-errors
   mix credo
-  # mix compile --force --warnings-as-errors
+
+dialyzer:
+  mix dialyzer
 
 _mix_format:
   mix format
@@ -18,5 +21,5 @@ _mix_format:
 _git_status:
   git status
 
-check: _mix_format test lint _git_status
+check: _mix_format test lint dialyzer _git_status
 

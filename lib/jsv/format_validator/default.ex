@@ -1,5 +1,6 @@
 defmodule JSV.FormatValidator.Default.Optional do
   @moduledoc false
+  @spec optional_support(binary, boolean) :: [binary]
   def optional_support(format, supported?) when is_boolean(supported?) do
     if supported? do
       List.wrap(format)
@@ -8,6 +9,7 @@ defmodule JSV.FormatValidator.Default.Optional do
     end
   end
 
+  @spec mod_exists?(module) :: boolean
   def mod_exists?(module) do
     case Code.ensure_loaded(module) do
       {:module, ^module} -> true
@@ -19,6 +21,14 @@ end
 defmodule JSV.FormatValidator.Default do
   import JSV.FormatValidator.Default.Optional, only: [mod_exists?: 1, optional_support: 2]
   alias JSV.FormatValidator.Default.Optional
+
+  @moduledoc """
+  Default implementation of format validation.
+
+  Refer to the "Formats" section in the `JSV` documentation to know which
+  formats are supported. This can depend on the current Elixir version and
+  available optional libraries.
+  """
 
   @behaviour JSV.FormatValidator
 
@@ -52,10 +62,12 @@ defmodule JSV.FormatValidator.Default do
            |> :lists.flatten()
            |> Enum.sort()
 
+  @impl true
   def supported_formats do
     @formats
   end
 
+  @impl true
   def validate_cast("date-time", data) do
     case DateTime.from_iso8601(data) do
       {:ok, dt, _} ->
@@ -131,20 +143,14 @@ defmodule JSV.FormatValidator.Default do
     end
   end
 
-  def validate_cast("iri", data) do
-    Optional.IRI.parse_iri(data)
-  end
+  if @supports_iri do
+    def validate_cast("iri", data) do
+      Optional.IRI.parse_iri(data)
+    end
 
-  def validate_cast("iri-reference", data) do
-    Optional.IRI.parse_iri_reference(data)
-  end
-
-  def validate_cast("iri", data) do
-    Optional.IRI.parse_iri(data)
-  end
-
-  def validate_cast("iri-reference", data) do
-    Optional.IRI.parse_iri_reference(data)
+    def validate_cast("iri-reference", data) do
+      Optional.IRI.parse_iri_reference(data)
+    end
   end
 
   def validate_cast("uri", data) do
@@ -155,15 +161,19 @@ defmodule JSV.FormatValidator.Default do
     Optional.URI.parse_uri_reference(data)
   end
 
-  def validate_cast("uri-template", data) do
-    Optional.URITemplate.parse_uri_template(data)
+  if @supports_uri_template do
+    def validate_cast("uri-template", data) do
+      Optional.URITemplate.parse_uri_template(data)
+    end
   end
 
-  def validate_cast("json-pointer", data) do
-    Optional.JSONPointer.parse_json_pointer(data)
-  end
+  if @supports_json_pointer do
+    def validate_cast("json-pointer", data) do
+      Optional.JSONPointer.parse_json_pointer(data)
+    end
 
-  def validate_cast("relative-json-pointer", data) do
-    Optional.JSONPointer.parse_relative_json_pointer(data)
+    def validate_cast("relative-json-pointer", data) do
+      Optional.JSONPointer.parse_relative_json_pointer(data)
+    end
   end
 end

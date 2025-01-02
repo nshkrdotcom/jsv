@@ -1,13 +1,18 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
+
 defmodule JSV.Test.JsonSchemaSuite do
   alias JSV.AtomTools
   alias JSV.ValidationError
   alias JSV.Validator
+  alias JSV.Validator.ValidationContext
   import ExUnit.Assertions
   require Logger
   use ExUnit.CaseTemplate
 
+  @moduledoc false
+
   def run_test(json_schema, schema, data, expected_valid, opts \\ []) do
-    {valid?, %Validator{} = validator} =
+    {valid?, %ValidationContext{} = validator} =
       case JSV.validation_entrypoint(schema, data, []) do
         {:ok, casted, vctx} ->
           # This may fail if we have casting during the validation.
@@ -101,11 +106,7 @@ defmodule JSV.Test.JsonSchemaSuite do
     #{inspect(json_schema, pretty: true)}
 
     ERROR
-    #{if is_exception(reason) do
-      Exception.format(:error, reason, stacktrace)
-    else
-      inspect(reason, pretty: true)
-    end}
+    #{Exception.format(:error, reason, stacktrace)}
     """
   end
 

@@ -4,6 +4,7 @@ defmodule JSV.Codec do
   """
 
   @doc false
+  @spec codec :: module
   def codec
 
   cond do
@@ -85,20 +86,24 @@ defmodule JSV.Codec do
               ~S|{:poison, "~> 6.0"}.|
   end
 
+  @spec decode(binary) :: {:ok, term} | {:error, term}
   def decode(json) when is_binary(json) do
     do_decode(json)
   end
 
+  @spec decode!(binary) :: term
   def decode!(json) when is_binary(json) do
     do_decode!(json)
   end
 
+  @spec encode!(term) :: binary
   def encode!(term) do
     do_encode!(term)
   end
 
   @doc false
   # This is only useful for the test suite.
+  @spec format!(term) :: binary
   def format!(term) do
     do_format!(term)
   end

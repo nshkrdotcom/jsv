@@ -6,15 +6,39 @@ defmodule JSV.Validator do
   alias JSV.ValidationError
   alias JSV.Validator.Error
 
-  # :eval_path stores both the current keyword nesting leading to an error, and
-  # the namespace changes for error absolute location.
-  @enforce_keys [:data_path, :eval_path, :validators, :scope, :errors, :evaluated, :opts]
-  defstruct @enforce_keys
+  @moduledoc """
+  This is the home of the recursive validation logic.
 
-  @opaque t :: %__MODULE__{}
+  The validator is called on the root schema, and may be called by vocabulary
+  implementations to validate sub parts of the data built withing each
+  vocabulary module.
+  """
 
-  def new(validators, scope, opts) do
-    %__MODULE__{
+  defmodule ValidationContext do
+    @moduledoc """
+    Validation context carried along by the `JSV.Validator` and given to all
+    vocabulary implementations.
+
+    This struct is used to store errors found during validation, and to hold
+    contextual information such as the current path in the data or in the
+    schema.
+    """
+
+    # :eval_path stores both the current keyword nesting leading to an error, and
+    # the namespace changes for error absolute location.
+    @enforce_keys [:data_path, :eval_path, :validators, :scope, :errors, :evaluated, :opts]
+    defstruct @enforce_keys
+  end
+
+  @type context :: %ValidationContext{}
+  @type path_segment :: binary | non_neg_integer | atom
+  @type eval_path_segment :: path_segment | [path_segment]
+  @type validator :: JSV.Subschema.t() | BooleanSchema.t() | {:alias_of, binary}
+  @type result :: {:ok, term, context} | {:error, context}
+
+  @spec context(%{Key.t() => validator}, [Key.ns()], keyword()) :: context
+  def context(validators, scope, opts) do
+    %ValidationContext{
       data_path: [],
       eval_path: [],
       validators: validators,
@@ -25,13 +49,16 @@ defmodule JSV.Validator do
     }
   end
 
-  # The validator struct is the 3rd argument to mimic the callback on the
-  # vocabulary modules where builder and validators are passed as a context as
-  # last argument.
+  @doc """
+  Validate the given data with the given validator. The validator is typically a
+  sub-part of a `JSV.Root` struct built with `JSV.build/2` such as a
+  `JSV.Subschema` struct.
+  """
+  @spec validate(term, validator(), context) :: result
   def validate(data, subschema, vctx)
 
   def validate(data, %BooleanSchema{} = bs, vctx) do
-    case BooleanSchema.valid?(bs) do
+    case bs.valid? do
       true -> return(data, vctx)
       false -> {:error, add_error(vctx, boolean_schema_error(vctx, bs, data))}
     end
@@ -47,63 +74,28 @@ defmodule JSV.Validator do
     do_validate(data, sub_schema, vctx)
   end
 
-  defp with_scope(vctx, sub_key, add_eval_path, fun) do
-    %{scope: scopes, eval_path: eval_path} = vctx
-
-    # Premature optimization that can be removed: skip appending scope if it is
-    # the same as the current one.
-    sub_vctx =
-      case {Key.namespace_of(sub_key), scopes} do
-        {same, [same | _]} -> %__MODULE__{vctx | eval_path: [add_eval_path | eval_path]}
-        {new_scope, scopes} -> %__MODULE__{vctx | scope: [new_scope | scopes], eval_path: [add_eval_path | eval_path]}
-      end
-
-    case fun.(sub_vctx) do
-      {:ok, data, vctx} -> {:ok, data, %__MODULE__{vctx | scope: scopes, eval_path: eval_path}}
-      {:error, vctx} -> {:error, %__MODULE__{vctx | scope: scopes, eval_path: eval_path}}
-    end
-  end
-
-  @doc """
-  Validate the data with the given validators but separate the current
-  evaluation context during the validation.
-
-  Currently evaluated properties or items will not be seen as evaluated during
-  the validation by the given `subschema`.
-  """
-  def validate_detach(data, add_eval_path, subschema, vctx) do
-    %{eval_path: eval_path} = vctx
-    sub_vctx = %__MODULE__{vctx | evaluated: [%{}], eval_path: [add_eval_path | eval_path]}
-
-    case validate(data, subschema, sub_vctx) do
-      {:ok, data, new_sub} -> {:ok, data, new_sub}
-      {:error, new_sub} -> {:error, new_sub}
-    end
-  end
-
   # Executes all validators with the given data, collecting errors on the way,
   # then return either ok or error with all errors.
   defp do_validate(data, %Subschema{} = sub, vctx) do
     %{validators: validators} = sub
 
-    iterate(validators, data, vctx, fn {module, mod_validators}, data, vctx ->
+    reduce(validators, data, vctx, fn {module, mod_validators}, data, vctx ->
       module.validate(data, mod_validators, vctx)
     end)
   end
 
   @doc """
-  Iteration over an enum, accumulating errors.
-
-  This function is kind of a mix between map and reduce:
+  Reduce over an enum with two accumulators, a user one, and the context.
 
   * The callback is called with `item, acc, vctx` for all items in the enum,
     regardless of previously returned values. Returning and error tuple does not
     stop the iteration.
-  * When returning `{:ok, value, vctx}`, `value` will be the new accumulator.
-  * When returning `{:error, vctx}`, the vale accumulator is not changed, but the
-    new returned vctx with errors is carried on.
+  * When returning `{:ok, value, vctx}`, `value` will be the new user
+    accumulator, and the new context is carried on.
+  * When returning `{:error, vctx}`, the current accumulator is not changed, but
+    the new returned context with errors is still carried on.
   * Returning an ok tuple after an error tuple on a previous item does not
-    remove the errors from the validator struct, they are carried along.
+    remove the errors from the context struct.
 
   The final return value is `{:ok, acc, vctx}` if all calls of the callback
   returned an OK tuple, `{:error, vctx}` otherwise.
@@ -112,7 +104,8 @@ defmodule JSV.Validator do
   collecting all possible errors without stopping, but still returning an error
   in the end if some error arose.
   """
-  def iterate(enum, init, vctx, fun) when is_function(fun, 3) do
+  @spec reduce(Enumerable.t(), term, context, function) :: result
+  def reduce(enum, init, vctx, fun) when is_function(fun, 3) do
     {new_acc, new_vctx} =
       Enum.reduce(enum, {init, vctx}, fn item, {acc, vctx} ->
         res = fun.(item, acc, vctx)
@@ -124,7 +117,7 @@ defmodule JSV.Validator do
             {new_acc, new_vctx}
 
           # When returning :error, an error MUST be set
-          {:error, %__MODULE__{errors: [_ | _]} = new_vctx} ->
+          {:error, %ValidationContext{errors: [_ | _]} = new_vctx} ->
             {acc, new_vctx}
 
           other ->
@@ -136,16 +129,35 @@ defmodule JSV.Validator do
   end
 
   @doc """
+  Validate the data with the given validators but separate the current
+  evaluation context during the validation.
+
+  Currently evaluated properties or items will not be seen as evaluated during
+  the validation by the given `subschema`.
+  """
+  @spec validate_detach(term, eval_path_segment, validator, context) :: result
+  def validate_detach(data, add_eval_path, subschema, vctx) do
+    %{eval_path: eval_path} = vctx
+    sub_vctx = %ValidationContext{vctx | evaluated: [%{}], eval_path: [add_eval_path | eval_path]}
+
+    case validate(data, subschema, sub_vctx) do
+      {:ok, data, new_sub} -> {:ok, data, new_sub}
+      {:error, new_sub} -> {:error, new_sub}
+    end
+  end
+
+  @doc """
   Validates a sub term of the data, identified by `key`, which can be a property
   name (a string), or an array index (an integer).
 
   See `validate_as/4` to validate the same data point with a nested keyword. For
   instance `if`, `then` or `else`.
   """
+  @spec validate_in(term, path_segment, eval_path_segment, validator, context) :: result
   def validate_in(data, key, add_eval_path, subvalidators, vctx)
       when is_binary(key)
       when is_integer(key) do
-    %__MODULE__{
+    %ValidationContext{
       data_path: data_path,
       validators: all_validators,
       scope: scope,
@@ -153,7 +165,7 @@ defmodule JSV.Validator do
       eval_path: eval_path
     } = vctx
 
-    sub_vctx = %__MODULE__{
+    sub_vctx = %ValidationContext{
       vctx
       | data_path: [key | data_path],
         eval_path: [add_eval_path | eval_path],
@@ -169,7 +181,7 @@ defmodule JSV.Validator do
         new_vctx = vctx |> add_evaluated(key) |> merge_errors(sub_vctx)
         {:ok, data, new_vctx}
 
-      {:error, %__MODULE__{errors: [_ | _]} = sub_vctx} ->
+      {:error, %ValidationContext{errors: [_ | _]} = sub_vctx} ->
         {:error, merge_errors(vctx, sub_vctx)}
     end
   end
@@ -180,8 +192,9 @@ defmodule JSV.Validator do
 
   See `validate_in/5` to validate sub terms of the data.
   """
+  @spec validate_as(term, eval_path_segment(), validator(), context) :: result
   def validate_as(data, add_eval_path, subvalidators, vctx) do
-    %__MODULE__{
+    %ValidationContext{
       data_path: data_path,
       validators: all_validators,
       scope: scope,
@@ -189,7 +202,7 @@ defmodule JSV.Validator do
       eval_path: eval_path
     } = vctx
 
-    sub_vctx = %__MODULE__{
+    sub_vctx = %ValidationContext{
       vctx
       | data_path: data_path,
         eval_path: [add_eval_path | eval_path],
@@ -205,12 +218,13 @@ defmodule JSV.Validator do
         new_vctx = vctx |> merge_evaluated(sub_vctx) |> merge_errors(sub_vctx)
         {:ok, data, new_vctx}
 
-      {:error, %__MODULE__{errors: [_ | _]} = sub_vctx} ->
+      {:error, %ValidationContext{errors: [_ | _]} = sub_vctx} ->
         {:error, merge_errors(vctx, sub_vctx)}
     end
   end
 
   # Kind is for the eval path
+  @spec validate_ref(term, Key.t(), eval_path_segment(), context) :: result
   def validate_ref(data, ref, eval_path, vctx) do
     with_scope(vctx, ref, {:ref, eval_path, ref}, fn vctx ->
       do_validate_ref(data, ref, vctx)
@@ -220,7 +234,7 @@ defmodule JSV.Validator do
   defp do_validate_ref(data, ref, vctx) do
     subvalidators = checkout_ref(vctx, ref)
 
-    %__MODULE__{
+    %ValidationContext{
       data_path: data_path,
       validators: all_validators,
       scope: scope,
@@ -229,7 +243,7 @@ defmodule JSV.Validator do
     } = vctx
 
     # TODO separate validator must have its isolated evaluated data_paths list
-    separate_vctx = %__MODULE__{
+    separate_vctx = %ValidationContext{
       vctx
       | data_path: data_path,
         # TODO append eval path
@@ -246,15 +260,35 @@ defmodule JSV.Validator do
         new_vctx = vctx |> merge_evaluated(separate_vctx) |> merge_errors(separate_vctx)
         {:ok, data, new_vctx}
 
-      {:error, %__MODULE__{errors: [_ | _]} = separate_vctx} ->
+      {:error, %ValidationContext{errors: [_ | _]} = separate_vctx} ->
         {:error, merge_errors(vctx, separate_vctx)}
     end
   end
 
+  defp with_scope(vctx, sub_key, add_eval_path, fun) do
+    %{scope: scopes, eval_path: eval_path} = vctx
+
+    # Premature optimization that can be removed: skip appending scope if it is
+    # the same as the current one.
+    sub_vctx =
+      case {Key.namespace_of(sub_key), scopes} do
+        {same, [same | _]} ->
+          %ValidationContext{vctx | eval_path: [add_eval_path | eval_path]}
+
+        {new_scope, scopes} ->
+          %ValidationContext{vctx | scope: [new_scope | scopes], eval_path: [add_eval_path | eval_path]}
+      end
+
+    case fun.(sub_vctx) do
+      {:ok, data, vctx} -> {:ok, data, %ValidationContext{vctx | scope: scopes, eval_path: eval_path}}
+      {:error, vctx} -> {:error, %ValidationContext{vctx | scope: scopes, eval_path: eval_path}}
+    end
+  end
+
   defp merge_errors(vctx, sub) do
-    %__MODULE__{errors: vctx_errors} = vctx
-    %__MODULE__{errors: sub_errors} = sub
-    %__MODULE__{vctx | errors: do_merge_errors(vctx_errors, sub_errors)}
+    %ValidationContext{errors: vctx_errors} = vctx
+    %ValidationContext{errors: sub_errors} = sub
+    %ValidationContext{vctx | errors: do_merge_errors(vctx_errors, sub_errors)}
   end
 
   defp do_merge_errors([], sub_errors) do
@@ -270,28 +304,30 @@ defmodule JSV.Validator do
     [vctx_errors, sub_errors]
   end
 
+  @spec merge_evaluated(context, context) :: context
   def merge_evaluated(vctx, sub) do
-    %__MODULE__{evaluated: [top_vctx | rest_vctx]} = vctx
-    %__MODULE__{evaluated: [top_sub | _rest_sub]} = sub
-    %__MODULE__{vctx | evaluated: [Map.merge(top_vctx, top_sub) | rest_vctx]}
+    %ValidationContext{evaluated: [top_vctx | rest_vctx]} = vctx
+    %ValidationContext{evaluated: [top_sub | _rest_sub]} = sub
+    %ValidationContext{vctx | evaluated: [Map.merge(top_vctx, top_sub) | rest_vctx]}
   end
 
-  def return(data, %__MODULE__{errors: []} = vctx) do
+  @spec return(term, context) :: result
+  def return(data, %ValidationContext{errors: []} = vctx) do
     {:ok, data, vctx}
   end
 
-  def return(_data, %__MODULE__{errors: [_ | _]} = vctx) do
+  def return(_data, %ValidationContext{errors: [_ | _]} = vctx) do
     {:error, vctx}
   end
 
-  def checkout_ref(%{scope: scope} = vctx, {:dynamic_anchor, ns, anchor}) do
+  defp checkout_ref(%{scope: scope} = vctx, {:dynamic_anchor, ns, anchor}) do
     case checkout_dynamic_ref(scope, vctx, anchor) do
       :error -> checkout_ref(vctx, {:anchor, ns, anchor})
       {:ok, v} -> v
     end
   end
 
-  def checkout_ref(%{validators: vds}, vkey) do
+  defp checkout_ref(%{validators: vds}, vkey) do
     Map.fetch!(vds, vkey)
   end
 
@@ -308,7 +344,7 @@ defmodule JSV.Validator do
     :error
   end
 
-  def boolean_schema_error(vctx, %BooleanSchema{valid?: false}, data) do
+  defp boolean_schema_error(vctx, %BooleanSchema{valid?: false}, data) do
     %Error{
       kind: :boolean_schema,
       data: data,
@@ -326,6 +362,7 @@ defmodule JSV.Validator do
   end
 
   @doc false
+  @spec __with_error__(module, context, atom, term, term) :: context
   def __with_error__(module, vctx, kind, data, args) do
     error = %Error{
       kind: kind,
@@ -340,25 +377,28 @@ defmodule JSV.Validator do
   end
 
   defp add_error(vctx, error) do
-    %__MODULE__{errors: errors} = vctx
-    %__MODULE__{vctx | errors: [error | errors]}
+    %ValidationContext{errors: errors} = vctx
+    %ValidationContext{vctx | errors: [error | errors]}
   end
 
   defp add_evaluated(vctx, key) do
     %{evaluated: [current | ev]} = vctx
     current = Map.put(current, key, true)
-    %__MODULE__{vctx | evaluated: [current | ev]}
+    %ValidationContext{vctx | evaluated: [current | ev]}
   end
 
+  @spec list_evaluaded(context) :: [path_segment()]
   def list_evaluaded(vctx) do
     %{evaluated: [current | _]} = vctx
     Map.keys(current)
   end
 
+  @spec flat_errors(context) :: [Error.t()]
   def flat_errors(vctx) do
     :lists.flatten(vctx.errors)
   end
 
+  @spec to_error(context) :: ValidationError.t()
   def to_error(vctx) do
     ValidationError.of(flat_errors(vctx))
   end

@@ -2,6 +2,9 @@ defmodule JSV.AtomTools do
   @moduledoc false
   alias JSV.Schema
 
+  @type raw_data :: %{optional(binary) => raw_data()} | [raw_data] | number | binary | boolean | nil
+  @type atom_data :: raw_data | %{optional(binary | atom) => atom_data()} | [atom_data] | number | atom
+
   @doc """
   Returns the given term with all atoms converted to binaries, except for
   `true`, `false` and `nil` when not used as a map key. Map keys are always
@@ -32,6 +35,7 @@ defmodule JSV.AtomTools do
       iex> fmap_atom_to_binary(1..10)
       %{"first" => 1, "last" => 10, "step" => 1}
   """
+  @spec fmap_atom_to_binary(atom_data) :: raw_data
   def fmap_atom_to_binary(term) do
     # Checking before is faster (benchmark in ./tools)
     if atom_props?(term) do
@@ -44,6 +48,7 @@ defmodule JSV.AtomTools do
   @doc """
   Converts atoms to binaries in the given term. See `fmap_atom_to_binary/1`.
   """
+  @spec deatomize(atom_data) :: raw_data
   def deatomize(term)
 
   def deatomize(term) when term == nil when term == true when term == false do
@@ -86,7 +91,7 @@ defmodule JSV.AtomTools do
     deatomize(term)
   end
 
-  def deatom_schema_struct(schema) do
+  defp deatom_schema_struct(schema) do
     schema
     |> Map.from_struct()
     |> Enum.flat_map(fn
@@ -101,6 +106,7 @@ defmodule JSV.AtomTools do
   Returns true if the given value (and sub values) contains atoms. Does not
   return true for `true`, `false` and `nil` except if keys in a map.
   """
+  @spec atom_props?(atom_data()) :: boolean()
   def atom_props?(term)
 
   def atom_props?(term) when is_map(term) do

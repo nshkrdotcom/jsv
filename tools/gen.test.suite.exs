@@ -290,7 +290,7 @@ defmodule JSV.GenTestSuite do
     suite_name
     |> stream_cases(enabled)
     |> take_max_tests(max_tests)
-    |> Stream.map(&gen_test_mod(&1, test_directory, namespace, format, schema_options))
+    |> Stream.map(&gen_test_mod(&1, namespace, format, schema_options))
     |> Enum.count()
     |> then(&IO.puts("Wrote #{&1} files"))
   end
@@ -453,7 +453,7 @@ defmodule JSV.GenTestSuite do
     |> IO.warn([])
   end
 
-  defp gen_test_mod(mod_info, test_directory, namespace, format, schema_options) do
+  defp gen_test_mod(mod_info, namespace, format, schema_options) do
     module_name = module_name(mod_info, namespace)
 
     case_build_opts = get_in(mod_info, [:opts, :schema_build_opts]) || []
@@ -463,7 +463,7 @@ defmodule JSV.GenTestSuite do
       Map.merge(mod_info, %{module_name: module_name, schema_build_opts: schema_build_opts, keys_format: format})
 
     module_contents = module_template(assigns)
-    module_path = module_path(namespace, module_name)
+    module_path = module_path(module_name)
 
     File.mkdir_p!(Path.dirname(module_path))
     File.write!(module_path, module_contents, [:sync])
@@ -472,7 +472,7 @@ defmodule JSV.GenTestSuite do
 
   @re_modpath ~r/\.ex$/
 
-  defp module_path(namespace, module_name) do
+  defp module_path(module_name) do
     path = preferred_path(module_name)
     mod_path = Regex.replace(@re_modpath, path, ".exs")
     true = String.ends_with?(mod_path, ".exs")

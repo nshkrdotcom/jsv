@@ -13,7 +13,31 @@ defmodule JSV.ErrorFormatter do
   invalidated) and schema location (the part of the schema that invalidated it).
   """
 
-  def normalize_error(%ValidationError{} = e, opts \\ []) do
+  @type annotation :: %{
+          required(:valid) => boolean,
+          required(:instanceLocation) => binary,
+          required(:evaluationPath) => binary,
+          required(:schemaLocation) => binary,
+          optional(:errors) => [collected_error],
+          optional(:detail) => [annotation]
+        }
+
+  @type collected_error :: %{
+          required(:kind) => atom,
+          required(:message) => String.t(),
+          optional(:detail) => [annotation]
+        }
+
+  @type raw_path :: [raw_path] | binary | integer | atom
+
+  @spec normalize_error(ValidationError.t()) :: map()
+  def normalize_error(%ValidationError{} = e) do
+    normalize_error(e, [])
+  end
+
+  # TODO maybe remove opts as they are no more used. We may need them if we want
+  # to use custom JSON encoding for errors.
+  defp normalize_error(e, opts) do
     %{valid: false, details: normalize_errors(e.errors, opts)}
   end
 
@@ -44,6 +68,7 @@ defmodule JSV.ErrorFormatter do
     }
   end
 
+  @spec format_data_path(raw_path) :: String.t()
   def format_data_path([]) do
     ""
   end
@@ -76,6 +101,7 @@ defmodule JSV.ErrorFormatter do
   end
 
   @doc false
+  @spec format_schema_path(raw_path) :: String.t()
   def format_schema_path(eval_path) do
     flat_path = flatten_path(eval_path)
 
@@ -162,39 +188,11 @@ defmodule JSV.ErrorFormatter do
         %{message: message, kind: kind}
 
       {message, sub_errors} when is_binary(message) ->
-        # TODO should not be needed and validated by callback specs.
-        :ok = ensure_sub_errors(sub_errors, formatter, kind)
         %{message: message, kind: kind, details: normalize_errors(sub_errors, opts)}
 
       {new_kind, message, sub_errors} when is_binary(message) ->
-        # TODO should not be needed and validated by callback specs.
-        :ok = ensure_sub_errors(sub_errors, formatter, kind)
         %{message: message, kind: new_kind, details: normalize_errors(sub_errors, opts)}
     end
-  end
-
-  defp ensure_sub_errors(sub_errors, formatter, kind) do
-    with true <- is_list(sub_errors),
-         true <- Enum.all?(sub_errors, &sub_error_or_unit?/1) do
-      :ok
-    else
-      _ ->
-        # TODO remove this check when everything is cood, replace by an assertive match
-        raise "invalid sub errors for kind #{inspect(kind)}, expected a list of " <>
-                "errors or output units from #{inspect(formatter)} , got: #{inspect(sub_errors)}"
-    end
-  end
-
-  defp sub_error_or_unit?(%Error{}) do
-    true
-  end
-
-  defp sub_error_or_unit?(%{valid: v, instanceLocation: _, evaluationPath: _, schemaLocation: _}) when is_boolean(v) do
-    true
-  end
-
-  defp sub_error_or_unit?(_) do
-    false
   end
 
   @doc """
@@ -203,6 +201,7 @@ defmodule JSV.ErrorFormatter do
   nested details of an error. Mostly used to show multiple validated schemas
   with `:oneOf`.
   """
+  @spec valid_unit(Validator.context()) :: annotation
   def valid_unit(vctx) do
     {absolute_location, keyword_location} = format_keyword_paths(vctx.eval_path)
 

@@ -48,7 +48,7 @@ defmodule JSV.Resolver do
   and returns a result tuple for a raw JSON schema, that is a map with binary
   keys or a boolean.
   """
-  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, map() | boolean()} | {:error, term}
+  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, raw_schema()} | {:error, term}
 
   @draft_202012_vocabulary %{
     "https://json-schema.org/draft/2020-12/vocab/core" => Vocabulary.V202012.Core,
@@ -68,7 +68,6 @@ defmodule JSV.Resolver do
     "https://json-schema.org/draft-07/--fallback--vocab/format-annotation" => Vocabulary.Draft7.Format,
     "https://json-schema.org/draft-07/--fallback--vocab/format-assertion" => {Vocabulary.Draft7.Format, assert: true},
     "https://json-schema.org/draft-07/--fallback--vocab/meta-data" => Vocabulary.Draft7.MetaData
-    # "https://json-schema.org/draft-07/--fallback--vocab/unevaluated" => Vocabulary.Draft7.Unevaluated
   }
   @draft7_vocabulary_keyword_fallback Map.new(@draft7_vocabulary, fn {k, _mod} -> {k, true} end)
 
@@ -84,14 +83,16 @@ defmodule JSV.Resolver do
             fetch_cache: %{},
             resolved: %{}
 
-  # TODO callback behaviour
-
   @opaque t :: %__MODULE__{}
+  @type raw_schema :: map() | boolean()
+  @type resolvable :: Key.ns() | Key.pointer() | Ref.t()
 
+  @spec new(module, binary) :: t
   def new(module, default_meta) do
     %__MODULE__{mod: module, default_meta: default_meta}
   end
 
+  @spec resolve_root(t, raw_schema()) :: {:ok, :root | binary, t} | {:error, term}
   def resolve_root(rsv, raw_schema) when is_map(raw_schema) do
     # Bootstrap of the recursive resolving of schemas, metaschemas and
     # anchors/$ids. We just need to set the :root value in the context as the
@@ -111,6 +112,7 @@ defmodule JSV.Resolver do
     end
   end
 
+  @spec resolve(t, resolvable | {:prefetched, term, term}) :: {:ok, t} | {:error, term}
   def resolve(rsv, resolvable) do
     case check_resolved(rsv, resolvable) do
       :unresolved -> do_resolve(rsv, resolvable)
@@ -438,6 +440,7 @@ defmodule JSV.Resolver do
     end
   end
 
+  @spec fetch_raw_schema(t, binary | {:meta, binary} | Ref.t()) :: {:ok, binary, raw_schema} | {:error, term}
   def fetch_raw_schema(rsv, {:meta, url}) do
     fetch_raw_schema(rsv, url)
   end
@@ -515,6 +518,7 @@ defmodule JSV.Resolver do
     end)
   end
 
+  @spec fetch_meta(t, binary) :: {:ok, Resolved.t()} | {:error, term}
   def fetch_meta(rsv, meta) do
     fetch_resolved(rsv, {:meta, meta})
   end

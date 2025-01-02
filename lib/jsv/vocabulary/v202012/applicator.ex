@@ -3,9 +3,16 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   alias JSV.ErrorFormatter
   alias JSV.Helpers
   alias JSV.Validator
+  alias JSV.Vocabulary
   alias JSV.Vocabulary.V202012.Validation
   use JSV.Vocabulary, priority: 200
 
+  @moduledoc """
+  Implementation for the `https://json-schema.org/draft/2020-12/vocab/applicator`
+  vocabulary.
+  """
+
+  @impl true
   def init_validators(_) do
     []
   end
@@ -159,13 +166,15 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   # ---------------------------------------------------------------------------
 
   defp build_sub_list(subschemas, builder) do
-    Helpers.reduce_ok(subschemas, {[], builder}, fn subschema, {acc, builder} ->
-      case Builder.build_sub(subschema, builder) do
-        {:ok, subvalidators, builder} -> {:ok, {[subvalidators | acc], builder}}
-        {:error, _} = err -> err
-      end
-    end)
-    |> case do
+    subs =
+      Helpers.reduce_ok(subschemas, {[], builder}, fn subschema, {acc, builder} ->
+        case Builder.build_sub(subschema, builder) do
+          {:ok, subvalidators, builder} -> {:ok, {[subvalidators | acc], builder}}
+          {:error, _} = err -> err
+        end
+      end)
+
+    case subs do
       {:ok, {subvalidators, builder}} -> {:ok, :lists.reverse(subvalidators), builder}
       {:error, _} = err -> err
     end
@@ -173,6 +182,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   # ---------------------------------------------------------------------------
 
+  @impl true
   def finalize_validators([]) do
     :ignore
   end
@@ -233,8 +243,9 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   # ---------------------------------------------------------------------------
 
+  @impl true
   def validate(data, vds, vctx) do
-    Validator.iterate(vds, data, vctx, &validate_keyword/3)
+    Validator.reduce(vds, data, vctx, &validate_keyword/3)
   end
 
   defp properties_validations(_data, nil) do
@@ -270,6 +281,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     end)
   end
 
+  @spec validate_keyword(Vocabulary.pair(), Vocabulary.data(), Validator.context()) :: Validator.result()
   def validate_keyword({:jsv@props, {props_schemas, patterns_schemas, additionals_schema}}, data, vctx)
       when is_map(data) do
     for_props = properties_validations(data, props_schemas)
@@ -290,7 +302,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     # second. A possible fix is to discard previously casted value on second
     # schema but we will loose all cast from nested schemas.
 
-    Validator.iterate(all_validations, data, vctx, fn
+    Validator.reduce(all_validations, data, vctx, fn
       {kind, key, subschema, pattern} = propcase, data, vctx ->
         eval_path = eval_path(kind, pattern || key)
 
@@ -395,7 +407,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     {:ok, count, vctx} =
       data
       |> Enum.with_index()
-      |> Validator.iterate(0, vctx, fn {item, index}, count, vctx ->
+      |> Validator.reduce(0, vctx, fn {item, index}, count, vctx ->
         case Validator.validate_in(item, index, :contains, subschema, vctx) do
           {:ok, _, vctx} -> {:ok, count + 1, vctx}
           {:error, _} -> {:ok, count, vctx}
@@ -419,7 +431,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   pass validate_keyword({:jsv@contains, _})
 
   def validate_keyword({:dependentSchemas, schemas_map}, data, vctx) when is_map(data) do
-    Validator.iterate(schemas_map, data, vctx, fn
+    Validator.reduce(schemas_map, data, vctx, fn
       {parent_key, subschema}, data, vctx when is_map_key(data, parent_key) ->
         Validator.validate(data, subschema, vctx)
 
@@ -445,7 +457,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   def validate_keyword({:propertyNames, subschema}, data, vctx) when is_map(data) do
     data
     |> Map.keys()
-    |> Validator.iterate(data, vctx, fn key, data, vctx ->
+    |> Validator.reduce(data, vctx, fn key, data, vctx ->
       case Validator.validate(key, subschema, vctx) do
         {:ok, _, vctx} -> {:ok, data, vctx}
         {:error, _} = err -> err
@@ -508,6 +520,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   #
   # Validate all items in a stream of {kind, index, item_data, subschema}.
   # The subschema can be nil which makes the item automatically valid.
+  @spec validate_items(Enumerable.t(), Validator.context(), module) :: {Enumerable.t(), Validator.context()}
   def validate_items(stream, vctx, error_formatter \\ __MODULE__) do
     {rev_items, vctx} =
       Enum.reduce(stream, {[], vctx}, fn
@@ -532,6 +545,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   # ---------------------------------------------------------------------------
 
+  @impl true
   def format_error(:minContains, %{count: count, min_contains: min_contains}, _data) do
     case count do
       0 ->

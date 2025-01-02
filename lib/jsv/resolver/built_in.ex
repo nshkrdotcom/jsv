@@ -40,6 +40,7 @@ defmodule JSV.Resolver.BuiltIn do
 
   @doc false
   # Used in scripts for development and experiments
+  @spec as_default :: {module, keyword()}
   def as_default do
     {JSV.Resolver.BuiltIn, allowed_prefixes: ["https://json-schema.org/"]}
   end
@@ -184,6 +185,10 @@ defmodule JSV.Resolver.BuiltIn do
     Base.encode32(:crypto.hash(:sha, url), padding: false)
   end
 
+  @doc """
+  Returns the default directory used by the disk-based cache.
+  """
+  @spec default_cache_dir :: binary
   def default_cache_dir do
     Path.join(System.tmp_dir!(), "jsv-resolver-http-cache")
   end

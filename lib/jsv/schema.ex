@@ -1,10 +1,47 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.Schema do
-  defstruct [
-    # TODO document const not supported because it can legally contain `nil` and
-    # would be removed when reducing the schema to binary form.
-    #
-    # :const,
+  @moduledoc """
+  A helper struct to write schemas with autocompletion with text editors that
+  can predict the struct keys.
 
+  Such schemas can be given to `JSV.build/2`:
+
+      schema = %JSV.Schema{type: :integer}
+      JSV.build(schema, options())
+
+  Because Elixir structs always contain all their defined keys, writing a schema
+  as `%JSV.Schema{type: :integer}` is actually defining the following:
+
+      %JSV.Schema{
+        type: :integer,
+        "$id": nil
+        additionalItems: nil,
+        additionalProperties: nil,
+        allOf: nil,
+        anyOf: nil,
+        contains: nil,
+        # etc...
+      }
+
+  For that reason, when giving a `#{inspect(__MODULE__)}` struct to
+  `JSV.build/2`, any `nil` value is ignored. This is not the case with other
+  strucs or maps.
+
+  Note that `JSV.build/2` does not require `#{inspect(__MODULE__)}` structs, any
+  map with binary or atom keys is accepted.
+
+  This is also why the `#{inspect(__MODULE__)}` struct does not define the
+  `const` keyword, because `nil` is a valid value for that keyword but there is
+  no way to know if the value was omitted or explicitly defined as `nil`. To
+  circumvent that you may use the `enum` keyword or just use a regular map
+  instead of this module's struct:
+
+      %#{inspect(__MODULE__)}{enum: [nil]}
+      # OR
+      %{const: nil}
+  """
+
+  defstruct [
     :"$anchor",
     :"$comment",
     :"$defs",
@@ -64,6 +101,10 @@ defmodule JSV.Schema do
     :writeOnly
   ]
 
+  @type t :: %__MODULE__{}
+  @type prototype :: t | map | keyword
+
+  @spec new(prototype) :: t
   def new(%__MODULE__{} = schema) do
     schema
   end
@@ -100,6 +141,7 @@ defmodule JSV.Schema do
     override(base, "$ref": ref)
   end
 
+  @spec override(prototype | nil, prototype) :: t
   def override(nil, overrides) do
     new(overrides)
   end

@@ -1,18 +1,48 @@
 defmodule JSV.Vocabulary do
   alias JSV.Builder
+  alias JSV.ErrorFormatter
   alias JSV.Helpers
   alias JSV.Validator
 
-  @type validators :: term
+  @moduledoc """
+  Behaviour for vocabulary implementation.
+
+  A vocabulary module is used twice during the lifetime of a JSON schema:
+
+  * When building a schema, the vocabulary module is given key/value pairs such
+    as `{"type", "integer"}` or `{"properties", map_of_schemas}` and must
+    consume or ignore the given keyword, storing custom validation data in an
+    accumulator for further use.
+  * When validating a schema, the module is called with the data to validate and
+    the accumulated validation data to produce a validation result.
+  """
+
+  @typedoc """
+  Represents the accumulator initially returned by `c:init_validators/1` and
+  accepted and returned by `c:handle_keyword/4`.
+
+  This accumulator is then given to `c:finalize_validators/1` and the
+  `t:collection/0` type is used from there.
+  """
+  @type acc :: term
+
+  @typedoc """
+  Represents the final form of the collected keywords after the ultimate
+  transformation returned by `c:finalize_validators/1`.
+  """
+  @type collection :: term
+
   @type pair :: {binary | atom, term}
   @type data :: %{optional(binary) => data} | [data] | binary | boolean | number | nil
-  @callback init_validators(Keyword.t()) :: validators
-  @callback handle_keyword(pair, validators, Builder.t(), raw_schema :: term) ::
-              {:ok, validators(), Builder.t()} | :ignore | {:error, term}
-  @callback finalize_validators(validators) :: :ignore | validators
-  @callback validate(data, validators, vctx :: Validator.t()) :: {:ok, data} | {:error, Validator.t()}
+  @callback init_validators(keyword) :: acc
+  @callback handle_keyword(pair, acc, Builder.t(), raw_schema :: term) ::
+              {:ok, acc, Builder.t()} | :ignore | {:error, term}
+  @callback finalize_validators(acc) :: :ignore | collection
+  @callback validate(data, collection, Validator.context()) :: Validator.result()
   @callback format_error(atom, %{optional(atom) => term}, data) ::
-              String.t() | {String.t(), %{optional(binary | atom) => term}}
+              String.t()
+              | {String.t(), [Validator.Error.t() | ErrorFormatter.annotation()]}
+              | {atom, String.t(), [Validator.Error.t() | ErrorFormatter.annotation()]}
 
   @optional_callbacks format_error: 3
 
@@ -178,6 +208,22 @@ defmodule JSV.Vocabulary do
     end
   end
 
+  defmacro passp(ast) do
+    case ast do
+      {:when, _, _} ->
+        raise "unsupported guard"
+
+      {fun_name, _, [match_tuple]} ->
+        quote do
+          defp unquote(fun_name)(unquote(match_tuple), data, vctx) do
+            {:ok, data, vctx}
+          end
+        end
+    end
+  end
+
+  @spec take_sub(Validator.path_segment(), Builder.raw_schema() | term, list, Builder.t()) ::
+          {:ok, list, Builder.t()} | {:error, term}
   def take_sub(key, subraw, acc, builder) when is_list(acc) do
     case Builder.build_sub(subraw, builder) do
       {:ok, subvalidators, builder} -> {:ok, [{key, subvalidators} | acc], builder}
@@ -185,6 +231,8 @@ defmodule JSV.Vocabulary do
     end
   end
 
+  @spec take_integer(Validator.path_segment(), integer | term, list, Builder.t()) ::
+          {:ok, list, Builder.t()} | {:error, binary}
   def take_integer(key, n, acc, builder) when is_list(acc) do
     with {:ok, n} <- force_integer(n) do
       {:ok, [{key, n} | acc], builder}
@@ -207,6 +255,8 @@ defmodule JSV.Vocabulary do
     {:error, "not an integer: #{inspect(other)}"}
   end
 
+  @spec take_number(Validator.path_segment(), number | term, list, Builder.t()) ::
+          {:ok, list, Builder.t()} | {:error, binary}
   def take_number(key, n, acc, builder) when is_list(acc) do
     with :ok <- check_number(n) do
       {:ok, [{key, n} | acc], builder}

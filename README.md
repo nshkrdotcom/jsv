@@ -19,7 +19,8 @@ JSON Schema specification.
   - [Custom build modules](#custom-build-modules)
   - [Compile-time builds](#compile-time-builds)
 - [Validation](#validation)
-  - [Supported formats \& casted values](#supported-formats--casted-values)
+  - [General considerations](#general-considerations)
+  - [Formats](#formats)
   - [Custom formats](#custom-formats)
 - [Development](#development)
   - [Contributing](#contributing)
@@ -61,6 +62,8 @@ def deps do
   ]
 end
 ```
+
+<!-- moduledoc-split -->
 
 ### Basic usage
 
@@ -490,8 +493,12 @@ To validate a term, call the `JSV.validate/3` function like so:
 JSV.validate(data, root_schema, opts)
 ```
 
+### General considerations
+
 JSV supports all keywords of the 2020-12 specification except:
 
+* The return value of `JSV.validate/3` returns casted data. See the
+  documentation of that function for more information.
 * The `contentMediaType`, `contentEncoding` and `contentSchema` keywords. They
   are ignored.  Future support for custom vocabularies will allow you to
   validate data with such keywords.
@@ -499,8 +506,25 @@ JSV supports all keywords of the 2020-12 specification except:
   mostly due to differences between Elixir and JavaScript (JSON Schema is
   largely based on JavaScript primitives). For most use cases, the differences
   are negligible.
+* The `"integer"` type will transform floats into integer when the fractional
+  part is zero (such as `123.0`). Support for floating-point numbers with large
+  integer parts is using native Elixir semantics and may return incorrect
+  results:
 
-### Supported formats & casted values
+      iex(1)> trunc(123456789123456789123456789.0)
+      # returns:    123456789123456791337762816
+      #                             |
+      #                             | Difference starts here
+
+  This is because `123456789123456789123456789.0` is decoded as
+  `1.2345678912345679e26` from the shell as well as by the `JSON` module. This
+  value should have `25` zeroes when truncated but that will not be the case.
+
+  When dealing with such data it may be better to discard the casted data, or to
+  work with strings instead of floats.
+
+
+### Formats
 
 JSV supports multiple formats out of the box with its default implementation,
 but some are only available under certain conditions that will be specified for
@@ -669,12 +693,12 @@ For instance:
 defmodule CustomFormats do
   @behaviour JSV.FormatValidator
 
-  @impl JSV.FormatValidator
+  @impl true
   def supported_formats do
     ["greeting"]
   end
 
-  @impl JSV.FormatValidator
+  @impl true
   def validate_cast("greeting", data) do
     case data do
       "hello " <> name -> {:ok, %Greeting{name: name}}

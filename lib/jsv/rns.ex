@@ -1,14 +1,19 @@
 defmodule JSV.RNS do
-  # A "namespace" for a schema ID or reference
-  # Universal Resource Reference. That is
-  # basically a URI but with a hack to support URNs (urn:isbn:1234 is
-  # represented as urn://isbn/1234)
+  @moduledoc """
 
-  # TODO do not be specific about URN. If there is no authority in the ID then
-  # we can note that, we may want to not use the URI module at all.
+  A "namespace" for a schema ID or reference
+
+  That is basically a URI but with extra support for URNs (`urn:isbn:1234` is
+  represented as `urn://isbn/1234`).
+  """
+
+  # TODO maybe do not use the URI module at all and implement a custom parser.
 
   defstruct [:uri, urn?: false]
 
+  @type t :: %__MODULE__{uri: :root | URI.t(), urn?: boolean}
+
+  @spec parse(binary | :root) :: t
   def parse(uri_or_urn)
 
   def parse("urn:" <> _ = urn) do
@@ -26,6 +31,7 @@ defmodule JSV.RNS do
     %__MODULE__{uri: :root}
   end
 
+  @spec derive(binary | :root, binary | :root) :: {:ok, binary | :roo} | {:error, term}
   def derive(parent, child) do
     parent_rns = parse(parent)
     child_rns = parse(child)
@@ -51,6 +57,7 @@ defmodule JSV.RNS do
     {:ok, %__MODULE__{uri: URI.merge(parent_uri, child_uri), urn?: urn?}}
   end
 
+  @spec to_ns(t) :: binary | :root
   def to_ns(%{uri: :root}) do
     :root
   end

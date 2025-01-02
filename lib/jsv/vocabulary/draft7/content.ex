@@ -2,6 +2,11 @@ defmodule JSV.Vocabulary.Draft7.Content do
   alias JSV.Vocabulary.V202012.Content, as: Fallback
   use JSV.Vocabulary, priority: 300
 
+  @moduledoc """
+  Implementation of the content vocabulary with draft 7 sepecifiticies. No
+  validation is performed.
+  """
+
   defdelegate init_validators(opts), to: Fallback
 
   ignore_keyword(:contentSchema)

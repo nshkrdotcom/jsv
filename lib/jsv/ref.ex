@@ -1,17 +1,27 @@
 defmodule JSV.Ref do
   alias __MODULE__
   alias JSV.RNS
+
+  @moduledoc """
+  Representation of a JSON Schema reference (`$ref` or `$dynamicRef`).
+  """
+
   defstruct ns: nil, kind: nil, fragment: nil, arg: nil, dynamic?: false
 
+  @type t :: %__MODULE__{}
+  @type ns :: binary | :root
+
+  @spec parse(binary, ns) :: {:ok, t} | {:error, term}
   def parse(url, current_ns) do
     do_parse(url, current_ns, false)
   end
 
+  @spec parse_dynamic(binary, ns) :: {:ok, t} | {:error, term}
   def parse_dynamic(url, current_ns) do
     do_parse(url, current_ns, true)
   end
 
-  def do_parse(url, current_ns, dynamic?) do
+  defp do_parse(url, current_ns, dynamic?) do
     uri = URI.parse(url)
     {kind, normalized_fragment, arg} = parse_fragment(uri.fragment)
 
@@ -60,6 +70,7 @@ defmodule JSV.Ref do
     |> URI.decode()
   end
 
+  @spec escape_json_pointer(binary) :: binary
   def escape_json_pointer(str) do
     str
     |> String.replace("/", "~1")

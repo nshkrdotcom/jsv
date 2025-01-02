@@ -4,8 +4,15 @@ defmodule JSV.Vocabulary.V202012.Core do
   alias JSV.Ref
   alias JSV.Resolver.Resolved
   alias JSV.Validator
+  alias JSV.Vocabulary
   use JSV.Vocabulary, priority: 100
 
+  @moduledoc """
+  Implementation for the `https://json-schema.org/draft/2020-12/vocab/core`
+  vocabulary.
+  """
+
+  @impl true
   def init_validators(_) do
     []
   end
@@ -55,6 +62,7 @@ defmodule JSV.Vocabulary.V202012.Core do
   consume_keyword :"$vocabulary"
   ignore_any_keyword()
 
+  @impl true
   def finalize_validators([]) do
     :ignore
   end
@@ -63,6 +71,9 @@ defmodule JSV.Vocabulary.V202012.Core do
     list
   end
 
+  @doc false
+  @spec ok_put_ref(Ref.t() | binary, :"$ref" | :"$dynamicRef", Vocabulary.acc(), Builder.t()) ::
+          {:ok, Vocabulary.acc(), Builder.t()}
   def ok_put_ref(%Ref{} = ref, kind_as_eval_path, acc, builder) do
     builder = Builder.stage_build(builder, ref)
     {:ok, [{:ref, kind_as_eval_path, Key.of(ref)} | acc], builder}
@@ -77,7 +88,7 @@ defmodule JSV.Vocabulary.V202012.Core do
   # If the ref is a pointer but points to a schema with an $id we will swap the
   # ref to target that ID instead, so we can support skipping over boundaries
   # when resolving dynamic refs by not adding intermediary scopes.
-  def maybe_swap_ref(%{kind: :pointer} = ref, builder) do
+  defp maybe_swap_ref(%{kind: :pointer} = ref, builder) do
     with {:ok, builder} <- Builder.ensure_resolved(builder, ref),
          {:ok, resolved} <- Builder.fetch_resolved(builder, Key.of(ref)) do
       case resolved do
@@ -91,7 +102,7 @@ defmodule JSV.Vocabulary.V202012.Core do
     end
   end
 
-  def maybe_swap_ref(ref, builder) do
+  defp maybe_swap_ref(ref, builder) do
     {:ok, ref, builder}
   end
 
@@ -139,11 +150,12 @@ defmodule JSV.Vocabulary.V202012.Core do
 
   # ---------------------------------------------------------------------------
 
+  @impl true
   def validate(data, vds, vctx) do
-    Validator.iterate(vds, data, vctx, &validate_keyword/3)
+    Validator.reduce(vds, data, vctx, &validate_keyword/3)
   end
 
-  def validate_keyword({:ref, eval_path, ref}, data, vctx) do
+  defp validate_keyword({:ref, eval_path, ref}, data, vctx) do
     Validator.validate_ref(data, ref, eval_path, vctx)
   end
 

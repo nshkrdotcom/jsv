@@ -5,8 +5,14 @@ defmodule JSV.Vocabulary.Draft7.Applicator do
   alias JSV.Vocabulary.V202012.Applicator, as: Fallback
   use JSV.Vocabulary, priority: 200
 
+  @moduledoc """
+  Implementation of the applicator vocabulary with draft 7 sepecifiticies.
+  """
+
+  @impl true
   defdelegate init_validators(opts), to: Fallback
 
+  @impl true
   take_keyword :additionalItems, items, acc, builder, _ do
     take_sub(:additionalItems, items, acc, builder)
   end
@@ -33,6 +39,7 @@ defmodule JSV.Vocabulary.Draft7.Applicator do
     Fallback.handle_keyword(pair, acc, builder, raw_schema)
   end
 
+  @impl true
   def finalize_validators([]) do
     :ignore
   end
@@ -54,15 +61,16 @@ defmodule JSV.Vocabulary.Draft7.Applicator do
     end
   end
 
+  @impl true
   def validate(data, vds, vctx) do
-    Validator.iterate(vds, data, vctx, &validate_keyword/3)
+    Validator.reduce(vds, data, vctx, &validate_keyword/3)
   end
 
   # draft-7 supports items as a map or an array (which was replaced by prefix
   # items). This clause is for array.
-  def validate_keyword({:jsv@array, {items_schemas, additional_items_schema}}, data, vctx)
-      when is_list(items_schemas) and (is_map(additional_items_schema) or is_nil(additional_items_schema)) and
-             is_list(data) do
+  defp validate_keyword({:jsv@array, {items_schemas, additional_items_schema}}, data, vctx)
+       when is_list(items_schemas) and (is_map(additional_items_schema) or is_nil(additional_items_schema)) and
+              is_list(data) do
     prefix_stream = Enum.map(items_schemas, &{:items_as_prefix, &1})
 
     rest_stream = Stream.cycle([{:additionalItems, additional_items_schema}])
@@ -81,9 +89,9 @@ defmodule JSV.Vocabulary.Draft7.Applicator do
   end
 
   # Items is a map, we will not use additional items.
-  def validate_keyword({:jsv@array, {items_schema, _}}, data, vctx)
-      when (is_map(items_schema) or (is_tuple(items_schema) and elem(items_schema, 0) == :alias_of)) and
-             is_list(data) do
+  defp validate_keyword({:jsv@array, {items_schema, _}}, data, vctx)
+       when (is_map(items_schema) or (is_tuple(items_schema) and elem(items_schema, 0) == :alias_of)) and
+              is_list(data) do
     all_stream = Stream.cycle([{:items, items_schema}])
     data_items_index = Enum.with_index(data)
 
@@ -98,12 +106,13 @@ defmodule JSV.Vocabulary.Draft7.Applicator do
 
   # this also passes when items schema is nil. In that case the additionalItems
   # schema is not used, every item is valid.
-  pass validate_keyword({:jsv@array, _})
+  passp validate_keyword({:jsv@array, _})
 
-  def validate_keyword(vd, data, vctx) do
+  defp validate_keyword(vd, data, vctx) do
     Fallback.validate_keyword(vd, data, vctx)
   end
 
+  @impl true
   def format_error(:additionalItems, args, _) do
     %{index: index} = args
     "item at index #{index} does not validate the 'additionalItems' schema"

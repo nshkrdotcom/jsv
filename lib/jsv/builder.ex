@@ -6,12 +6,22 @@ defmodule JSV.Builder do
   alias JSV.Resolver.Resolved
   alias JSV.RNS
   alias JSV.Root
+  alias JSV.Validator
+
+  @moduledoc """
+  Internal logic to build raw schemas into `JSV.Root` structs.
+  """
 
   @derive {Inspect, except: []}
   @enforce_keys [:resolver]
   defstruct [:resolver, staged: [], vocabularies: nil, ns: nil, parent_ns: nil, opts: []]
   @type t :: %__MODULE__{resolver: term, staged: [term], vocabularies: term, ns: term, parent_ns: term, opts: term}
 
+  @type resolvable :: Resolver.resolvable()
+  @type buildable :: {:resolved, resolvable} | resolvable
+  @type raw_schema :: map() | boolean
+
+  @spec new(keyword) :: t
   def new(opts) do
     {resolver_impl, opts} = Keyword.pop!(opts, :resolver)
     {default_meta, opts} = Keyword.pop!(opts, :default_meta)
@@ -19,6 +29,7 @@ defmodule JSV.Builder do
     struct!(__MODULE__, resolver: resolver, opts: opts)
   end
 
+  @spec build(t, raw_schema()) :: {:ok, JSV.Root.t()} | {:error, term}
   def build(builder, raw_schema) do
     with {:ok, root_key, resolver} <- Resolver.resolve_root(builder.resolver, raw_schema),
          builder = %__MODULE__{builder | resolver: resolver},
@@ -28,6 +39,7 @@ defmodule JSV.Builder do
     end
   end
 
+  @spec stage_build(t, buildable) :: t()
   def stage_build(%{staged: staged} = builder, buildable) do
     %__MODULE__{builder | staged: append_unique(staged, buildable)}
   end
@@ -44,6 +56,7 @@ defmodule JSV.Builder do
     [key]
   end
 
+  @spec ensure_resolved(t, resolvable) :: {:ok, t} | {:error, {:resolver_error, term}}
   def ensure_resolved(%{resolver: resolver} = builder, resolvable) do
     case Resolver.resolve(resolver, resolvable) do
       {:ok, resolver} -> {:ok, %__MODULE__{builder | resolver: resolver}}
@@ -51,6 +64,7 @@ defmodule JSV.Builder do
     end
   end
 
+  @spec fetch_resolved(t, Key.t()) :: {:ok, raw_schema} | {:error, term}
   def fetch_resolved(%{resolver: resolver}, key) do
     Resolver.fetch_resolved(resolver, key)
   end
@@ -88,9 +102,9 @@ defmodule JSV.Builder do
     # (dynamic refs) lead to stage and build multiple validators.
 
     case take_staged(builder) do
-      {{:resolved, vkey}, %{resolver: resolver} = builder} ->
+      {{:resolved, vkey}, builder} ->
         with :buildable <- check_not_built(all_validators, vkey),
-             {:ok, resolved} <- Resolver.fetch_resolved(resolver, vkey),
+             {:ok, resolved} <- Resolver.fetch_resolved(builder.resolver, vkey),
              {:ok, schema_validators, builder} <- build_resolved(builder, resolved) do
           build_all(builder, register_validator(all_validators, vkey, schema_validators))
         else
@@ -184,6 +198,7 @@ defmodule JSV.Builder do
     end
   end
 
+  @spec build_sub(raw_schema(), t) :: {:ok, Validator.validator(), t} | {:error, term}
   def build_sub(%{"$id" => id}, builder) do
     with {:ok, key} <- RNS.derive(builder.ns, id) do
       {:ok, {:alias_of, key}, stage_build(builder, key)}
@@ -254,6 +269,7 @@ defmodule JSV.Builder do
     {leftovers, module.finalize_validators(mod_acc), builder}
   end
 
+  @spec vocabulary_enabled?(t, module) :: boolean
   def vocabulary_enabled?(builder, vocab) do
     Enum.find_value(builder.vocabularies, false, fn
       ^vocab -> true

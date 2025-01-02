@@ -1,6 +1,23 @@
 defmodule JSV.Resolver.Cache do
   use GenServer
 
+  @moduledoc """
+  An in-memory cache to store resources resolved by the `JSV.Resolver.BuiltIn`
+  resolver implementation.
+
+  The cache implementation is very basic an serves as a dependency-free solution
+  for applications building schemas at runtime.
+
+  If all your schemas are built at compile-time, you do not need this cache
+  because it is not started during compilation, for simplicity sake.
+
+  A cache instance is automatically started with the `:jsv` OTP application with
+  `Cache` as a name. You can use the cache by passing that name as the first
+  arguments of the functions, for instance:
+
+      Cache.get_or_generate(Cache, :some_key, fn -> {:ok, "value"} end)
+  """
+
   @gen_opts ~w(name timeout debug spawn_opt hibernate_after)a
 
   @start_link_opts NimbleOptions.new!(
@@ -22,6 +39,7 @@ defmodule JSV.Resolver.Cache do
 
   This function also supports other `GenServer` options.
   """
+  @spec start_link(keyword) :: {:ok, pid} | {:error, term}
   def start_link(opts) do
     opts = NimbleOptions.validate!(opts, @start_link_opts)
     name = Keyword.fetch!(opts, :name)
@@ -29,12 +47,14 @@ defmodule JSV.Resolver.Cache do
     GenServer.start_link(__MODULE__, [{:name, name} | opts], gen_opts)
   end
 
+  @spec get_or_generate(GenServer.name(), term, (-> {:ok, term} | {:error, term})) :: {:ok, term} | {:error, term}
   def get_or_generate(name, key, fun) do
     with :error <- lookup(name, key) do
       maybe_generate(name, key, fun)
     end
   end
 
+  @spec maybe_generate(GenServer.name(), term, (-> {:ok, term} | {:error, term})) :: {:ok, term} | {:error, term}
   defp maybe_generate(name, key, fun) do
     case GenServer.call(name, {:maybe_generate, key, fun}) do
       {:ok, :generated} -> lookup!(name, key)

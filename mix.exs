@@ -1,6 +1,7 @@
 defmodule JSV.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/lud/jsv"
   def project do
     [
       app: :jsv,
@@ -12,6 +13,8 @@ defmodule JSV.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      source_url: @source_url,
+      docs: docs(),
       test_coverage: [tool: ExCoveralls],
       package: package(),
       modkit: modkit(),
@@ -67,11 +70,43 @@ defmodule JSV.MixProject do
      app: false}
   end
 
+  defp docs do
+    [
+      main: "JSV",
+      groups_for_modules: [
+        Build: [
+          JSV.Builder,
+          JSV.BuildError,
+          JSV.Resolver,
+          JSV.Codec,
+          JSV.Resolver.Cache,
+          JSV.Key,
+          JSV.RNS,
+          JSV.Ref,
+          JSV.Resolver.Resolved,
+          JSV.Resolver.BuiltIn
+        ],
+        Validation: [
+          JSV.Validator,
+          JSV.ValidationError,
+          JSV.BooleanSchema,
+          JSV.Root,
+          JSV.Subschema,
+          JSV.ErrorFormatter,
+          JSV.Validator.Error,
+          JSV.Validator.ValidationContext
+        ],
+        "Format Validation": [~r/^JSV\.Format.*/],
+        Vocabulary: [~r/^JSV\.Vocabulary.*/]
+      ]
+    ]
+  end
+
   defp package do
     [
       licenses: ["MIT"],
       links: %{
-        "Github" => "https://github.com/lud/jsv",
+        "Github" => @source_url,
         "Changelog" => "https://github.com/lud/jsv/blob/main/CHANGELOG.md"
       }
     ]

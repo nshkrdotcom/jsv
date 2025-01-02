@@ -6,6 +6,19 @@ defmodule JSV do
   alias JSV.Root
   alias JSV.ValidationError
   alias JSV.Validator
+  alias JSV.Validator.ValidationContext
+
+  readme =
+    "README.md"
+    |> File.read!()
+    |> String.split("<!-- moduledoc-split -->")
+    |> tl()
+
+  @moduledoc """
+  This is the main API for the JSV library.
+
+  #{readme}
+  """
 
   @default_default_meta "https://json-schema.org/draft/2020-12/schema"
 
@@ -50,13 +63,18 @@ defmodule JSV do
 
   #{NimbleOptions.docs(@build_opts_schema)}
   """
+  @spec build(Builder.raw_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
   def build(raw_schema, opts) when is_map(raw_schema) do
     raw_schema = AtomTools.fmap_atom_to_binary(raw_schema)
 
     case NimbleOptions.validate(opts, @build_opts_schema) do
       {:ok, opts} ->
         builder = Builder.new(opts)
-        Builder.build(builder, raw_schema)
+
+        case Builder.build(builder, raw_schema) do
+          {:ok, root} -> {:ok, root}
+          {:error, reason} -> {:error, %JSV.BuildError{reason: reason}}
+        end
 
       {:error, _} = err ->
         err
@@ -67,10 +85,14 @@ defmodule JSV do
     {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?)}}}
   end
 
+  @doc """
+  Same as `build/2` but raises on error.
+  """
+  @spec build!(Builder.raw_schema(), keyword) :: Root.t()
   def build!(raw_schema, opts) do
     case build(raw_schema, opts) do
       {:ok, root} -> root
-      {:error, reason} -> raise JSV.BuildError, reason: reason
+      {:error, reason} -> raise reason
     end
   end
 
@@ -80,6 +102,7 @@ defmodule JSV do
 
   Currently returns #{inspect(@default_default_meta)}.
   """
+  @spec default_meta :: binary
   def default_meta do
     @default_default_meta
   end
@@ -99,10 +122,23 @@ defmodule JSV do
   Validate the data with the given schema. The schema must be a `JSV.Root`
   struct generated with `build/2`.
 
+  **Important**: this function returns casted data:
+
+  * If the `:cast_formats` option is enabled, string values may be transformed
+    in other data structures. Refer to the "Formats" section of the `JSV`
+    documentation for more information.
+  * The JSON Schema specification states that `123.0` is a valid integer. This
+    function will return `123` instead. This may return invalid data for floats
+    with very large integer parts. As always when dealing with JSON and floats,
+    use strings.
+  * Future versions of the library will allow to cast raw data into Elixir
+    structs.
+
   ### Options
 
   #{NimbleOptions.docs(@validate_opts_schema)}
   """
+  @spec validate(term, JSV.Root.t(), keyword) :: {:ok, term} | {:error, Exception.t()}
   def validate(data, root, opts \\ [])
 
   def validate(data, %JSV.Root{} = root, opts) do
@@ -110,7 +146,7 @@ defmodule JSV do
       {:ok, opts} ->
         case validation_entrypoint(root, data, opts) do
           {:ok, casted_data, _} -> {:ok, casted_data}
-          {:error, %Validator{} = validator} -> {:error, Validator.to_error(validator)}
+          {:error, %ValidationContext{} = validator} -> {:error, Validator.to_error(validator)}
         end
 
       {:error, _} = err ->
@@ -118,6 +154,7 @@ defmodule JSV do
     end
   end
 
+  @spec normalize_error(ValidationError.t() | Validator.context() | [Validator.Error.t()]) :: map()
   def normalize_error(%ValidationError{} = error) do
     ErrorFormatter.normalize_error(error)
   end
@@ -128,17 +165,18 @@ defmodule JSV do
 
   # TODO provide a way to return ordered json for errors, or just provide a
   # preprocess function.
-  def normalize_error(%Validator{} = validator) do
+  def normalize_error(%ValidationContext{} = validator) do
     normalize_error(Validator.to_error(validator))
   end
 
   @doc false
-  # entrypoint for tests when we want to return the validator struct
+  # direct entrypoint for tests when we want to get the returned context.
+  @spec validation_entrypoint(term, term, term) :: Validator.result()
   def validation_entrypoint(%JSV.Root{} = schema, data, opts) do
     %JSV.Root{validators: validators, root_key: root_key} = schema
     root_schema_validators = Map.fetch!(validators, root_key)
-    validator = JSV.Validator.new(validators, _scope = [root_key], opts)
-    JSV.Validator.validate(data, root_schema_validators, validator)
+    context = JSV.Validator.context(validators, _scope = [root_key], opts)
+    JSV.Validator.validate(data, root_schema_validators, context)
   end
 
   @doc """
@@ -146,6 +184,7 @@ defmodule JSV do
   built with format validation enabled and the `:formats` option to `build/2` is
   `true`.
   """
+  @spec default_format_validator_modules :: [module]
   def default_format_validator_modules do
     [JSV.FormatValidator.Default]
   end

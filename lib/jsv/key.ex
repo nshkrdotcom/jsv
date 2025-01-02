@@ -1,6 +1,31 @@
 defmodule JSV.Key do
   alias JSV.Ref
 
+  @moduledoc """
+  Helpers around the different key formats used in the resolver, builder and
+  validator states to index sub schemas, referenced schemas, anchor or meta
+  schemas.
+
+  For instance:
+
+  * We have a `{"$ref": "http://some-schema/#$defs/order"}` JSON schema.
+  * The builder will build the `$ref` keyword as a key: `{:pointer,
+    "http://some-schema/", ["$defs","order"]}`.
+  * The builder, via the resolver, will fetch `http://some-schema/`, store it
+    locally and build validators. Those validators will be stored under the same
+    key (`{:pointer, "http://some-schema/", ["$defs","order"]}`) in the root
+    schema.
+  * When the validator will validate the reference, it will fetch that key from
+    the root schema and apply the retrieved validators to the data.
+  """
+
+  @type pointer :: {:pointer, binary, [binary]}
+  @type anchor :: {:anchor, binary, binary}
+  @type dynamic_anchor :: {:dynamic_anchor, binary, binary}
+  @type ns :: binary | :root
+  @type t :: ns | anchor | dynamic_anchor | pointer
+
+  @spec of(ns | Ref.t()) :: t
   def of(binary) when is_binary(binary) do
     binary
   end
@@ -11,10 +36,6 @@ defmodule JSV.Key do
 
   def of(%Ref{} = ref) do
     of_ref(ref)
-  end
-
-  def of({:dynamic_anchor, _, _} = key) do
-    key
   end
 
   defp of_ref(%{dynamic?: true, ns: ns, kind: :anchor} = ref) do
@@ -32,18 +53,22 @@ defmodule JSV.Key do
     end
   end
 
+  @spec for_pointer(ns, term) :: pointer()
   def for_pointer(ns, arg) do
     {:pointer, ns, arg}
   end
 
+  @spec for_anchor(ns, term) :: anchor()
   def for_anchor(ns, arg) do
     {:anchor, ns, arg}
   end
 
+  @spec for_dynamic_anchor(ns, term) :: dynamic_anchor()
   def for_dynamic_anchor(ns, arg) do
     {:dynamic_anchor, ns, arg}
   end
 
+  @spec namespace_of(t) :: ns
   def namespace_of(binary) when is_binary(binary) do
     binary
   end
@@ -64,6 +89,7 @@ defmodule JSV.Key do
     ns
   end
 
+  @spec to_iodata(t) :: IO.chardata()
   def to_iodata(bin) when is_binary(bin) do
     bin
   end

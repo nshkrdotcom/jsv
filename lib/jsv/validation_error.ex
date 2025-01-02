@@ -3,10 +3,14 @@ defmodule JSV.ValidationError do
   @enforce_keys [:errors]
   defexception errors: []
 
+  @type t :: %__MODULE__{errors: [JSV.Validator.Error.t()]}
+
+  @spec of([JSV.Validator.Error.t()]) :: t
   def of(errors) when is_list(errors) do
     %__MODULE__{errors: errors}
   end
 
+  @impl true
   def message(e) do
     %{valid: false, details: units} = ErrorFormatter.normalize_error(e)
     units_fmt = format_units(units, 0)

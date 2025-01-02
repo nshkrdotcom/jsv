@@ -1,6 +1,9 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.Test.TestResolver do
   alias JSV.Codec
   alias JSV.Resolver.BuiltIn
+
+  @moduledoc false
 
   @suite_dir Path.join([File.cwd!(), "deps", "json_schema_test_suite", "remotes"])
 

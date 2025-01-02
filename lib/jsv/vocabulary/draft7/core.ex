@@ -3,8 +3,14 @@ defmodule JSV.Vocabulary.Draft7.Core do
   alias JSV.Vocabulary.V202012.Core, as: Fallback
   use JSV.Vocabulary, priority: 100
 
+  @moduledoc """
+  Implementation of the core vocabulary with draft 7 sepecifiticies.
+  """
+
+  @impl true
   defdelegate init_validators(opts), to: Fallback
 
+  @impl true
   take_keyword :"$ref", raw_ref, _acc, builder, raw_schema do
     ref_relative_to_ns =
       case {raw_schema, builder} do
@@ -38,7 +44,9 @@ defmodule JSV.Vocabulary.Draft7.Core do
 
   defdelegate handle_keyword(kw_tuple, acc, builder, raw_schema), to: Fallback
 
+  @impl true
   defdelegate finalize_validators(acc), to: Fallback
 
+  @impl true
   defdelegate validate(data, vds, vctx), to: Fallback
 end

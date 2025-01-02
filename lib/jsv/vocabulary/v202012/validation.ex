@@ -4,6 +4,12 @@ defmodule JSV.Vocabulary.V202012.Validation do
   alias JSV.Validator
   use JSV.Vocabulary, priority: 300
 
+  @moduledoc """
+  Implementation for the
+  `https://json-schema.org/draft/2020-12/vocab/validation` vocabulary.
+  """
+
+  @impl true
   def init_validators(_) do
     []
   end
@@ -97,6 +103,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
 
   # ---------------------------------------------------------------------------
 
+  @impl true
   def finalize_validators([]) do
     :ignore
   end
@@ -139,19 +146,24 @@ defmodule JSV.Vocabulary.V202012.Validation do
     :number
   end
 
+  @impl true
   def validate(data, vds, vctx) do
-    Validator.iterate(vds, data, vctx, &validate_keyword/3)
+    Validator.reduce(vds, data, vctx, &validate_keyword/3)
   end
 
+  @doc false
+  @spec validate_keyword({atom, Validator.validator()}, term, Validator.context()) :: Validator.result()
   def validate_keyword({:type, ts}, data, vctx) when is_list(ts) do
-    Enum.find_value(ts, fn t ->
-      case validate_type(data, t) do
-        true -> {:ok, data}
-        false -> nil
-        {:swap, new_data} -> {:ok, new_data}
-      end
-    end)
-    |> case do
+    found =
+      Enum.find_value(ts, fn t ->
+        case validate_type(data, t) do
+          true -> {:ok, data}
+          false -> nil
+          {:swap, new_data} -> {:ok, new_data}
+        end
+      end)
+
+    case found do
       {:ok, data} -> {:ok, data, vctx}
       nil -> {:error, Validator.with_error(vctx, :type, data, type: ts)}
     end
@@ -342,10 +354,11 @@ defmodule JSV.Vocabulary.V202012.Validation do
 
   # Shared to support "dependencies" compatibility
   @doc false
+  @spec validate_dependent_required(Validator.validator(), term, Validator.context()) :: Validator.result()
   def validate_dependent_required(dependent_required, data, vctx) when is_map(data) do
     all_keys = Map.keys(data)
 
-    Validator.iterate(dependent_required, data, vctx, fn
+    Validator.reduce(dependent_required, data, vctx, fn
       {parent_key, required_keys}, data, vctx when is_map_key(data, parent_key) ->
         case required_keys -- all_keys do
           [] ->
@@ -360,7 +373,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
     end)
   end
 
-  def validate_dependent_required(_dependent_required, data, vctx) do
+  def validate_dependent_required(_other, data, vctx) do
     {:ok, data, vctx}
   end
 
@@ -486,6 +499,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
     "value must contain unique items but #{verbose_list(printout, "and")}"
   end
 
+  @impl true
   def format_error(:arithmetic_error, %{context: context}, data) do
     "could not valiade #{inspect(data)}, got arithmetic error in context #{quote_prop(context)}"
   end

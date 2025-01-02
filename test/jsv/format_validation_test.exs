@@ -112,10 +112,12 @@ defmodule JSV.FormatValidationTest do
     defmodule CustomFormat do
       @behaviour JSV.FormatValidator
 
+      @impl true
       def supported_formats do
         ["beam-language", "date"]
       end
 
+      @impl true
       def validate_cast("beam-language", data) do
         if data in ["Elixir", "Erlang", "Gleam", "LFE"] do
           {:ok, data}
@@ -138,7 +140,8 @@ defmodule JSV.FormatValidationTest do
       assert {:ok, "LFE"} = JSV.validate("LFE", schema)
 
       # but it does not support ipv4 format
-      assert {:error, {:unsupported_format, "ipv4"}} = build_schema(raw_for("ipv4"), formats: formats)
+      assert {:error, %JSV.BuildError{reason: {:unsupported_format, "ipv4"}}} =
+               build_schema(raw_for("ipv4"), formats: formats)
     end
 
     test "adding a custom module over default one" do

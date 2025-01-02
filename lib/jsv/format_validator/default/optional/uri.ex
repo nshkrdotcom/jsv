@@ -2,6 +2,7 @@ require JSV.FormatValidator.Default.Optional
 
 if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
   defmodule JSV.FormatValidator.Default.Optional.URI do
+    @moduledoc false
     @external_resource "priv/uri.abnf"
 
     use AbnfParsec,
@@ -9,6 +10,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       unbox: [],
       ignore: []
 
+    @spec parse_uri(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri(data) do
       case uri(data) do
         {:ok, _, "", _, _, _} -> {:ok, URI.parse(data)}
@@ -16,6 +18,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       end
     end
 
+    @spec parse_uri_reference(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri_reference(data) do
       case uri_reference(data) do
         {:ok, _, "", _, _, _} -> {:ok, URI.parse(data)}
@@ -25,6 +28,8 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
   end
 else
   defmodule JSV.FormatValidator.Default.Optional.URI do
+    @moduledoc false
+    @spec parse_uri(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri(data) do
       case URI.parse(data) do
         %{scheme: nil} -> {:error, :no_uri_scheme}
@@ -33,6 +38,7 @@ else
       end
     end
 
+    @spec parse_uri_reference(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri_reference(data) do
       case URI.parse(data) do
         %{host: nil, path: path, fragment: frag, query: q} = uri

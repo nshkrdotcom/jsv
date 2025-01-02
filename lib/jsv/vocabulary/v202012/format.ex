@@ -2,8 +2,15 @@ defmodule JSV.Vocabulary.V202012.Format do
   alias JSV.Validator
   use JSV.Vocabulary, priority: 800
 
+  @moduledoc """
+  Implementation for the
+  `https://json-schema.org/draft/2020-12/vocab/format-annotation` and
+  `https://json-schema.org/draft/2020-12/vocab/format-assertion` vocabularies.
+  """
+
   @default_validators JSV.default_format_validator_modules()
 
+  @impl true
   def init_validators(opts) do
     # The assert option is defined at the vocabulary level, as vocabularies are
     # defined like so:
@@ -55,6 +62,7 @@ defmodule JSV.Vocabulary.V202012.Format do
     end
   end
 
+  @impl true
   def finalize_validators(acc) do
     acc
     |> Map.delete(:default_assert)
@@ -65,6 +73,7 @@ defmodule JSV.Vocabulary.V202012.Format do
     end
   end
 
+  @impl true
   def validate(data, [format: {module, format}], vctx) when is_binary(data) do
     cast_formats? = vctx.opts[:cast_formats]
     # TODO option to return casted value + TODO add low module priority
@@ -84,6 +93,7 @@ defmodule JSV.Vocabulary.V202012.Format do
     end
   end
 
+  @impl true
   def validate(data, [format: _], vctx) do
     {:ok, data, vctx}
   end
@@ -91,12 +101,13 @@ defmodule JSV.Vocabulary.V202012.Format do
   defp json_encodable_or_inspect(term) do
     JSV.Codec.encode!(term)
   rescue
-    _ in Poison.EncodeError -> inspect(term)
     _ in Protocol.UndefinedError -> inspect(term)
+    _ in Poison.EncodeError -> inspect(term)
   end
 
   # ---------------------------------------------------------------------------
 
+  @impl true
   def format_error(:format, %{format: format, reason: reason}, _data) do
     "value does not respect the '#{format}' format (#{inspect(reason)})"
   end

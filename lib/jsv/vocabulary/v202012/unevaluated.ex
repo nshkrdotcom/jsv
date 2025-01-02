@@ -1,7 +1,14 @@
 defmodule JSV.Vocabulary.V202012.Unevaluated do
   alias JSV.Validator
+  alias JSV.Vocabulary
   use JSV.Vocabulary, priority: 900
 
+  @moduledoc """
+  Implementation for the
+  `https://json-schema.org/draft/2020-12/vocab/unevaluated` vocabulary.
+  """
+
+  @impl true
   def init_validators(_) do
     []
   end
@@ -16,6 +23,7 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
 
   ignore_any_keyword()
 
+  @impl true
   def finalize_validators([]) do
     :ignore
   end
@@ -24,16 +32,18 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
     Map.new(list)
   end
 
+  @impl true
   def validate(data, vds, vctx) do
-    Validator.iterate(vds, data, vctx, &validate_keyword/3)
+    Validator.reduce(vds, data, vctx, &validate_keyword/3)
   end
 
+  @spec validate_keyword(Vocabulary.pair(), Vocabulary.data(), Validator.context()) :: Validator.result()
   def validate_keyword({:unevaluatedProperties, subschema}, data, vctx) when is_map(data) do
     evaluated = Validator.list_evaluaded(vctx)
 
     data
     |> Enum.filter(fn {k, _v} -> k not in evaluated end)
-    |> Validator.iterate(data, vctx, fn {k, v}, data, vctx ->
+    |> Validator.reduce(data, vctx, fn {k, v}, data, vctx ->
       case Validator.validate_in(v, k, :unevaluatedProperties, subschema, vctx) do
         {:ok, _, vctx} -> {:ok, data, vctx}
         {:error, vctx} -> {:error, vctx}
@@ -49,7 +59,7 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
     data
     |> Enum.with_index(0)
     |> Enum.reject(fn {_, index} -> index in evaluated end)
-    |> Validator.iterate(data, vctx, fn {item, index}, data, vctx ->
+    |> Validator.reduce(data, vctx, fn {item, index}, data, vctx ->
       case Validator.validate_in(item, index, :unevaluatedItems, subschema, vctx) do
         {:ok, _, vctx} -> {:ok, data, vctx}
         {:error, vctx} -> {:error, vctx}
@@ -61,6 +71,7 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
 
   # ---------------------------------------------------------------------------
 
+  @impl true
   def format_error(_, _, _data) do
     "unevaluated value did not conform to schema"
   end
