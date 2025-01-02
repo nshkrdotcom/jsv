@@ -2,8 +2,49 @@ defmodule JSV.Resolver.BuiltIn do
   alias JSV.Resolver.Cache
   require Logger
 
+  @moduledoc """
+  This is the built-in resolver provided to simplify building schemas. This is
+  an HTTP resolver that will attempt resolve resources with an HTTP GET call to
+  the given URI.
+
+  To use this resolver, you must provide a list of allowed prefixes. The
+  resolver will not attempt to fetch URLs that do not start with one of those
+  prefixes.
+
+  The resolver uses two caches: a persistent cache on the disk that lives
+  through multiple runtimes and compilations, and a memory cache that is only
+  used within the same runtime, _i.e._ one compilation or one execution of your
+  application.
+
+  Note that there is no time-to-live at the moment, cache is _forever_ in both
+  cases: until the files are deleted in the case of the disk cache, or until the
+  runtime is shut down for the memory cache.
+
+  ### Options
+
+  This resolver supports the following options:
+
+  - `:allowed_prefixes` - This option is mandatory and contains the allowed
+    prefixes to download from.
+  - `:cache_dir` - The path of a directory to cache downloaded resources. The
+    default value can be retrieved with `default_cache_dir/0` and is based on
+    `System.tmp_dir!/0`. The option also accepts `false` to disable that cache.
+
+  ### Example
+
+      resolver_opts = [allowed_prefixes: ["https://json-schema.org/"], cache_dir: "_build/custom/dir"]
+      JSV.build(schema, resolver: {JSV.Resolver.BuiltIn, resolver_opts})
+  """
+
   @behaviour JSV.Resolver
 
+  @doc false
+  # Used in scripts for development and experiments
+  def as_default do
+    {JSV.Resolver.BuiltIn, allowed_prefixes: ["https://json-schema.org/"]}
+  end
+
+  @impl true
   def resolve("http://" <> _ = url, opts) do
     allow_and_resolve(url, opts)
   end

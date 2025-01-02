@@ -5,7 +5,31 @@ defmodule JSV.Resolver do
   alias JSV.RNS
   alias JSV.Vocabulary
 
+  @moduledoc """
+  Resolves remote resources when building a JSON schema.
+
+  A resolver implementation is needed for `JSV.build/2`.
+
+  There are no specific rules on how to build a proper resolver. Anything is
+  valid as long as it returns a JSON schema (or an error) for a given URI.
+
+  Custom resolvers are most often used for:
+
+  - Ability to resolve URLs such as `my-company://some-id/` where the
+    implementation knows a directory to retrieve that path from.
+  - Ability to resolve `https://` URLs with custom network setups involving
+    authentication, proxies, etc.
+  - Returning hardcoded schemas directly from the codebase, or files from the
+    codebase.
+  - Returning a different schema depending on the environment, whether this is a
+    good idea or not.
+  """
+
   defmodule Resolved do
+    @moduledoc """
+    Represents a cache entry for a resolved resource.
+    """
+
     # TODO drop parent_ns once we do not support draft-7
     @enforce_keys [:raw, :meta, :vocabularies, :ns, :parent_ns]
     defstruct @enforce_keys
@@ -19,7 +43,12 @@ defmodule JSV.Resolver do
           }
   end
 
-  @callback resolve(url :: String.t(), opts :: term) :: {:ok, map() | boolean()} | {:error, term}
+  @doc """
+  Receives an URI and the options passed in the resolver tuple to `JSV.build/2`
+  and returns a result tuple for a raw JSON schema, that is a map with binary
+  keys or a boolean.
+  """
+  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, map() | boolean()} | {:error, term}
 
   @draft_202012_vocabulary %{
     "https://json-schema.org/draft/2020-12/vocab/core" => Vocabulary.V202012.Core,

@@ -891,8 +891,8 @@ defmodule JSV.FormatValidationTest do
           ~S/^\w+@[a-zA-Z_]+?\.[a-zA-Z]{2,3}$/,
           # Matches a URL
           ~S"\b(?:https?|ftp)://\S+\b",
-          # Matches "elixir" case-insensitively
-          ~S/(?i)elixir/,
+          # Matches "stuff" case-insensitively
+          ~S/(?i)stuff/,
           # Matches a string that does not contain "foo" or "bar"
           ~S/\A(?!.*\b(?:foo|bar)\b).*\Z/,
           # Matches non-greedy anything enclosed in brackets

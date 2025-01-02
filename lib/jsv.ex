@@ -13,7 +13,14 @@ defmodule JSV do
                        resolver: [
                          type: {:or, [:atom, :mod_arg]},
                          required: true,
-                         doc: "The resolver implementation module to retrieve schemas identified by an URL."
+                         doc: """
+                         The `JSV.Resolver` behaviour implementation module to
+                         retrieve schemas identified by an URL.
+
+                         Accepts a `module` or a `{module, options}` tuple.
+                         The options can be any term and will be given to the
+                         `resolve/2` callback of the module.
+                         """
                        ],
                        default_meta: [
                          type: :string,
@@ -96,12 +103,12 @@ defmodule JSV do
 
   #{NimbleOptions.docs(@validate_opts_schema)}
   """
-  def validate(data, schema, opts \\ [])
+  def validate(data, root, opts \\ [])
 
-  def validate(data, %JSV.Root{} = schema, opts) do
+  def validate(data, %JSV.Root{} = root, opts) do
     case NimbleOptions.validate(opts, @validate_opts_schema) do
       {:ok, opts} ->
-        case validation_entrypoint(schema, data, opts) do
+        case validation_entrypoint(root, data, opts) do
           {:ok, casted_data, _} -> {:ok, casted_data}
           {:error, %Validator{} = validator} -> {:error, Validator.to_error(validator)}
         end

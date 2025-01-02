@@ -11,7 +11,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
 
     def parse_uri_template(data) do
       case uri_template(data) do
-        {:ok, _, "", _, _, _} -> {:ok, URI.parse(data)}
+        {:ok, _, "", _, _, _} -> {:ok, data}
         _ -> {:error, :invalid_URI_template}
       end
     end

@@ -12,7 +12,6 @@ defmodule JSV.ValidationError do
     units_fmt = format_units(units, 0)
     top_message = "json schema validation failed"
     message = [top_message, "\n\n" | units_fmt]
-    message = ["\n---------------------\n", message, "\n///------------------\n"]
     IO.iodata_to_binary(message)
   end
 
