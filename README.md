@@ -1,4 +1,5 @@
-# JSV
+# JSV [![Hex.pm Version](https://img.shields.io/hexpm/v/jsv?color=4e2a8e)](https://hex.pm/packages/jsv) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/lud/jsv/elixir.yaml?label=CI)](https://github.com/lud/jsv/actions/workflows/elixir.yaml)
+
 
 A JSON Schema Validation library for Elixir with full support for the 2020-12
 JSON Schema specification.
@@ -41,7 +42,7 @@ This document describes general considerations and recipes to use the library.
 ```elixir
 def deps do
   [
-    {:jsv, "~> 0.1"},
+    {:jsv, "~> 0.2"},
   ]
 end
 ```
