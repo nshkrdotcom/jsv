@@ -1,7 +1,9 @@
 defmodule JSV.RNS do
   @moduledoc """
 
-  A "namespace" for a schema ID or reference
+  A "namespace" for a schema ID or reference. In the JSV library, a namespace
+  for a schema represents the document the schema belongs to. When it is an URL,
+  it is the scheme, host and path, ignoring the query string and the fragment.
 
   That is basically a URI but with extra support for URNs (`urn:isbn:1234` is
   represented as `urn://isbn/1234`).
@@ -13,6 +15,12 @@ defmodule JSV.RNS do
 
   @type t :: %__MODULE__{uri: :root | URI.t(), urn?: boolean}
 
+  @doc """
+  Parses the given URL or URN and returns an internal representation of its
+  namespace.
+
+  Also accepts `:root` for root schemas without `$id`.
+  """
   @spec parse(binary | :root) :: t
   def parse(uri_or_urn)
 
@@ -31,6 +39,10 @@ defmodule JSV.RNS do
     %__MODULE__{uri: :root}
   end
 
+  @doc """
+  Returns a new string namespace by appending a relative child path to a parent
+  namespace. If the child is absolute or `:root`, returns the child.
+  """
   @spec derive(binary | :root, binary | :root) :: {:ok, binary | :roo} | {:error, term}
   def derive(parent, child) do
     parent_rns = parse(parent)
@@ -57,6 +69,9 @@ defmodule JSV.RNS do
     {:ok, %__MODULE__{uri: URI.merge(parent_uri, child_uri), urn?: urn?}}
   end
 
+  @doc """
+  Returns the string value of the namespace, or `:root`.
+  """
   @spec to_ns(t) :: binary | :root
   def to_ns(%{uri: :root}) do
     :root

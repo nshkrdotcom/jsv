@@ -1,10 +1,19 @@
 defmodule JSV.ValidationError do
   alias JSV.ErrorFormatter
+
+  @moduledoc """
+  The data structure returned by `JSV.validate/3` when validation fails.
+  """
+
   @enforce_keys [:errors]
   defexception errors: []
 
   @type t :: %__MODULE__{errors: [JSV.Validator.Error.t()]}
 
+  @doc """
+  Wraps the given `JSV.Validator.Error` list into an `#{inspect(__MODULE__)}`
+  exception.
+  """
   @spec of([JSV.Validator.Error.t()]) :: t
   def of(errors) when is_list(errors) do
     %__MODULE__{errors: errors}

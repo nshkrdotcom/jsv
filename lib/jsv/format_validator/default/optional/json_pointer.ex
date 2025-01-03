@@ -10,6 +10,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       unbox: [],
       ignore: []
 
+    @doc false
     @spec parse_json_pointer(binary) :: {:ok, binary} | {:error, term}
     def parse_json_pointer(data) do
       case json_pointer(data) do
@@ -18,6 +19,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       end
     end
 
+    @doc false
     @spec parse_relative_json_pointer(binary) :: {:ok, binary} | {:error, term}
     def parse_relative_json_pointer(data) do
       case relative_json_pointer(data) do

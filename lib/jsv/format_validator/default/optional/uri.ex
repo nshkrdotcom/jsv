@@ -10,6 +10,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       unbox: [],
       ignore: []
 
+    @doc false
     @spec parse_uri(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri(data) do
       case uri(data) do
@@ -18,6 +19,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       end
     end
 
+    @doc false
     @spec parse_uri_reference(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri_reference(data) do
       case uri_reference(data) do
@@ -29,6 +31,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
 else
   defmodule JSV.FormatValidator.Default.Optional.URI do
     @moduledoc false
+    @doc false
     @spec parse_uri(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri(data) do
       case URI.parse(data) do
@@ -38,6 +41,7 @@ else
       end
     end
 
+    @doc false
     @spec parse_uri_reference(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_uri_reference(data) do
       case URI.parse(data) do

@@ -5,6 +5,7 @@ defmodule JSV.Helpers do
 
   @moduledoc false
 
+  @doc false
   @spec reduce_ok(Enumerable.t(), term, (term, term -> result)) :: result
   def reduce_ok(enum, initial, f) when is_function(f, 2) do
     reduced =
@@ -23,6 +24,7 @@ defmodule JSV.Helpers do
   end
 
   # TODO this will not work with large numbers
+  @doc false
   @spec fractional_is_zero?(float) :: boolean
   def fractional_is_zero?(n) when is_float(n) do
     n - Kernel.trunc(n) === 0.0

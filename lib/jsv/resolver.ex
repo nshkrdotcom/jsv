@@ -87,11 +87,20 @@ defmodule JSV.Resolver do
   @type raw_schema :: map() | boolean()
   @type resolvable :: Key.ns() | Key.pointer() | Ref.t()
 
+  @doc """
+  Returns a new resolver, with the given `module` for behaviour implementation,
+  and a default meta-schema URL to use with schemas that do not declare a
+  `$schema` property.
+  """
   @spec new(module, binary) :: t
   def new(module, default_meta) do
     %__MODULE__{mod: module, default_meta: default_meta}
   end
 
+  @doc """
+  Adds the given raw schema as a pre-resolved schema, using the `:root`
+  namespace if the schema does not contain a `$id` property.
+  """
   @spec resolve_root(t, raw_schema()) :: {:ok, :root | binary, t} | {:error, term}
   def resolve_root(rsv, raw_schema) when is_map(raw_schema) do
     # Bootstrap of the recursive resolving of schemas, metaschemas and
@@ -112,6 +121,10 @@ defmodule JSV.Resolver do
     end
   end
 
+  @doc """
+  Returns the resolver with the remote resolvable resource fetched in the
+  internal cache of the resolver.
+  """
   @spec resolve(t, resolvable | {:prefetched, term, term}) :: {:ok, t} | {:error, term}
   def resolve(rsv, resolvable) do
     case check_resolved(rsv, resolvable) do
@@ -441,15 +454,15 @@ defmodule JSV.Resolver do
   end
 
   @spec fetch_raw_schema(t, binary | {:meta, binary} | Ref.t()) :: {:ok, binary, raw_schema} | {:error, term}
-  def fetch_raw_schema(rsv, {:meta, url}) do
+  defp fetch_raw_schema(rsv, {:meta, url}) do
     fetch_raw_schema(rsv, url)
   end
 
-  def fetch_raw_schema(rsv, url) when is_binary(url) do
+  defp fetch_raw_schema(rsv, url) when is_binary(url) do
     call_resolver(rsv.mod, url)
   end
 
-  def fetch_raw_schema(rsv, %Ref{ns: ns}) do
+  defp fetch_raw_schema(rsv, %Ref{ns: ns}) do
     fetch_raw_schema(rsv, ns)
   end
 
@@ -518,19 +531,19 @@ defmodule JSV.Resolver do
     end)
   end
 
+  @doc """
+  Returns the raw schema identified by the given namespace if was previously
+  resolved as a meta-schema.
+  """
   @spec fetch_meta(t, binary) :: {:ok, Resolved.t()} | {:error, term}
   def fetch_meta(rsv, meta) do
     fetch_resolved(rsv, {:meta, meta})
   end
 
-  @spec fetch_resolved(t(), resolvable) :: {:ok, Resolved.t()} | {:error, term}
-        when resolvable:
-               {:pointer, term, term}
-               | :root
-               | {:meta, binary()}
-               | binary
-               | {:anchor, binary, binary}
-
+  @doc """
+  Returns the raw schema identified by the given key if was previously resolved.
+  """
+  @spec fetch_resolved(t(), resolvable | {:meta, resolvable}) :: {:ok, Resolved.t()} | {:error, term}
   def fetch_resolved(rsv, {:pointer, _, _} = pointer) do
     fetch_pointer(rsv.resolved, pointer)
   end

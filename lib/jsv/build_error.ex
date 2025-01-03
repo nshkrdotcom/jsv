@@ -6,6 +6,9 @@ defmodule JSV.BuildError do
   @enforce_keys [:reason]
   defexception @enforce_keys
 
+  @doc """
+  Wraps the given term as the `reason` in a `#{inspect(__MODULE__)}` struct.
+  """
   @spec of(term) :: Exception.t()
   def of(reason) do
     %__MODULE__{reason: reason}

@@ -7,13 +7,18 @@ defmodule JSV.Vocabulary.Draft7.Content do
   validation is performed.
   """
 
+  @impl true
   defdelegate init_validators(opts), to: Fallback
 
+  @impl true
   ignore_keyword(:contentSchema)
+
   defdelegate handle_keyword(kw_tuple, acc, builder, raw_schema), to: Fallback
 
+  @impl true
   defdelegate finalize_validators(acc), to: Fallback
 
+  @impl true
   @spec validate(term, term, term) :: no_return()
   def validate(_data, _validators, _context) do
     raise "should not be called"

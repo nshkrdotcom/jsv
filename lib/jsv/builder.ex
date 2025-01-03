@@ -21,6 +21,10 @@ defmodule JSV.Builder do
   @type buildable :: {:resolved, resolvable} | resolvable
   @type raw_schema :: map() | boolean
 
+  @doc """
+  Returns a new builder. Builders are not reusable ; a fresh builder must be
+  made for each different root schema.
+  """
   @spec new(keyword) :: t
   def new(opts) do
     {resolver_impl, opts} = Keyword.pop!(opts, :resolver)
@@ -29,6 +33,9 @@ defmodule JSV.Builder do
     struct!(__MODULE__, resolver: resolver, opts: opts)
   end
 
+  @doc """
+  Builds the given raw schema into a `JSV.Root` struct.
+  """
   @spec build(t, raw_schema()) :: {:ok, JSV.Root.t()} | {:error, term}
   def build(builder, raw_schema) do
     with {:ok, root_key, resolver} <- Resolver.resolve_root(builder.resolver, raw_schema),
@@ -39,6 +46,10 @@ defmodule JSV.Builder do
     end
   end
 
+  @doc """
+  Adds a new key to be built later. A key is generatlly derived from a
+  reference.
+  """
   @spec stage_build(t, buildable) :: t()
   def stage_build(%{staged: staged} = builder, buildable) do
     %__MODULE__{builder | staged: append_unique(staged, buildable)}
@@ -56,6 +67,10 @@ defmodule JSV.Builder do
     [key]
   end
 
+  @doc """
+  Ensures that the remote resource that the given reference or key points to is
+  fetched in the builder internal cache
+  """
   @spec ensure_resolved(t, resolvable) :: {:ok, t} | {:error, {:resolver_error, term}}
   def ensure_resolved(%{resolver: resolver} = builder, resolvable) do
     case Resolver.resolve(resolver, resolvable) do
@@ -64,6 +79,10 @@ defmodule JSV.Builder do
     end
   end
 
+  @doc """
+  Returns the raw schema identified by the given key. Use `ensure_resolved/2`
+  before if the resource may not have been fetched.
+  """
   @spec fetch_resolved(t, Key.t()) :: {:ok, raw_schema} | {:error, term}
   def fetch_resolved(%{resolver: resolver}, key) do
     Resolver.fetch_resolved(resolver, key)

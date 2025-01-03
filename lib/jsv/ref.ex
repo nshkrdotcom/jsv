@@ -11,11 +11,20 @@ defmodule JSV.Ref do
   @type t :: %__MODULE__{}
   @type ns :: binary | :root
 
+  @doc """
+  Creates a new reference from an URL, relative to the given namespace.
+
+  If the URL is absolute and its namespace is different from the given
+  namespace, returns an absolute URL.
+  """
   @spec parse(binary, ns) :: {:ok, t} | {:error, term}
   def parse(url, current_ns) do
     do_parse(url, current_ns, false)
   end
 
+  @doc """
+  Like `parse/2` but flags the reference as dynamic.
+  """
   @spec parse_dynamic(binary, ns) :: {:ok, t} | {:error, term}
   def parse_dynamic(url, current_ns) do
     do_parse(url, current_ns, true)
@@ -70,10 +79,14 @@ defmodule JSV.Ref do
     |> URI.decode()
   end
 
+  @doc """
+  Encodes the given string as a JSON representation of a JSON pointer, that is
+  with `~` as `~0` and `/` as `~1`.
+  """
   @spec escape_json_pointer(binary) :: binary
   def escape_json_pointer(str) do
     str
-    |> String.replace("/", "~1")
     |> String.replace("~", "~0")
+    |> String.replace("/", "~1")
   end
 end

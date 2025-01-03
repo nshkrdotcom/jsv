@@ -8,6 +8,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       unbox: [],
       ignore: []
 
+    @doc false
     @spec parse_iri(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_iri(data) do
       case iri(data) do
@@ -16,6 +17,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       end
     end
 
+    @doc false
     @spec parse_iri_reference(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_iri_reference(data) do
       case iri_reference(data) do

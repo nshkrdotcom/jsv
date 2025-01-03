@@ -86,16 +86,19 @@ defmodule JSV.Codec do
               ~S|{:poison, "~> 6.0"}.|
   end
 
+  @doc "Equivalent to `JSON.decode/1`."
   @spec decode(binary) :: {:ok, term} | {:error, term}
   def decode(json) when is_binary(json) do
     do_decode(json)
   end
 
+  @doc "Equivalent to `JSON.decode!/1`."
   @spec decode!(binary) :: term
   def decode!(json) when is_binary(json) do
     do_decode!(json)
   end
 
+  @doc "Equivalent to `JSON.encode!/1`."
   @spec encode!(term) :: binary
   def encode!(term) do
     do_encode!(term)

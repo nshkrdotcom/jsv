@@ -10,6 +10,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       unbox: [],
       ignore: []
 
+    @doc false
     @spec parse_uri_template(binary) :: {:ok, binary} | {:error, term}
     def parse_uri_template(data) do
       case uri_template(data) do

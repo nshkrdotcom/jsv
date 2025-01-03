@@ -30,6 +30,12 @@ defmodule JSV.ErrorFormatter do
 
   @type raw_path :: [raw_path] | binary | integer | atom
 
+  @doc """
+  Returns a JSON-able version of the errors contained in the ValidationError.
+
+  This is generatlly useful to generate HTTP API responses or message broker
+  responses.
+  """
   @spec normalize_error(ValidationError.t()) :: map()
   def normalize_error(%ValidationError{} = e) do
     normalize_error(e, [])

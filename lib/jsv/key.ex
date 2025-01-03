@@ -25,6 +25,9 @@ defmodule JSV.Key do
   @type ns :: binary | :root
   @type t :: ns | anchor | dynamic_anchor | pointer
 
+  @doc """
+  Creates a new key from an external or local reference.
+  """
   @spec of(ns | Ref.t()) :: t
   def of(binary) when is_binary(binary) do
     binary
@@ -53,21 +56,25 @@ defmodule JSV.Key do
     end
   end
 
+  @doc "Returns a pointer type key."
   @spec for_pointer(ns, term) :: pointer()
   def for_pointer(ns, arg) do
     {:pointer, ns, arg}
   end
 
+  @doc "Returns an anchor type key."
   @spec for_anchor(ns, term) :: anchor()
   def for_anchor(ns, arg) do
     {:anchor, ns, arg}
   end
 
+  @doc "Returns a dynamic anchor type key."
   @spec for_dynamic_anchor(ns, term) :: dynamic_anchor()
   def for_dynamic_anchor(ns, arg) do
     {:dynamic_anchor, ns, arg}
   end
 
+  @doc "Returns the namespace of the key."
   @spec namespace_of(t) :: ns
   def namespace_of(binary) when is_binary(binary) do
     binary
@@ -89,6 +96,10 @@ defmodule JSV.Key do
     ns
   end
 
+  @doc """
+  Returns a string representation of the key, in a URL/JSON pointer format,
+  as chardata.
+  """
   @spec to_iodata(t) :: IO.chardata()
   def to_iodata(bin) when is_binary(bin) do
     bin

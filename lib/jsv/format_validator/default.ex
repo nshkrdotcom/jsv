@@ -1,23 +1,3 @@
-defmodule JSV.FormatValidator.Default.Optional do
-  @moduledoc false
-  @spec optional_support(binary, boolean) :: [binary]
-  def optional_support(format, supported?) when is_boolean(supported?) do
-    if supported? do
-      List.wrap(format)
-    else
-      []
-    end
-  end
-
-  @spec mod_exists?(module) :: boolean
-  def mod_exists?(module) do
-    case Code.ensure_loaded(module) do
-      {:module, ^module} -> true
-      {:error, _} -> false
-    end
-  end
-end
-
 defmodule JSV.FormatValidator.Default do
   import JSV.FormatValidator.Default.Optional, only: [mod_exists?: 1, optional_support: 2]
   alias JSV.FormatValidator.Default.Optional

@@ -64,6 +64,13 @@ defmodule JSV.Vocabulary do
   """
   @callback priority() :: pos_integer()
 
+  @doc """
+  By using this module you will:
+
+  * Declare that module as a behaviour
+  * Import all macros from the module
+  * Declare a `priority/0` function if the `:priority` option is provided.
+  """
   defmacro __using__(opts) do
     priority_callback =
       case Keyword.fetch(opts, :priority) do
@@ -117,6 +124,25 @@ defmodule JSV.Vocabulary do
     end
   end
 
+  @doc """
+  An utility macro to ease declare vocabularies with atom keys.
+
+  Defines the `c:handle_keyword/4` callback.
+
+  **Important**
+
+  - The keyword must be given in atom form.
+  - The original goal was to allow atom keys and values everywhere. Schemas are
+    now converted to binary from before being built.
+  - It is still useful to use this macro to the signature of the
+    `c:handle_keyword/4` callback can be changed easily without too much
+    refactoring.
+  - Guards must be placed after the second argument:
+
+        take_keyword :items, items when is_map(items), acc, builder, raw_schema do
+          # ...
+        end
+  """
   defmacro take_keyword(atom_form, bind_value, bind_acc, bind_builder, bind_raw_schema, [{:do, block}])
            when is_atom(atom_form) do
     string_form = Atom.to_string(atom_form)
@@ -142,19 +168,23 @@ defmodule JSV.Vocabulary do
             when unquote(when_clause) do
           unquote(block)
         end
-
-        # We do not support atom keywords right now as we convert all schemas to
-        # binary form before building the validators.
-        #
-        # def handle_keyword({x = unquote(atom_form), value}, acc, builder,
-        #   raw_schema) do raise "got #{inspect(x)}"
-        #   handle_keyword({unquote(string_form), value}, acc, builder,
-        # raw_schema) end
       end
 
     quoted
   end
 
+  @doc """
+  Defines a `c:handle_keyword/4` callback that will return `:ignore` for any
+  given value.
+
+  Generally used below `take_keyword/6`:
+
+        take_keyword :items, items when is_map(items), acc, builder, raw_schema do
+          # ...
+        end
+
+        ignore_any_keyword()
+  """
   defmacro ignore_any_keyword do
     quote do
       @impl true
@@ -164,36 +194,47 @@ defmodule JSV.Vocabulary do
     end
   end
 
+  @doc """
+  Defines a `c:handle_keyword/4` callback that will return `:ignore` for the
+  given keyword. The keyword must be given in atom form.
+
+  Generally used below `take_keyword/6`:
+
+        take_keyword :items, items when is_map(items), acc, builder, raw_schema do
+          # ...
+        end
+
+        ignore_keyword(:additionalItems)
+        ignore_keyword(:prefixItems)
+  """
   defmacro ignore_keyword(atom_form) when is_atom(atom_form) do
     string_form = Atom.to_string(atom_form)
 
     quote do
-      @impl true
-      def handle_keyword({unquote(atom_form), _}, _, _, _) do
-        :ignore
-      end
-
       def handle_keyword({unquote(string_form), _}, _, _, _) do
         :ignore
       end
     end
   end
 
+  @doc """
+  Defines a `c:handle_keyword/4` callback that will return the current
+  accumulator without changes, but preventing other vocabulary modules with
+  lower priority (higher number) to be called with this keyword.
+
+  The keyword must be given in atom form.
+  """
   defmacro consume_keyword(atom_form) when is_atom(atom_form) do
     string_form = Atom.to_string(atom_form)
 
     quote do
-      @impl true
-      def handle_keyword({unquote(atom_form), _}, acc, builder, _) do
-        {:ok, acc, builder}
-      end
-
       def handle_keyword({unquote(string_form), _}, acc, builder, _) do
         {:ok, acc, builder}
       end
     end
   end
 
+  @doc false
   defmacro pass(ast) do
     case ast do
       {:when, _, _} ->
@@ -208,6 +249,7 @@ defmodule JSV.Vocabulary do
     end
   end
 
+  @doc false
   defmacro passp(ast) do
     case ast do
       {:when, _, _} ->
@@ -222,15 +264,26 @@ defmodule JSV.Vocabulary do
     end
   end
 
+  @doc """
+  Gives the sub raw schema to the builder and adds the build result in the list
+  accumulator as a 2-tuple with the given `key`.
+  """
   @spec take_sub(Validator.path_segment(), Builder.raw_schema() | term, list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, term}
-  def take_sub(key, subraw, acc, builder) when is_list(acc) do
-    case Builder.build_sub(subraw, builder) do
+  def take_sub(key, sub_raw_schema, acc, builder) when is_list(acc) do
+    case Builder.build_sub(sub_raw_schema, builder) do
       {:ok, subvalidators, builder} -> {:ok, [{key, subvalidators} | acc], builder}
       {:error, _} = err -> err
     end
   end
 
+  @doc """
+  Adds the given integer to the list accumulator as a 2-tuple with the given
+  `key`.
+
+  Fails if the value is not an integer. Floats with zero-fractional (as `123.0`)
+  will be accepted and converted to integer, as the JSON Schema spec dictates.
+  """
   @spec take_integer(Validator.path_segment(), integer | term, list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, binary}
   def take_integer(key, n, acc, builder) when is_list(acc) do
@@ -255,6 +308,12 @@ defmodule JSV.Vocabulary do
     {:error, "not an integer: #{inspect(other)}"}
   end
 
+  @doc """
+  Adds the given integer to the list accumulator as a 2-tuple with the given
+  `key`.
+
+  Fails if the value is not a number.
+  """
   @spec take_number(Validator.path_segment(), number | term, list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, binary}
   def take_number(key, n, acc, builder) when is_list(acc) do

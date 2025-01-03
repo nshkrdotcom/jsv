@@ -26,8 +26,11 @@ defmodule JSV.Validator do
 
     # :eval_path stores both the current keyword nesting leading to an error, and
     # the namespace changes for error absolute location.
+
     @enforce_keys [:data_path, :eval_path, :validators, :scope, :errors, :evaluated, :opts]
     defstruct @enforce_keys
+
+    @type t :: %__MODULE__{}
   end
 
   @type context :: %ValidationContext{}
