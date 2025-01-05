@@ -1,4 +1,3 @@
-
 iri            = scheme ":" ihier-part [ "?" iquery ] [ "#" ifragment ]
 
 ihier-part     = "//" iauthority ipath-abempty

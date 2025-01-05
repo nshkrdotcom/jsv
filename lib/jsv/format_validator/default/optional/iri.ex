@@ -3,8 +3,9 @@ require JSV.FormatValidator.Default.Optional
 if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
   defmodule JSV.FormatValidator.Default.Optional.IRI do
     @moduledoc false
+    @external_resource "priv/grammars/iri.abnf"
     use AbnfParsec,
-      abnf_file: "priv/iri.abnf",
+      abnf_file: "priv/grammars/iri.abnf",
       unbox: [],
       ignore: []
 

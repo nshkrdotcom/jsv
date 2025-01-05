@@ -171,7 +171,7 @@ defmodule JSV.FormatValidationTest do
           {:ok, ^value} ->
             :ok
 
-          {:error, {:schema_validation, _}} ->
+          {:error, %ValidationError{}} ->
             flunk("""
             Expected value #{inspect(value)} to be valid against format #{inspect(format)}.
             """)
@@ -651,6 +651,7 @@ defmodule JSV.FormatValidationTest do
         "iri",
         # valids
         [
+          # "https://en.wiktionary.org/wiki/Ῥόδος",
           "http://héhé.com"
         ],
         # invalids

@@ -3,10 +3,10 @@ require JSV.FormatValidator.Default.Optional
 if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
   defmodule JSV.FormatValidator.Default.Optional.URITemplate do
     @moduledoc false
-    @external_resource "priv/uri-template.abnf"
+    @external_resource "priv/grammars/uri-template.abnf"
 
     use AbnfParsec,
-      abnf_file: "priv/uri-template.abnf",
+      abnf_file: "priv/grammars/uri-template.abnf",
       unbox: [],
       ignore: []
 
