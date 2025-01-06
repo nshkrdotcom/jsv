@@ -651,7 +651,7 @@ defmodule JSV.FormatValidationTest do
         "iri",
         # valids
         [
-          # "https://en.wiktionary.org/wiki/Ῥόδος",
+          "https://en.wiktionary.org/wiki/Ῥόδος",
           "http://héhé.com"
         ],
         # invalids

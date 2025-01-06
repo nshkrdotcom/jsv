@@ -48,7 +48,7 @@ defmodule JSV.MixProject do
 
       # Optional Formats
       {:mail_address, "~> 1.0", optional: true},
-      {:abnf_parsec, "~> 1.0", optional: true},
+      {:abnf_parsec, "~> 1.2.3 or ~> 1.3", optional: true},
 
       # Dev
       {:credo, "~> 1.7", only: [:dev, :test]},
