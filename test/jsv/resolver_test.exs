@@ -1,3 +1,4 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.ResolverTest do
   alias JSV.Schema
   use ExUnit.Case, async: true
@@ -43,7 +44,7 @@ defmodule JSV.ResolverTest do
       %{"$defs" => %{"string" => %{"type" => "string"}}, "type" => "integer"}
     end
 
-    defp meta_format_assertion() do
+    defp meta_format_assertion do
       Codec.decode!("""
       {
           "$id": "http://localhost:1234/draft2020-12/format-assertion-true.json",

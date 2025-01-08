@@ -1,6 +1,7 @@
 defmodule JSV.Resolver.Embedded.Draft202012.Meta.MetaData do
   @moduledoc false
 
+  @spec schema :: map
   def schema do
     %{
       "$dynamicAnchor" => "meta",

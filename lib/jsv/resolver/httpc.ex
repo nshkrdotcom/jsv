@@ -142,6 +142,7 @@ defmodule JSV.Resolver.Httpc do
   end
 
   @doc false
+  @spec url_to_cache_path(binary, binary) :: binary
   def url_to_cache_path(url, cache_dir) do
     %{scheme: scheme, host: host, path: path} = URI.parse(url)
     sub_dir = Path.join(cache_dir, "#{scheme}-#{host}")

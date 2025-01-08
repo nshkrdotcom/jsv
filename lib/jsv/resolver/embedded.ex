@@ -41,6 +41,8 @@ defmodule JSV.Resolver.Embedded do
   Returns the list of meta schemas embedded in this resolver. The IDs are given
   in normalized form, _i.e._ URLs without fragments.
   """
+
+  @spec embedded_normalized_ids :: [String.t()]
   def embedded_normalized_ids do
     unquote(ids_list)
   end

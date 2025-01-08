@@ -1,7 +1,7 @@
 # credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.Test.TestResolver do
-  alias JSV.Resolver.Embedded
   alias JSV.Codec
+  alias JSV.Resolver.Embedded
 
   @moduledoc false
 

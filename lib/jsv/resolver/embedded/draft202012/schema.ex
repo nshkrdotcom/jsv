@@ -1,6 +1,7 @@
 defmodule JSV.Resolver.Embedded.Draft202012.Schema do
   @moduledoc false
 
+  @spec schema :: map
   def schema do
     %{
       "$schema" => "https://json-schema.org/draft/2020-12/schema",

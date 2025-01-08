@@ -1,6 +1,7 @@
 defmodule JSV.Resolver.Embedded.Draft202012.Meta.Validation do
   @moduledoc false
 
+  @spec schema :: map
   def schema do
     %{
       "$defs" => %{

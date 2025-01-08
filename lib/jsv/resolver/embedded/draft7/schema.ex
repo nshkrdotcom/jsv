@@ -1,6 +1,7 @@
 defmodule JSV.Resolver.Embedded.Draft7.Schema do
   @moduledoc false
 
+  @spec schema :: map
   def schema do
     %{
       "$id" => "http://json-schema.org/draft-07/schema#",
