@@ -24,8 +24,7 @@ defmodule JSV.MixProject do
 
   def application do
     [
-      extra_applications: [:logger, :ssl, :inets],
-      mod: {JSV.Application, []}
+      extra_applications: [:logger]
     ]
   end
 
@@ -54,6 +53,7 @@ defmodule JSV.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :test, runtime: false},
+      {:modkit, "~> 0.6.1", only: :dev, runtime: false},
 
       # Test
       {:excoveralls, "~> 0.18", only: :test},
@@ -74,17 +74,19 @@ defmodule JSV.MixProject do
     [
       main: "JSV",
       groups_for_modules: [
+        Resolvers: [
+          JSV.Resolver,
+          JSV.Resolver.Embedded,
+          JSV.Resolver.Httpc
+        ],
         Build: [
           JSV.Builder,
           JSV.BuildError,
-          JSV.Resolver,
           JSV.Codec,
-          JSV.Resolver.Cache,
           JSV.Key,
           JSV.RNS,
           JSV.Ref,
-          JSV.Resolver.Resolved,
-          JSV.Resolver.BuiltIn
+          JSV.Resolver.Resolved
         ],
         Validation: [
           JSV.Validator,

@@ -14,7 +14,6 @@ JSON Schema specification.
   - [Meta-schemas: Introduction to vocabularies](#meta-schemas-introduction-to-vocabularies)
   - [Resolvers overview](#resolvers-overview)
 - [Building schemas](#building-schemas)
-  - [Built-in resolver](#built-in-resolver)
   - [Custom resolvers](#custom-resolvers)
   - [Enable or disable format validation](#enable-or-disable-format-validation)
   - [Custom build modules](#custom-build-modules)
@@ -52,14 +51,20 @@ Additional dependencies can be added to support more features:
 ```elixir
 def deps do
   [
-    # Optional for JSON support for Elixir < 1.18
+    # Optional libraries for better format validation support
+
+    # Email validation
+    {:mail_address, "~> 1.0"},
+
+    # URI, IRI, JSON-pointers validation
+    {:abnf_parsec, "~> 1.0"},
+
+
+    # Optional libraries to decode schemas resolved from http
+
     {:jason, "~> 1.0"},
     # OR
     {:poison, "~> 6.0 or ~> 5.0"},
-
-    # Optional for better formats support
-    {:mail_address, "~> 1.0"}, # Email validation
-    {:abnf_parsec, "~> 1.0"}, # # URI, IRI, JSON-pointers validation
   ]
 end
 ```
@@ -83,7 +88,11 @@ schema = %{
 }
 
 # 2. Define a resolver
-resolver = {JSV.Resolver.BuiltIn, allowed_prefixes: ["https://json-schema.org/"]}
+resolver = {JSV.Resolver.Httpc,
+            allowed_prefixes: [
+              "https://json-schema.org/",
+              "https://my-company.example/"
+            ]}
 
 # 3. Build the schema
 root = JSV.build!(schema, resolver: resolver)
@@ -112,21 +121,24 @@ JSV does not accept JSON strings. You will need to decode the JSON strings
 before giving them to the build function. There are three different possible
 formats for a schema:
 
-1. **A boolean**. Booleans are valid schemas that accept anything (when `true`) or
-   reject everything (when `false`).
+1. **A boolean**. Booleans are valid schemas that accept anything (`true`) or
+   reject everything (`false`).
 2. **A map with binary keys and values** such as `%{"type" => "integer"}`.
-3. **A map with atom keys and values** such as `%{type :integer}`. The `:__struct__`
-   property of structs is safely ignored.
+3. **A map with atom keys and/or values** such as `%{type :integer}`. The
+   `:__struct__` property of structs is safely ignored.
 
-   The `JSV.Schema` struct can be used for autocompletion, but it does not
-   provide any special behaviour over a raw map with atoms. The only difference
-   is that any `nil` value found in the struct will be ignored. `nil` values in
-   other maps or structs with atom keys are treated as-is (it's generally
-   invalid).
+   The `JSV.Schema` struct can be used for autocompletion and provides a special
+   behaviour over a raw map with atoms: any `nil` value found in the that will
+   be ignored.
 
-   Atoms are converted to binaries internally so it is technically possible to
-   mix atom with binaries in map keys, but the behaviour for duplicate keys is
-   not defined: `%{"type" => "string", :type => "integer"}`.
+   Raw maps and other structs have their `nil` values kept and treated as-is
+   (it's generally invalid).
+
+   The `:__struct__` property of other structs is safely ignored.
+
+Atoms are converted to binaries internally so it is technically possible to mix
+atom with binaries in map keys or values but the behaviour for duplicate keys is
+not defined: `%{"type" => "string", :type => "integer"}`.
 
 
 ### Meta-schemas: Introduction to vocabularies
@@ -160,8 +172,8 @@ It may be more clear with an example:
 
 2. Libraries such as JSV must map this vocabulary to implementations. For
    instance, in JSV, the
-   `https://json-schema.org/draft/2020-12/json-schema-validation` part that
-   defines the `type` keyword is implemented with the
+   `https://json-schema.org/draft/2020-12/vocab/validation` part that defines
+   the `type` keyword is implemented with the
    `JSV.Vocabulary.V202012.Validation` Elixir module.
 
 3. Finally, we can declare a schema that would like to use the `type` keyword.
@@ -180,7 +192,7 @@ It may be more clear with an example:
    it to the schema.
 
 4. As JSV is compliant, it will use its implementation of
-   `https://json-schema.org/draft/2020-12/json-schema-validation` to validate
+   `https://json-schema.org/draft/2020-12/vocab/validation` to validate
    types.
 
    This also means that you can use a custom meta schema to skip some parts of
@@ -193,23 +205,25 @@ In order to build schemas properly, JSV needs to _resolve_ the schema as a first
 step.
 
 Resolving means fetching any remote resource whose data is needed and not
-available ; basically resources whose
-[URIs](https://fr.wikipedia.org/wiki/Uniform_Resource_Identifier) are defined as
-`$schema`, `$ref` or `$dynamicRef`. Of course relative references do not need to
-be fetched.
+available ; basically `$schema`, `$ref` or `$dynamicRef` properties pointing to
+an absolute [URIs](https://fr.wikipedia.org/wiki/Uniform_Resource_Identifier).
 
-Those URIs are generally URLs with the `http://` or `https://` scheme, but there
-are countless ways to fetch those URLs.
+Those URIs are generally URLs with the `http://` or `https://` scheme, but other
+custom schemes can be used, and there are many ways to fetch HTTP resources in
+Elixir.
 
-For security reasons, JSV does not provide a _default_ resolver that would fetch
-those resources with an HTTP call. It is always required to provide the resolver
-option.
+For security reasons, the default resolver, `JSV.Resolver.Embedded`, ships
+official meta-schemas as part of the source code and can only resolve those
+schemas.
 
-For convenience reasons, a _built-in_ resolver (`JSV.Resolver.BuiltIn`) is
-provided but it still needs to be manually declared by users of the JSV library.
-That resolver will download given URLs from the web. Refer to the documentation
-of this module for more information.
+For convenience reasons, a resolver that can fetch from the web is provided
+(`JSV.Resolver.Httpc`) but it needs to be manually declared by users of the JSV
+library. Refer to the documentation of this module for more information.
 
+Users are encouraged to write their own resolver to benefit from HTTP libraries
+like [Req](https://github.com/wojtekmach/req) or to resolve owned schemas from
+source or local repositories. See the custom resolvers section for more
+information.
 
 
 ## Building schemas
@@ -226,28 +240,10 @@ default if not provided.**
 Once built, a schema is converted into a `JSV.Root`, an internal representation
 of the schema that can be used to perform validation.
 
-In a nutshell it boils down to the following:
-
-```elixir
-root = JSV.build!(schema, resolver: resolver)
-```
-
-### Built-in resolver
-
-In order for that resolver to work, it must be able to decode JSON content from
-the web. To do so, you will need to provide a valid JSON implementation:
-
-* From Elixir 1.18, the `JSON` module is automatically available in the standard
-  library.
-* JSV can use [Jason](https://hex.pm/packages/jason) if listed in your
-  dependencies with the  `"~> 1.0"` requirement.
-* JSV also supports [Poison](https://hex.pm/packages/poison) with the `"~> 6.0
-  or ~> 5.0"` requirement.
-
 
 ### Custom resolvers
 
-The built-in resolver is here to help for common use cases, but you may need to
+The `Httpc` resolver is here to help for common use cases, but you may need to
 resolve resources from custom locations instead of just fetching the web URL.
 
 `JSV.build/2` accepts any resolver implementation as long as it implements the
@@ -282,7 +278,11 @@ defmodule MyApp.SchemaResolver do
 end
 ```
 
-It can be used as usual:
+Of course a possible optimization would be to try the default
+`JSV.Resolver.Embedded` resolver for well known schemas instead of fetching them
+from the web.
+
+The resolver can now be used:
 
 ```elixir
 JSV.build(raw_schema, resolver: MyApp.SchemaResolver)
@@ -304,7 +304,7 @@ schema =
   }
   """)
 
-root = JSV.build!(schema, resolver: ...)
+root = JSV.build!(schema)
 
 JSV.validate("not a date", root)
 ```
@@ -313,14 +313,13 @@ To always enable format validation when building a root schema, provide the
 `formats: true` option to `JSV.build/2`:
 
 ```elixir
-JSV.build(raw_schema, resolver: ..., formats: true)
+JSV.build(raw_schema, formats: true)
 ```
 
 This is another reason to wrap `JSV.build` with a custom builder module!
 
 Note that format validation is determined at build time. There is no way to
 change whether it is performed once the root schema is built.
-
 
 You can also enable format validation by using the JSON Schema specification
 semantics, though we strongly advise to just use the `:formats` option and call
@@ -383,7 +382,7 @@ In this case, it is also possible to _disable_ the validation for schemas that
 use a meta-schema where the assertion vocabulary is declared:
 
 ```elixir
-JSV.build(raw_schema, resolver: ..., formats: false)
+JSV.build(raw_schema, formats: false)
 ```
 
 ### Custom build modules
@@ -712,7 +711,7 @@ end
 With this module you can now call the builder with it:
 
 ```elixir
-JSV.build!(raw_schema, resolver: ..., formats: [CustomFormats])
+JSV.build!(raw_schema, formats: [CustomFormats])
 ```
 
 Note that this will disable all other formats. If you need to still support the
@@ -720,7 +719,6 @@ default formats, a helper is available:
 
 ```elixir
 JSV.build!(raw_schema,
-  resolver: ...,
   formats: [CustomFormats | JSV.default_format_validator_modules()]
 )
 ```
@@ -738,5 +736,5 @@ Pull requests are welcome given appropriate tests and documentation.
 ### Roadmap
 
 - Support for custom vocabularies
-- Declare a JSON codec module directly as built-in resolver option. This will be
+- Declare a JSON codec module directly as httpc resolver option. This will be
   implemented if needed, we do not think there will be a strong demand for that.

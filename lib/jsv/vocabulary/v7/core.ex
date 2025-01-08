@@ -1,4 +1,4 @@
-defmodule JSV.Vocabulary.Draft7.Core do
+defmodule JSV.Vocabulary.V7.Core do
   alias JSV.Ref
   alias JSV.Vocabulary.V202012.Core, as: Fallback
   use JSV.Vocabulary, priority: 100

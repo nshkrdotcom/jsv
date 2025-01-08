@@ -1,9 +1,9 @@
-defmodule JSV.Vocabulary.Draft7.Validation do
-  alias JSV.Vocabulary.V202012.Validation, as: Fallback
+defmodule JSV.Vocabulary.V7.Format do
+  alias JSV.Vocabulary.V202012.Format, as: Fallback
   use JSV.Vocabulary, priority: 300
 
   @moduledoc """
-  Implementation of the validation vocabulary with draft 7 sepecifiticies.
+  Implementation of the format vocabulary with draft 7 sepecifiticies.
   """
 
   defdelegate init_validators(opts), to: Fallback

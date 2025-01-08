@@ -1,24 +1,20 @@
-defmodule JSV.Resolver.BuiltIn do
-  alias JSV.Resolver.Cache
+defmodule JSV.Resolver.Httpc do
   require Logger
+  @behaviour JSV.Resolver
 
   @moduledoc """
-  This is the built-in resolver provided to simplify building schemas. This is
-  an HTTP resolver that will attempt resolve resources with an HTTP GET call to
-  the given URI.
+  A `JSV.Resolver` implementation that will fetch the schemas from the web with
+  the help of the `:httpc` module.
 
-  To use this resolver, you must provide a list of allowed prefixes. The
-  resolver will not attempt to fetch URLs that do not start with one of those
-  prefixes.
+  This resolver must be configured when used to build a schema. It also needs a
+  proper JSON library to decode fetched schemas:
 
-  The resolver uses two caches: a persistent cache on the disk that lives
-  through multiple runtimes and compilations, and a memory cache that is only
-  used within the same runtime, _i.e._ one compilation or one execution of your
-  application.
-
-  Note that there is no time-to-live at the moment, cache is _forever_ in both
-  cases: until the files are deleted in the case of the disk cache, or until the
-  runtime is shut down for the memory cache.
+  * From Elixir 1.18, the `JSON` module is automatically available in the
+    standard library.
+  * JSV can use [Jason](https://hex.pm/packages/jason) if listed in your
+    dependencies with the  `"~> 1.0"` requirement.
+  * JSV also supports [Poison](https://hex.pm/packages/poison) with the `"~> 6.0
+    or ~> 5.0"` requirement.
 
   ### Options
 
@@ -29,14 +25,14 @@ defmodule JSV.Resolver.BuiltIn do
   - `:cache_dir` - The path of a directory to cache downloaded resources. The
     default value can be retrieved with `default_cache_dir/0` and is based on
     `System.tmp_dir!/0`. The option also accepts `false` to disable that cache.
+    Note that there is no cache expiration mechanism.
 
   ### Example
 
       resolver_opts = [allowed_prefixes: ["https://json-schema.org/"], cache_dir: "_build/custom/dir"]
       JSV.build(schema, resolver: {JSV.Resolver.BuiltIn, resolver_opts})
-  """
 
-  @behaviour JSV.Resolver
+  """
 
   @doc false
   # Used in scripts for development and experiments
@@ -62,9 +58,8 @@ defmodule JSV.Resolver.BuiltIn do
     allowed_prefixes = Keyword.fetch!(opts, :allowed_prefixes)
     cache_dir = Keyword.get_lazy(opts, :cache_dir, &default_cache_dir/0)
 
-    with :ok <- check_allowed(url, allowed_prefixes),
-         {:ok, uri} <- check_fragment(url) do
-      do_resolve(url, make_disk_cache(uri, url, cache_dir))
+    with :ok <- check_allowed(url, allowed_prefixes) do
+      do_resolve(url, make_disk_cache(url, cache_dir))
     end
   end
 
@@ -76,23 +71,8 @@ defmodule JSV.Resolver.BuiltIn do
     end
   end
 
-  defp check_fragment(url) do
-    case URI.parse(url) do
-      %{query: nil, fragment: frag} = uri when frag in [nil, ""] -> {:ok, uri}
-      _ -> {:error, {:unsupported_url, url}}
-    end
-  end
-
   defp do_resolve(url, disk_cache) do
-    if compile_time?() do
-      disk_cached_http_get(url, disk_cache)
-    else
-      Cache.get_or_generate(Cache, {__MODULE__, url}, fn -> disk_cached_http_get(url, disk_cache) end)
-    end
-  end
-
-  defp compile_time? do
-    Code.can_await_module_compilation?()
+    disk_cached_http_get(url, disk_cache)
   end
 
   defp disk_cached_http_get(url, disk_cache) do
@@ -135,24 +115,16 @@ defmodule JSV.Resolver.BuiltIn do
     end
   end
 
-  defp make_disk_cache(_uri, _url, false) do
+  defp make_disk_cache(_url, false) do
     fn
       :fetch -> {:error, :no_cache}
       {:write!, _} -> :ok
     end
   end
 
-  defp make_disk_cache(uri, url, cache_dir) when is_binary(cache_dir) do
-    # To speed up compilation of projects with a lot of schemas we decode the
-    # URL into an URI only once, so both the URI and URL are given when the
-    # cache function is created. That is why the cache function does not accept
-    # the URL as a key, it's a function dedicated for this URL already.
-    %{scheme: scheme, host: host, path: path} = uri
-
-    sub_dir = Path.join(cache_dir, "#{scheme}-#{host}")
-    filename = "#{slugify(String.trim_leading(path, "/"))}-#{hash_url(url)}"
-    path = Path.join(sub_dir, filename)
-    :ok = ensure_cache_dir(sub_dir)
+  defp make_disk_cache(url, cache_dir) when is_binary(cache_dir) do
+    path = url_to_cache_path(url, cache_dir)
+    :ok = ensure_cache_dir(Path.dirname(path))
 
     fn
       :fetch ->
@@ -167,6 +139,15 @@ defmodule JSV.Resolver.BuiltIn do
       {:write!, json} ->
         File.write!(path, json)
     end
+  end
+
+  @doc false
+  def url_to_cache_path(url, cache_dir) do
+    %{scheme: scheme, host: host, path: path} = URI.parse(url)
+    sub_dir = Path.join(cache_dir, "#{scheme}-#{host}")
+    filename = "#{slugify(String.trim_leading(path, "/"))}-#{hash_url(url)}.json"
+
+    Path.join(sub_dir, filename)
   end
 
   defp slugify(<<c::utf8, rest::binary>>) when c in ?a..?z when c in ?A..?Z when c in ?0..?9 when c in [?-, ?_] do

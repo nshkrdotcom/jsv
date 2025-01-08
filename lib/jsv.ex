@@ -25,7 +25,7 @@ defmodule JSV do
   @build_opts_schema NimbleOptions.new!(
                        resolver: [
                          type: {:or, [:atom, :mod_arg]},
-                         required: true,
+                         default: JSV.Resolver.Embedded,
                          doc: """
                          The `JSV.Resolver` behaviour implementation module to
                          retrieve schemas identified by an URL.
@@ -47,10 +47,21 @@ defmodule JSV do
                          Controls the validation of strings with the `"format"` keyword.
 
                          * `nil` - Formats are validated according to the meta-schema vocabulary.
-                         * `true` - Enforces validation with the built-in validator modules.
+                         * `true` - Enforces validation with the default validator modules.
                          * `false` - Disables all format validation.
-                         * `[Module1, Module2,...]` – set those modules as validators. Disables the built-in format validator modules.
-                            The default validators can be included manually in the list, see `default_format_validator_modules/0`.
+                         * `[Module1, Module2,...]` – set those modules as validators. Disables the default format validator modules.
+                            The default validators can be included back in the list manually, see `default_format_validator_modules/0`.
+
+                         > #### Formats are disabled by the default meta-schemas {: .warning}
+                         >
+                         > The default value for this option is `nil` to respect
+                         > the capability of enably validation with vocabularies.
+                         >
+                         > But the default meta-schemas for the latest drafts (example: `#{@default_default_meta}`)
+                         > do not enable format validation.
+                         >
+                         > You'll probably want this option to be set to `true`
+                         > or to provide your own modules.
                          """,
                          default: nil
                        ]
@@ -64,6 +75,8 @@ defmodule JSV do
   #{NimbleOptions.docs(@build_opts_schema)}
   """
   @spec build(Builder.raw_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
+  def build(raw_schema, opts \\ [])
+
   def build(raw_schema, opts) when is_map(raw_schema) do
     raw_schema = AtomTools.fmap_atom_to_binary(raw_schema)
 
@@ -89,6 +102,8 @@ defmodule JSV do
   Same as `build/2` but raises on error.
   """
   @spec build!(Builder.raw_schema(), keyword) :: Root.t()
+  def build!(raw_schema, opts \\ [])
+
   def build!(raw_schema, opts) do
     case build(raw_schema, opts) do
       {:ok, root} -> root

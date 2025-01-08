@@ -1,4 +1,4 @@
-defmodule JSV.Vocabulary.Draft7.Applicator do
+defmodule JSV.Vocabulary.V7.Applicator do
   alias JSV.Builder
   alias JSV.Helpers
   alias JSV.Validator

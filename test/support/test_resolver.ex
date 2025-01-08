@@ -1,7 +1,7 @@
 # credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.Test.TestResolver do
+  alias JSV.Resolver.Embedded
   alias JSV.Codec
-  alias JSV.Resolver.BuiltIn
 
   @moduledoc false
 
@@ -13,11 +13,7 @@ defmodule JSV.Test.TestResolver do
   end
 
   def resolve(url, _opts) do
-    BuiltIn.resolve(url,
-      # cache_dir: false,
-      cache_dir: "_build/resolver-cache",
-      allowed_prefixes: ["https://json-schema.org/", "http://json-schema.org/"]
-    )
+    Embedded.resolve(url, [])
   end
 
   defp return_local_file(path) do

@@ -61,14 +61,16 @@ defmodule JSV.Resolver do
     "https://json-schema.org/draft/2020-12/vocab/unevaluated" => Vocabulary.V202012.Unevaluated
   }
   @draft7_vocabulary %{
-    "https://json-schema.org/draft-07/--fallback--vocab/core" => Vocabulary.Draft7.Core,
-    "https://json-schema.org/draft-07/--fallback--vocab/validation" => Vocabulary.Draft7.Validation,
-    "https://json-schema.org/draft-07/--fallback--vocab/applicator" => Vocabulary.Draft7.Applicator,
-    "https://json-schema.org/draft-07/--fallback--vocab/content" => Vocabulary.Draft7.Content,
-    "https://json-schema.org/draft-07/--fallback--vocab/format-annotation" => Vocabulary.Draft7.Format,
-    "https://json-schema.org/draft-07/--fallback--vocab/format-assertion" => {Vocabulary.Draft7.Format, assert: true},
-    "https://json-schema.org/draft-07/--fallback--vocab/meta-data" => Vocabulary.Draft7.MetaData
+    "https://json-schema.org/draft-07/--fallback--vocab/core" => Vocabulary.V7.Core,
+    "https://json-schema.org/draft-07/--fallback--vocab/validation" => Vocabulary.V7.Validation,
+    "https://json-schema.org/draft-07/--fallback--vocab/applicator" => Vocabulary.V7.Applicator,
+    "https://json-schema.org/draft-07/--fallback--vocab/content" => Vocabulary.V7.Content,
+    "https://json-schema.org/draft-07/--fallback--vocab/format-annotation" => Vocabulary.V7.Format,
+    "https://json-schema.org/draft-07/--fallback--vocab/format-assertion" => {Vocabulary.V7.Format, assert: true},
+    "https://json-schema.org/draft-07/--fallback--vocab/meta-data" => Vocabulary.V7.MetaData
   }
+
+  @draft7_normalized_identifier "http://json-schema.org/draft-07/schema"
   @draft7_vocabulary_keyword_fallback Map.new(@draft7_vocabulary, fn {k, _mod} -> {k, true} end)
 
   @vocabulary %{} |> Map.merge(@draft_202012_vocabulary) |> Map.merge(@draft7_vocabulary)
@@ -148,7 +150,7 @@ defmodule JSV.Resolver do
     cache_entries
     |> Enum.flat_map(fn
       {_, {:alias_of, _}} -> []
-      {_, v} -> [v.meta]
+      {_, %{meta: meta}} -> [meta]
     end)
     |> Enum.uniq()
   end
@@ -157,10 +159,14 @@ defmodule JSV.Resolver do
     {:ok, rsv}
   end
 
+  defp resolve_meta_loop(rsv, [nil | tail]) do
+    resolve_meta_loop(rsv, tail)
+  end
+
   defp resolve_meta_loop(rsv, [meta | tail]) when is_binary(meta) do
     with :unresolved <- check_resolved(rsv, {:meta, meta}),
          {:ok, raw_schema, rsv} <- ensure_fetched(rsv, meta),
-         {:ok, cache_entry} <- create_meta_entry(raw_schema),
+         {:ok, cache_entry} <- create_meta_entry(raw_schema, meta),
          {:ok, rsv} <- insert_cache_entries(rsv, [{{:meta, meta}, cache_entry}]) do
       resolve_meta_loop(rsv, [cache_entry.meta | tail])
     else
@@ -229,7 +235,7 @@ defmodule JSV.Resolver do
     aliases = id_aliases ++ anchors ++ dynamic_anchors
 
     # If no metaschema is defined we will use the default draft as a fallback
-    meta = Map.get(top_schema, "$schema", default_meta)
+    meta = normalize_meta(Map.get(top_schema, "$schema", default_meta))
 
     top_descriptor = %{raw: top_schema, meta: meta, aliases: aliases, ns: ns, parent_ns: nil}
     acc = [top_descriptor]
@@ -301,9 +307,8 @@ defmodule JSV.Resolver do
         da -> Enum.flat_map(nss, &[Key.for_dynamic_anchor(&1, da), Key.for_anchor(&1, da)])
       end
 
-    # We do not check for the $meta is subschemas, we only add the parent_one to
-    # the descriptor.
-    #
+    # We do not check for the meta $schema is subschemas, we only add the
+    # parent_one to the descriptor.
 
     acc =
       case(id_aliases ++ anchors ++ dynamic_anchors) do
@@ -398,17 +403,15 @@ defmodule JSV.Resolver do
     end
   end
 
-  defp create_meta_entry(raw_schema) when not is_struct(raw_schema) do
+  defp create_meta_entry(raw_schema, ext_id) when not is_struct(raw_schema) do
     vocabulary = Map.get(raw_schema, "$vocabulary")
-    # TODO we should not even recursively download metaschemas?
 
-    # Do not default to latest meta on meta schema as we will not use it anyway
-    meta = Map.get(raw_schema, "$schema", nil)
-    id = Map.fetch!(raw_schema, "$id")
+    # Meta entries are only identified by they external URL so their :ns and
+    # :raw value should not be used anywhere.
 
-    case load_vocabularies(vocabulary, id) do
+    case load_vocabularies(vocabulary, ext_id) do
       {:ok, vocabularies} ->
-        {:ok, %Resolved{vocabularies: vocabularies, meta: meta, ns: id, parent_ns: nil, raw: :__meta__}}
+        {:ok, %Resolved{vocabularies: vocabularies, meta: nil, ns: :__meta__, parent_ns: nil, raw: :__meta__}}
 
       {:error, _} = err ->
         err
@@ -492,21 +495,28 @@ defmodule JSV.Resolver do
     RNS.derive(parent, child)
   end
 
+  # Removes the fragment from the given URL. Accepts nil values
+  defp normalize_meta(nil) do
+    nil
+  end
+
+  defp normalize_meta(meta) do
+    case URI.parse(meta) do
+      %{fragment: nil} -> meta
+      uri -> URI.to_string(%{uri | fragment: nil})
+    end
+  end
+
   # This function is called for all schemas, but only metaschemas should define
   # vocabulary, so nil is a valid vocabulary map. It will not be looked up for
-  # normal schemas, and metaschemas without vocabulary should have a default
+  # normal schemas, and old metaschemas without vocabulary should have a default
   # vocabulary in the library.
-  defp load_vocabularies(nil, id)
-       when id in [
-              "http://json-schema.org/draft-07/schema",
-              "http://json-schema.org/draft-07/schema#"
-            ] do
+  defp load_vocabularies(nil, @draft7_normalized_identifier = id) do
     load_vocabularies(@draft7_vocabulary_keyword_fallback, id)
   end
 
   defp load_vocabularies(nil, id) do
-    raise "Schema with $id #{inspect(id)} does not define vocabularies"
-    {:ok, nil}
+    {:error, {:no_vocabulary, id}}
   end
 
   defp load_vocabularies(map, _) when is_map(map) do

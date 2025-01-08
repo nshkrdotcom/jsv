@@ -1,4 +1,4 @@
-defmodule JSV.Vocabulary.Draft7.MetaData do
+defmodule JSV.Vocabulary.V7.MetaData do
   alias JSV.Vocabulary.V202012.MetaData, as: Fallback
   use JSV.Vocabulary, priority: 300
 
