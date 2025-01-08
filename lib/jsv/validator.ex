@@ -162,8 +162,6 @@ defmodule JSV.Validator do
       when is_integer(key) do
     %ValidationContext{
       data_path: data_path,
-      validators: all_validators,
-      scope: scope,
       evaluated: evaluated,
       eval_path: eval_path
     } = vctx
@@ -173,8 +171,6 @@ defmodule JSV.Validator do
       | data_path: [key | data_path],
         eval_path: [add_eval_path | eval_path],
         errors: [],
-        validators: all_validators,
-        scope: scope,
         evaluated: [%{} | evaluated]
     }
 
@@ -197,21 +193,12 @@ defmodule JSV.Validator do
   """
   @spec validate_as(term, eval_path_segment(), validator(), context) :: result
   def validate_as(data, add_eval_path, subvalidators, vctx) do
-    %ValidationContext{
-      data_path: data_path,
-      validators: all_validators,
-      scope: scope,
-      evaluated: evaluated,
-      eval_path: eval_path
-    } = vctx
+    %ValidationContext{evaluated: evaluated, eval_path: eval_path} = vctx
 
     sub_vctx = %ValidationContext{
       vctx
-      | data_path: data_path,
-        eval_path: [add_eval_path | eval_path],
+      | eval_path: [add_eval_path | eval_path],
         errors: [],
-        validators: all_validators,
-        scope: scope,
         evaluated: [%{} | evaluated]
     }
 
@@ -237,25 +224,8 @@ defmodule JSV.Validator do
   defp do_validate_ref(data, ref, vctx) do
     subvalidators = checkout_ref(vctx, ref)
 
-    %ValidationContext{
-      data_path: data_path,
-      validators: all_validators,
-      scope: scope,
-      evaluated: evaluated,
-      eval_path: eval_path
-    } = vctx
-
-    # TODO separate validator must have its isolated evaluated data_paths list
-    separate_vctx = %ValidationContext{
-      vctx
-      | data_path: data_path,
-        # TODO append eval path
-        eval_path: eval_path,
-        errors: [],
-        validators: all_validators,
-        scope: scope,
-        evaluated: evaluated
-    }
+    # TODO should separate validator  have its isolated evaluated data_paths?
+    separate_vctx = %ValidationContext{vctx | errors: []}
 
     case validate(data, subvalidators, separate_vctx) do
       {:ok, data, separate_vctx} ->
