@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-01-08
+
+### 🚀 Features
+
+- Added a default resolver using static schemas
+
+### 🐛 Bug Fixes
+
+- Upgrade abnf_parsec to correctly parse IRIs and IRI references
+
 ## [0.2.0] - 2025-01-03
 
 ### 📚 Documentation

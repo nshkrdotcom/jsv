@@ -5,8 +5,8 @@ defmodule JSV.MixProject do
   def project do
     [
       app: :jsv,
-      description: "Yet another JSON Schema Validator with complete support for the latest specifications.",
-      version: "0.2.0",
+      description: "A JSON Schema Validator with complete support for the latest specifications.",
+      version: "0.3.0",
       elixir: "~> 1.15",
       # no protocol consolidation for the generation of the test suite
       consolidate_protocols: false,
