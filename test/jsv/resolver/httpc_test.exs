@@ -47,4 +47,15 @@ defmodule JSV.Resolver.HttpcTest do
                allowed_prefixes: ["https://json-schema.org/"]
              )
   end
+
+  test "uses the internal resolver" do
+    defmodule SomeSchema do
+      @spec schema :: map
+      def schema do
+        %{"type" => "integer"}
+      end
+    end
+
+    assert {:ok, %{"type" => "integer"}} == Httpc.resolve("jsv:module:#{SomeSchema}", [])
+  end
 end

@@ -1,4 +1,5 @@
 defmodule JSV.Builder do
+  alias JSV.AtomTools
   alias JSV.BooleanSchema
   alias JSV.Key
   alias JSV.Ref
@@ -19,7 +20,6 @@ defmodule JSV.Builder do
 
   @type resolvable :: Resolver.resolvable()
   @type buildable :: {:resolved, resolvable} | resolvable
-  @type raw_schema :: map() | boolean
 
   @doc """
   Returns a new builder. Builders are not reusable ; a fresh builder must be
@@ -36,13 +36,31 @@ defmodule JSV.Builder do
   @doc """
   Builds the given raw schema into a `JSV.Root` struct.
   """
-  @spec build(t, raw_schema()) :: {:ok, JSV.Root.t()} | {:error, term}
-  def build(builder, raw_schema) do
+  @spec build(t, JSV.raw_schema()) :: {:ok, JSV.Root.t()} | {:error, term}
+  def build(_builder, valid?) when is_boolean(valid?) do
+    {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?)}}}
+  end
+
+  def build(builder, module) when is_atom(module) do
+    build_root(builder, module.schema())
+  rescue
+    e in UndefinedFunctionError -> {:error, e}
+  end
+
+  def build(builder, raw_schema) when is_map(raw_schema) do
+    build_root(builder, raw_schema)
+  end
+
+  @spec build_root(t, map) :: {:ok, JSV.Root.t()} | {:error, term}
+  defp build_root(builder, raw_schema) do
+    raw_schema = AtomTools.normalize_schema(raw_schema)
+
     with {:ok, root_key, resolver} <- Resolver.resolve_root(builder.resolver, raw_schema),
-         builder = %__MODULE__{builder | resolver: resolver},
-         builder = stage_build(builder, root_key),
+         builder = stage_build(%__MODULE__{builder | resolver: resolver}, root_key),
          {:ok, validators} <- build_all(builder) do
       {:ok, %Root{raw: raw_schema, validators: validators, root_key: root_key}}
+    else
+      {:error, _} = err -> err
     end
   end
 
@@ -55,8 +73,8 @@ defmodule JSV.Builder do
     %__MODULE__{builder | staged: append_unique(staged, buildable)}
   end
 
-  defp append_unique([key | t], key) do
-    append_unique(t, key)
+  defp append_unique([same | t], same) do
+    [same | t]
   end
 
   defp append_unique([h | t], key) do
@@ -75,7 +93,7 @@ defmodule JSV.Builder do
   def ensure_resolved(%{resolver: resolver} = builder, resolvable) do
     case Resolver.resolve(resolver, resolvable) do
       {:ok, resolver} -> {:ok, %__MODULE__{builder | resolver: resolver}}
-      {:error, reason} -> {:error, {:resolver_error, reason}}
+      {:error, _} = err -> err
     end
   end
 
@@ -83,7 +101,7 @@ defmodule JSV.Builder do
   Returns the raw schema identified by the given key. Use `ensure_resolved/2`
   before if the resource may not have been fetched.
   """
-  @spec fetch_resolved(t, Key.t()) :: {:ok, raw_schema} | {:error, term}
+  @spec fetch_resolved(t, Key.t()) :: {:ok, JSV.raw_schema()} | {:error, term}
   def fetch_resolved(%{resolver: resolver}, key) do
     Resolver.fetch_resolved(resolver, key)
   end
@@ -197,12 +215,27 @@ defmodule JSV.Builder do
     end
   end
 
+  defp build_resolved(builder, {:alias_of, key}) do
+    # Keep the alias in the validators but ensure the value it points to gets
+    # built too by staging it.
+    #
+    # The alias returned by the resolver is a key, it is not a binary or a
+    # %Ref{} staged by some vocabulary. (Thouh a binary is a valid key). So we
+    # must stage it as already resolved.
+    #
+    # Since this key is provided by the resolver we have the guarantee that the
+    # alias target is actually resolved already.
+    {:ok, {:alias_of, key}, stage_build(builder, {:resolved, key})}
+  end
+
   defp build_resolved(builder, resolved) do
     %Resolved{meta: meta, ns: ns, parent_ns: parent_ns} = resolved
 
     case fetch_vocabularies(builder, meta) do
       {:ok, vocabularies} when is_list(vocabularies) ->
         builder = %__MODULE__{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
+        # Directly call do_build sub because in this case, if the sub schema has
+        # an $id we want to actually build it and not register an alias.
         do_build_sub(resolved.raw, builder)
 
       {:error, _} = err ->
@@ -217,7 +250,7 @@ defmodule JSV.Builder do
     end
   end
 
-  @spec build_sub(raw_schema(), t) :: {:ok, Validator.validator(), t} | {:error, term}
+  @spec build_sub(JSV.raw_schema(), t) :: {:ok, Validator.validator(), t} | {:error, term}
   def build_sub(%{"$id" => id}, builder) do
     with {:ok, key} <- RNS.derive(builder.ns, id) do
       {:ok, {:alias_of, key}, stage_build(builder, key)}
@@ -226,10 +259,6 @@ defmodule JSV.Builder do
 
   def build_sub(raw_schema, builder) when is_map(raw_schema) when is_boolean(raw_schema) do
     do_build_sub(raw_schema, builder)
-  end
-
-  defp do_build_sub(valid?, builder) when is_boolean(valid?) do
-    {:ok, BooleanSchema.of(valid?), builder}
   end
 
   defp do_build_sub(raw_schema, builder) when is_map(raw_schema) do
@@ -262,6 +291,10 @@ defmodule JSV.Builder do
     schema_validators = :lists.reverse(schema_validators)
 
     {:ok, %JSV.Subschema{validators: schema_validators}, builder}
+  end
+
+  defp do_build_sub(valid?, builder) when is_boolean(valid?) do
+    {:ok, BooleanSchema.of(valid?), builder}
   end
 
   defp mod_and_init_opts({module, opts}) when is_atom(module) and is_list(opts) do

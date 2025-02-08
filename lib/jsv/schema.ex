@@ -71,7 +71,7 @@ defmodule JSV.Schema do
       |> Schema.required([:name, :age])
   """
 
-  defstruct [
+  @all_keys [
     :"$anchor",
     :"$comment",
     :"$defs",
@@ -128,8 +128,14 @@ defmodule JSV.Schema do
     :unevaluatedItems,
     :unevaluatedProperties,
     :uniqueItems,
-    :writeOnly
+    :writeOnly,
+
+    # Internal keys
+    :"jsv-struct"
   ]
+
+  @derive {Inspect, optional: @all_keys}
+  defstruct @all_keys
 
   @type t :: %__MODULE__{}
   @type prototype :: t | map | keyword

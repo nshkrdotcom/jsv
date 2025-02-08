@@ -1,5 +1,7 @@
 defmodule JSV.Resolver.Httpc do
+  alias JSV.Resolver.Internal
   require Logger
+
   @behaviour JSV.Resolver
 
   @moduledoc """
@@ -48,6 +50,10 @@ defmodule JSV.Resolver.Httpc do
 
   def resolve("https://" <> _ = url, opts) do
     allow_and_resolve(url, opts)
+  end
+
+  def resolve("jsv:" <> _ = uri, _opts) do
+    Internal.resolve(uri, [])
   end
 
   def resolve(url, _opts) do

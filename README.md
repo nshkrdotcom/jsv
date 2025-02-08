@@ -22,6 +22,7 @@ JSON Schema specification.
   - [General considerations](#general-considerations)
   - [Formats](#formats)
   - [Custom formats](#custom-formats)
+- [Struct schemas](#struct-schemas)
 - [Development](#development)
   - [Contributing](#contributing)
   - [Roadmap](#roadmap)
@@ -61,6 +62,7 @@ def deps do
 
 
     # Optional libraries to decode schemas resolved from http
+    # prior to Elixir 1.18
 
     {:jason, "~> 1.0"},
     # OR
@@ -87,24 +89,17 @@ schema = %{
   required: [:name]
 }
 
-# 2. Define a resolver
-resolver = {JSV.Resolver.Httpc,
-            allowed_prefixes: [
-              "https://json-schema.org/",
-              "https://my-company.example/"
-            ]}
+# 2. Build the validation root
+root = JSV.build!(schema)
 
-# 3. Build the schema
-root = JSV.build!(schema, resolver: resolver)
-
-# 4. Validate the data
+# 3. Validate the data
 case JSV.validate(%{"name" => "Alice"}, root) do
   {:ok, data} ->
     {:ok, data}
 
   {:error, validation_error} ->
-    # Errors can be casted as JSON validator output to return them
-    # to the producer of the invalid data
+    # Errors can be casted as JSON compatible data structure to send them as
+    # an API response or for loggin purposes.
     {:error, JSON.encode!(JSV.normalize_error(validation_error))}
 end
 ```
@@ -139,6 +134,7 @@ formats for a schema:
 Atoms are converted to binaries internally so it is technically possible to mix
 atom with binaries in map keys or values but the behaviour for duplicate keys is
 not defined: `%{"type" => "string", :type => "integer"}`.
+
 
 
 ### Meta-schemas: Introduction to vocabularies
@@ -511,7 +507,7 @@ JSV supports all keywords of the 2020-12 specification except:
   integer parts is using native Elixir semantics and may return incorrect
   results:
 
-      iex(1)> trunc(123456789123456789123456789.0)
+      > trunc(123456789123456789123456789.0)
       # returns:    123456789123456791337762816
       #                             |
       #                             | Difference starts here
@@ -727,6 +723,62 @@ Format validation modules are checked during the build phase, in order. So you
 can override any format defined by a module that comes later in the list,
 including the default modules.
 
+
+## Struct schemas
+
+Schemas can be used to define structs.
+
+For instance, with this module definition schema:
+
+```elixir
+defmodule MyApp.UserSchema do
+  require JSV
+
+  JSV.defschema(%{
+    type: :object,
+    properties: %{
+      name: %{type: :string, default: ""},
+      age: %{type: :integer, default: 0}
+    }
+  })
+end
+```
+
+Currently only schemas with atom keys at the top level are supported.
+
+
+A struct will be defined with the appropriate default values:
+
+```elixir
+iex> %MyApp.UserSchema{}
+%MyApp.UserSchema{name: "", age: 0}
+```
+
+The module can be used as a schema to build a validator root and cast data to the corresponding struct:
+
+```elixir
+iex> {:ok, root} = JSV.build(MyApp.UserSchema)
+iex> data = %{"name" => "Alice"}
+iex> JSV.validate(data, root)
+{:ok, %MyApp.UserSchema{name: "Alice", age: 0}}
+```
+
+Casting to struct can be disabled by passing `cast_structs: false` into the
+options of `JSV.validate/3`.
+
+
+The module can also be used in other schemas:
+
+```elixir
+%{
+  type: :object,
+  properties: %{
+    name: %{type: :string},
+    owner: MyApp.UserSchema
+  }
+}
+```
+
 ## Development
 
 ### Contributing
@@ -735,6 +787,7 @@ Pull requests are welcome given appropriate tests and documentation.
 
 ### Roadmap
 
+- Clean builder API so builder is always the first argument
 - Support for custom vocabularies
 - Declare a JSON codec module directly as httpc resolver option. This will be
   implemented if needed, we do not think there will be a strong demand for that.

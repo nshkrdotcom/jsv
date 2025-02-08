@@ -1,4 +1,6 @@
 defmodule JSV.Resolver.Embedded do
+  alias JSV.Resolver.Internal
+
   @behaviour JSV.Resolver
 
   mapping = %{
@@ -16,10 +18,13 @@ defmodule JSV.Resolver.Embedded do
   ids_list = mapping |> Map.keys() |> Enum.sort(:desc)
 
   @moduledoc """
-  A `JSV.Resolver` implementation that only resolves known schemas shipped as
-  part of the `JSV` library.
+  A `JSV.Resolver` implementation that resolves known schemas shipped as part of
+  the `JSV` library.
 
-  The current set of URLs that can be resolved are the following:
+  Internal URIs such as `jsv:module:<module name>` are delegated to the
+  #{inspect(Internal)} resolver.
+
+  ### Embedded schemas
 
   #{Enum.map(ids_list, &["* ", &1, "\n"])}
   """
@@ -32,6 +37,10 @@ defmodule JSV.Resolver.Embedded do
       {:ok, unquote(module).schema()}
     end
   end)
+
+  def resolve("jsv:" <> _ = uri, _opts) do
+    Internal.resolve(uri, [])
+  end
 
   def resolve(other, _) do
     {:error, {:not_embedded, other}}

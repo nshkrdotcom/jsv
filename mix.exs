@@ -99,7 +99,8 @@ defmodule JSV.MixProject do
           JSV.Validator.ValidationContext
         ],
         "Format Validation": [~r/^JSV\.Format.*/],
-        Vocabulary: [~r/^JSV\.Vocabulary.*/]
+        Vocabulary: [~r/^JSV\.Vocabulary.*/],
+        Utilities: [JSV.StructSupport]
       ]
     ]
   end

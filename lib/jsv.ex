@@ -1,6 +1,5 @@
 defmodule JSV do
   alias JSV.AtomTools
-  alias JSV.BooleanSchema
   alias JSV.Builder
   alias JSV.ErrorFormatter
   alias JSV.Root
@@ -19,6 +18,8 @@ defmodule JSV do
 
   #{readme}
   """
+
+  @type raw_schema :: map() | boolean() | module()
 
   @default_default_meta "https://json-schema.org/draft/2020-12/schema"
 
@@ -74,12 +75,10 @@ defmodule JSV do
 
   #{NimbleOptions.docs(@build_opts_schema)}
   """
-  @spec build(Builder.raw_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
+  @spec build(JSV.raw_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
   def build(raw_schema, opts \\ [])
 
-  def build(raw_schema, opts) when is_map(raw_schema) do
-    raw_schema = AtomTools.fmap_atom_to_binary(raw_schema)
-
+  def build(raw_schema, opts) when is_map(raw_schema) when is_atom(raw_schema) do
     case NimbleOptions.validate(opts, @build_opts_schema) do
       {:ok, opts} ->
         builder = Builder.new(opts)
@@ -94,14 +93,10 @@ defmodule JSV do
     end
   end
 
-  def build(valid?, _opts) when is_boolean(valid?) do
-    {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?)}}}
-  end
-
   @doc """
   Same as `build/2` but raises on error.
   """
-  @spec build!(Builder.raw_schema(), keyword) :: Root.t()
+  @spec build!(JSV.raw_schema(), keyword) :: Root.t()
   def build!(raw_schema, opts \\ [])
 
   def build!(raw_schema, opts) do
@@ -127,15 +122,23 @@ defmodule JSV do
                             type: :boolean,
                             default: false,
                             doc:
-                              "When enabled format validators will return casted values, " <>
+                              "When enabled, format validators will return casted values, " <>
                                 "for instance a `Date` struct instead of the date as string. " <>
                                 "It has no effect when the schema was not built with formats enabled."
+                          ],
+                          cast_structs: [
+                            type: :boolean,
+                            default: true,
+                            doc:
+                              "When enabled, schemas defining the jsv-struct keyword " <>
+                                "will be casted to the corresponding module. " <>
+                                "This keyword is automatically set by schemas used in `JSV.defschema/1`."
                           ]
                         )
 
   @doc """
-  Validate the data with the given schema. The schema must be a `JSV.Root`
-  struct generated with `build/2`.
+  Validates and casts the data with the given schema. The schema must be a
+  `JSV.Root` struct generated with `build/2`.
 
   **Important**: this function returns casted data:
 
@@ -144,8 +147,8 @@ defmodule JSV do
     documentation for more information.
   * The JSON Schema specification states that `123.0` is a valid integer. This
     function will return `123` instead. This may return invalid data for floats
-    with very large integer parts. As always when dealing with JSON and floats,
-    use strings.
+    with very large integer parts. As always when dealing with JSON and big
+    decimal or extremely precise numbers, use strings.
   * Future versions of the library will allow to cast raw data into Elixir
     structs.
 
@@ -202,5 +205,123 @@ defmodule JSV do
   @spec default_format_validator_modules :: [module]
   def default_format_validator_modules do
     [JSV.FormatValidator.Default]
+  end
+
+  @doc """
+  Defines a struct in the calling module where the struct keys are the
+  properties of the schema.
+
+  If a default value is given in a property schema, it will be used as the
+  default value for the corresponding struct key. Otherwise, the default value
+  will be `nil`. A default value is _not_ validated against the property schema
+  itself.
+
+  The `$id` property of the schema will automatically be set, if not present, to
+  `"jsv:module:" <> Atom.to_string(__MODULE__)`. Because of this, module based
+  schemas must avoid using relative references to a parent schema as the
+  references will resolve to that generated `$id`.
+
+  ### Additional properties
+
+  Additional properties are allowed.
+
+  If your schema does not define `additionalProperties: false`, the validation
+  will accept a map with additional properties, but the keys will not be added
+  to the resulting struct as it would be invalid.
+
+  If the `cast_structs: false` option is given to `JSV.validate/3`, the
+  additional properties will be kept.
+
+  ### Example
+
+  Given the following module definition:
+
+      defmodule MyApp.UserSchema do
+        require JSV
+
+        JSV.defschema(%{
+          type: :object,
+          properties: %{
+            name: %{type: :string, default: ""},
+            age: %{type: :integer, default: 0}
+          }
+        })
+      end
+
+  We can get the struct with default values:
+
+      iex> %MyApp.UserSchema{}
+      %MyApp.UserSchema{name: "", age: 0}
+
+  And we can use the module as a schema:
+
+      iex> {:ok, root} = JSV.build(MyApp.UserSchema)
+      iex> data = %{"name" => "Alice"}
+      iex> JSV.validate(data, root)
+      {:ok, %MyApp.UserSchema{name: "Alice", age: 0}}
+
+  Additional properties are ignored:
+
+      iex> {:ok, root} = JSV.build(MyApp.UserSchema)
+      iex> data = %{"name" => "Alice", "extra" => "hello!"}
+      iex> JSV.validate(data, root)
+      {:ok, %MyApp.UserSchema{name: "Alice", age: 0}}
+
+  Disabling struct casting with additional properties:
+
+      iex> {:ok, root} = JSV.build(MyApp.UserSchema)
+      iex> data = %{"name" => "Alice", "extra" => "hello!"}
+      iex> JSV.validate(data, root, cast_structs: false)
+      {:ok, %{"name" => "Alice", "extra" => "hello!"}}
+
+  A module can reference another module:
+
+      defmodule MyApp.CompanySchema do
+        require JSV
+
+        JSV.defschema(%{
+          type: :object,
+          properties: %{
+            name: %{type: :string},
+            owner: MyApp.UserSchema
+          }
+        })
+      end
+
+      iex> {:ok, root} = JSV.build(MyApp.CompanySchema)
+      iex> data = %{"name" => "Schemas Inc.", "owner" => %{"name" => "Alice"}}
+      iex> JSV.validate(data, root)
+      {:ok, %MyApp.CompanySchema{name: "Schemas Inc.", owner: %MyApp.UserSchema{name: "Alice", age: 0}}}
+  """
+  defmacro defschema(schema) do
+    quote bind_quoted: binding() do
+      :ok = JSV.StructSupport.validate!(schema)
+      keycast_pairs = JSV.StructSupport.keycast_pairs(schema)
+      data_pairs = JSV.StructSupport.data_pairs(schema)
+      required = JSV.StructSupport.list_required(schema)
+
+      # It is important to set the jsv-struct as a binary, otherwise it would be
+      # turned into a $ref when the schema will be denormalized by the resolver.
+      #
+      # Also we set those keys as atoms because the rest of the schema has to be
+      # defined with atoms and we do not want to mix key types at this point.
+      @jsv_raw_schema schema
+                      |> Map.put(:"jsv-struct", Atom.to_string(__MODULE__))
+                      |> Map.put_new(:"$id", AtomTools.module_to_uri(__MODULE__))
+
+      @enforce_keys required
+      defstruct data_pairs
+
+      def schema do
+        @jsv_raw_schema
+      end
+
+      @doc false
+      def __jsv__(arg)
+
+      def __jsv__(:keycast) do
+        unquote(keycast_pairs)
+      end
+    end
   end
 end

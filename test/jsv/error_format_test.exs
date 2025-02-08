@@ -60,7 +60,7 @@ defmodule JSV.ErrorFormatTest do
 
   defp assert_output_schema(formatted_error) do
     {:ok, output_schema} = JSV.build(@error_output_schema, resolver: JSV.Test.TestResolver)
-    raw = AtomTools.fmap_atom_to_binary(formatted_error)
+    raw = AtomTools.normalize_schema(formatted_error)
 
     case JSV.validate(raw, output_schema) do
       {:ok, _} ->

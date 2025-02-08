@@ -182,6 +182,10 @@ defmodule JSV.ErrorFormatter do
     Key.to_iodata(ref)
   end
 
+  defp format_origin(key) do
+    Key.to_iodata(key)
+  end
+
   defp build_error(error, opts) do
     %Error{kind: kind, data: data, formatter: formatter, args: args} =
       error

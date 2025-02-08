@@ -375,4 +375,15 @@ defmodule JSV.Validator do
   def to_error(vctx) do
     ValidationError.of(flat_errors(vctx))
   end
+
+  @doc """
+  Returns whether the given context contains errors.
+  """
+  @spec error?(context) :: boolean
+  def error?(vctx) do
+    case vctx do
+      %ValidationContext{errors: [_ | _]} -> true
+      %ValidationContext{errors: []} -> false
+    end
+  end
 end

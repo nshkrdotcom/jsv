@@ -11,9 +11,7 @@ defmodule JSV.RNS do
 
   # TODO maybe do not use the URI module at all and implement a custom parser.
 
-  defstruct [:uri, urn?: false]
-
-  @type t :: %__MODULE__{uri: :root | URI.t(), urn?: boolean}
+  @type t :: URI.t() | :root
 
   @doc """
   Parses the given URL or URN and returns an internal representation of its
@@ -22,68 +20,105 @@ defmodule JSV.RNS do
   Also accepts `:root` for root schemas without `$id`.
   """
   @spec parse(binary | :root) :: t
-  def parse(uri_or_urn)
-
-  def parse("urn:" <> _ = urn) do
-    %{host: nil, path: path} = uri = URI.parse(urn)
-    [host, path] = String.split(path, ":", parts: 2)
-    uri = %URI{uri | host: host, path: "/" <> path}
-    %__MODULE__{uri: uri, urn?: true}
-  end
+  def parse(uri)
 
   def parse(string) when is_binary(string) do
-    %__MODULE__{uri: URI.parse(string)}
+    URI.parse(string)
   end
 
   def parse(:root) do
-    %__MODULE__{uri: :root}
+    :root
   end
 
   @doc """
-  Returns a new string namespace by appending a relative child path to a parent
-  namespace. If the child is absolute or `:root`, returns the child.
+  Returns a new string namespace by appending a relative path to a base
+  namespace. If the relative is absolute or `:root`, returns the relative.
   """
   @spec derive(binary | :root, binary | :root) :: {:ok, binary | :roo} | {:error, term}
-  def derive(parent, child) do
-    parent_rns = parse(parent)
-    child_rns = parse(child)
+  def derive(base, relative) do
+    base_rns = parse(base)
+    relative_rns = parse(relative)
 
-    with {:ok, merged} <- merge(parent_rns, child_rns) do
+    with {:ok, merged} <- merge(base_rns, relative_rns) do
       {:ok, to_ns(merged)}
     end
   end
 
-  defp merge(%{uri: :root} = parent, %{uri: %{host: nil, path: nil}}) do
-    {:ok, parent}
+  defp merge(:root = base, %{host: nil, path: nil}) do
+    {:ok, base}
   end
 
-  defp merge(%{uri: :root}, %{uri: %{host: host}} = child) when is_binary(host) do
-    {:ok, child}
+  defp merge(:root, %{scheme: scheme} = relative) when is_binary(scheme) do
+    {:ok, relative}
   end
 
-  defp merge(%{uri: :root}, %{uri: child}) do
-    {:error, {:invalid_child_ns, URI.to_string(child)}}
+  defp merge(:root, relative) do
+    {:error, {:no_derivable_root_ns, URI.to_string(relative)}}
   end
 
-  defp merge(%{uri: parent_uri, urn?: urn?}, %{uri: child_uri}) do
-    {:ok, %__MODULE__{uri: URI.merge(parent_uri, child_uri), urn?: urn?}}
+  defp merge(base, relative) do
+    case relative do
+      %URI{scheme: nil} ->
+        case safe_uri_merge(base, relative) do
+          {:ok, target} -> {:ok, target}
+          {:error, _} = err -> err
+        end
+
+      %URI{scheme: _} ->
+        {:ok, relative}
+    end
+  end
+
+  # The URI module does not allow to merge URIs onto relative URIs. The problem
+  # is that the URI module considers URIs without host as not valid absolute
+  # URIs. The check is made on the host. For instance
+  # `"urn:uuid:deadbeef-1234-00ff-ff00-4321feebdaed"` does not have a :host, so
+  # it will fail. However it is allowed to merge fragments onto such URIs that
+  # are non hierachical (does not have "//" at the start indicating a hierachy
+  # of components such as //authorithy/path1/path2/).
+  #
+  # In this function we will check if the relative URI is only a fragment, and
+  # if so, we will fake the :host and leading slash of the base URI to let the
+  # URI module merge it.
+  #
+  # TODO this should be handled by the standard library though.
+  defp safe_uri_merge(%{host: nil} = base_uri, relative_uri) do
+    case relative_uri do
+      %URI{
+        port: nil,
+        scheme: nil,
+        path: nil,
+        host: nil,
+        userinfo: nil,
+        query: nil,
+        fragment: _fragment
+      } ->
+        # Enable this if we want to actually merge the URIs
+        #
+        #     {:ok, Map.put(base_uri, :fragment, fragment)}
+        #
+        # For now this is only used to generate an ns, to the fragment will be
+        # discarded anyway
+        {:ok, base_uri}
+
+      _ ->
+        {:error, {:invalid_uri_merge, base_uri, relative_uri}}
+    end
+  end
+
+  defp safe_uri_merge(base_uri, relative_uri) do
+    {:ok, URI.merge(base_uri, relative_uri)}
   end
 
   @doc """
   Returns the string value of the namespace, or `:root`.
   """
   @spec to_ns(t) :: binary | :root
-  def to_ns(%{uri: :root}) do
+  def to_ns(:root) do
     :root
   end
 
-  def to_ns(%{uri: uri, urn?: true}) do
-    %{host: host, path: "/" <> path} = uri
-    uri = %URI{uri | host: nil, path: host <> ":" <> path}
-    to_string_no_fragment(uri)
-  end
-
-  def to_ns(%{uri: uri}) do
+  def to_ns(uri) do
     to_string_no_fragment(uri)
   end
 

@@ -23,6 +23,30 @@ defmodule JSV.Resolver do
     codebase.
   - Returning a different schema depending on the environment, whether this is a
     good idea or not.
+
+  Custom resolvers should delegate to the #{inspect(JSV.Resolver.Internal)}
+  resolver for easy support of the internal resolution features.
+
+  ### Internal resolution
+
+  The JSV library supports exporting schemas from Elixir modules. A valid module
+  for this feature is any module that exports a `schema/0` function:
+
+      defmodule MyApp.Schemas.MySchema do
+        def schema do
+          %{"type" => "integer"}
+        end
+      end
+
+  URI references to such modules are defined by the `jsv` scheme and a
+  `module:<module to string>` path:
+
+      %{
+        "$ref" => "jsv:module:Elixir.MyApp.Schemas.MySchema"
+      }
+
+  The internal resolver will automatically call the `schema/0` function from
+  modules referenced this way in order to resolve the referenced URI.
   """
 
   defmodule Resolved do
@@ -48,7 +72,7 @@ defmodule JSV.Resolver do
   and returns a result tuple for a raw JSON schema, that is a map with binary
   keys or a boolean.
   """
-  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, raw_schema()} | {:error, term}
+  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, JSV.raw_schema()} | {:error, term}
 
   @draft_202012_vocabulary %{
     "https://json-schema.org/draft/2020-12/vocab/core" => Vocabulary.V202012.Core,
@@ -60,6 +84,7 @@ defmodule JSV.Resolver do
     "https://json-schema.org/draft/2020-12/vocab/meta-data" => Vocabulary.V202012.MetaData,
     "https://json-schema.org/draft/2020-12/vocab/unevaluated" => Vocabulary.V202012.Unevaluated
   }
+
   @draft7_vocabulary %{
     "https://json-schema.org/draft-07/--fallback--vocab/core" => Vocabulary.V7.Core,
     "https://json-schema.org/draft-07/--fallback--vocab/validation" => Vocabulary.V7.Validation,
@@ -75,9 +100,7 @@ defmodule JSV.Resolver do
 
   @vocabulary %{} |> Map.merge(@draft_202012_vocabulary) |> Map.merge(@draft7_vocabulary)
 
-  @fix_host "jsv-no-host"
-  @fix_scheme "jsv-no-scheme"
-
+  @derive {Inspect, except: [:fetch_cache]}
   defstruct mod: UnknownResolver,
             default_meta: nil,
             # fetch_cache is a local cache for the resolver instance. Actual caching of
@@ -86,7 +109,6 @@ defmodule JSV.Resolver do
             resolved: %{}
 
   @opaque t :: %__MODULE__{}
-  @type raw_schema :: map() | boolean()
   @type resolvable :: Key.ns() | Key.pointer() | Ref.t()
 
   @doc """
@@ -103,17 +125,13 @@ defmodule JSV.Resolver do
   Adds the given raw schema as a pre-resolved schema, using the `:root`
   namespace if the schema does not contain a `$id` property.
   """
-  @spec resolve_root(t, raw_schema()) :: {:ok, :root | binary, t} | {:error, term}
+  @spec resolve_root(t, JSV.raw_schema()) :: {:ok, :root | binary, t} | {:error, term}
   def resolve_root(rsv, raw_schema) when is_map(raw_schema) do
     # Bootstrap of the recursive resolving of schemas, metaschemas and
     # anchors/$ids. We just need to set the :root value in the context as the
     # $id (or `:root` atom if not set) of the top schema.
 
-    root_ns =
-      case Map.get(raw_schema, "$id", :root) do
-        :root -> :root
-        url -> ensure_uri_ns(url)
-      end
+    root_ns = Map.get(raw_schema, "$id", :root)
 
     # rsv = %__MODULE__{rsv | root: root_ns}
     ^root_ns = Key.of(root_ns)
@@ -205,8 +223,6 @@ defmodule JSV.Resolver do
     # the document does not have an id, we will force it. This is for the root
     # document only.
 
-    id = ensure_uri_ns(id)
-
     ns =
       case id do
         nil -> external_id
@@ -241,37 +257,6 @@ defmodule JSV.Resolver do
     acc = [top_descriptor]
 
     scan_map_values(top_schema, id, nss, meta, acc)
-  end
-
-  defp ensure_uri_ns(nil) do
-    nil
-  end
-
-  defp ensure_uri_ns("urn:" <> _ = urn) do
-    urn
-  end
-
-  defp ensure_uri_ns(url) do
-    uri =
-      case URI.parse(url) do
-        %{scheme: nil, host: nil} = uri -> %URI{uri | scheme: @fix_scheme, host: @fix_host}
-        %{scheme: nil} = uri -> %URI{uri | scheme: @fix_scheme}
-        %{host: nil} = uri -> %URI{uri | host: @fix_host}
-        uri -> uri
-      end
-
-    uri
-    |> fix_made_up_ns_path()
-    |> URI.to_string()
-  end
-
-  defp fix_made_up_ns_path(uri) do
-    case uri.path do
-      "" -> uri
-      "/" <> _ -> uri
-      nil -> %URI{uri | path: ""}
-      other -> %URI{uri | path: "/" <> other}
-    end
   end
 
   defp scan_subschema(raw_schema, ns, nss, meta, acc) when is_map(raw_schema) do
@@ -393,6 +378,10 @@ defmodule JSV.Resolver do
     cache_result =
       Helpers.reduce_ok(entries, cache, fn {k, v}, cache ->
         case cache do
+          # Allow a duplicate resolution that is the exact same value as the
+          # preexisting copy. This allows a root schema with an $id to reference
+          # itself with an external id such as `jsv:module:MODULE`.
+          %{^k => ^v} -> {:ok, cache}
           %{^k => _} -> {:error, {:duplicate_resolution, k}}
           _ -> {:ok, Map.put(cache, k, v)}
         end
@@ -456,7 +445,7 @@ defmodule JSV.Resolver do
     end
   end
 
-  @spec fetch_raw_schema(t, binary | {:meta, binary} | Ref.t()) :: {:ok, binary, raw_schema} | {:error, term}
+  @spec fetch_raw_schema(t, binary | {:meta, binary} | Ref.t()) :: {:ok, binary, JSV.raw_schema()} | {:error, term}
   defp fetch_raw_schema(rsv, {:meta, url}) do
     fetch_raw_schema(rsv, url)
   end
@@ -507,19 +496,25 @@ defmodule JSV.Resolver do
     end
   end
 
+  defp load_vocabularies(map, meta_id) do
+    with {:ok, vocabs} <- do_load_vocabularies(map, meta_id) do
+      {:ok, sort_vocabularies([Vocabulary.Internal | vocabs])}
+    end
+  end
+
   # This function is called for all schemas, but only metaschemas should define
   # vocabulary, so nil is a valid vocabulary map. It will not be looked up for
   # normal schemas, and old metaschemas without vocabulary should have a default
   # vocabulary in the library.
-  defp load_vocabularies(nil, @draft7_normalized_identifier = id) do
+  defp do_load_vocabularies(nil, @draft7_normalized_identifier = id) do
     load_vocabularies(@draft7_vocabulary_keyword_fallback, id)
   end
 
-  defp load_vocabularies(nil, id) do
+  defp do_load_vocabularies(nil, id) do
     {:error, {:no_vocabulary, id}}
   end
 
-  defp load_vocabularies(map, _) when is_map(map) do
+  defp do_load_vocabularies(map, _) when is_map(map) do
     known =
       Enum.flat_map(map, fn {uri, required} ->
         case Map.fetch(@vocabulary, uri) do
@@ -529,7 +524,7 @@ defmodule JSV.Resolver do
         end
       end)
 
-    {:ok, sort_vocabularies(known)}
+    {:ok, known}
   catch
     {:unknown_vocabulary, uri} -> {:error, {:unknown_vocabulary, uri}}
   end
@@ -553,7 +548,8 @@ defmodule JSV.Resolver do
   @doc """
   Returns the raw schema identified by the given key if was previously resolved.
   """
-  @spec fetch_resolved(t(), resolvable | {:meta, resolvable}) :: {:ok, Resolved.t()} | {:error, term}
+  @spec fetch_resolved(t(), resolvable | {:meta, resolvable}) ::
+          {:ok, Resolved.t() | {:alias_of, Key.t()}} | {:error, term}
   def fetch_resolved(rsv, {:pointer, _, _} = pointer) do
     fetch_pointer(rsv.resolved, pointer)
   end
@@ -563,7 +559,7 @@ defmodule JSV.Resolver do
   end
 
   defp fetch_pointer(cache, {:pointer, ns, docpath}) do
-    with {:ok, %Resolved{raw: raw, meta: meta, ns: ns, parent_ns: parent_ns}} <- fetch_local(cache, ns),
+    with {:ok, %Resolved{raw: raw, meta: meta, ns: ns, parent_ns: parent_ns}} <- fetch_local(cache, ns, :dealias),
          {:ok, [sub | _] = subs} <- fetch_docpath(raw, docpath),
          {:ok, ns, parent_ns} <- derive_docpath_ns(subs, ns, parent_ns) do
       {:ok, %Resolved{raw: sub, meta: meta, vocabularies: nil, ns: ns, parent_ns: parent_ns}}
@@ -572,9 +568,10 @@ defmodule JSV.Resolver do
     end
   end
 
-  defp fetch_local(cache, key) do
+  defp fetch_local(cache, key, aliases \\ nil) do
     case Map.fetch(cache, key) do
-      {:ok, {:alias_of, key}} -> fetch_local(cache, key)
+      {:ok, {:alias_of, key}} when aliases == :dealias -> fetch_local(cache, key)
+      {:ok, {:alias_of, key}} -> {:ok, {:alias_of, key}}
       {:ok, cached} -> {:ok, cached}
       :error -> {:error, {:unresolved, key}}
     end

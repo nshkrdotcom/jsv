@@ -81,4 +81,22 @@ defmodule JSV.AtomToolsTest do
     assert AtomTools.atom_props?(%{false: 1})
     assert AtomTools.atom_props?(%{nil: 1})
   end
+
+  test "converts modules that export schema/0 to refs" do
+    defmodule ExportsSchema do
+      @spec schema :: no_return()
+      def schema do
+        raise "will not be called"
+      end
+    end
+
+    assert %{"$ref" => "jsv:module:#{Atom.to_string(ExportsSchema)}"} == AtomTools.deatomize(ExportsSchema)
+  end
+
+  test "converts modules that do not export schema/0 to string" do
+    defmodule DoesNotExportSchema do
+    end
+
+    assert Atom.to_string(DoesNotExportSchema) == AtomTools.deatomize(DoesNotExportSchema)
+  end
 end

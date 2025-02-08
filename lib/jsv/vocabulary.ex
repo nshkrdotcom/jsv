@@ -38,7 +38,7 @@ defmodule JSV.Vocabulary do
   @callback handle_keyword(pair, acc, Builder.t(), raw_schema :: term) ::
               {:ok, acc, Builder.t()} | :ignore | {:error, term}
   @callback finalize_validators(acc) :: :ignore | collection
-  @callback validate(data, collection, Validator.context()) :: Validator.result()
+  @callback validate(data, collection, vctx :: Validator.context()) :: Validator.result()
   @callback format_error(atom, %{optional(atom) => term}, data) ::
               String.t()
               | {String.t(), [Validator.Error.t() | ErrorFormatter.annotation()]}
@@ -268,7 +268,7 @@ defmodule JSV.Vocabulary do
   Gives the sub raw schema to the builder and adds the build result in the list
   accumulator as a 2-tuple with the given `key`.
   """
-  @spec take_sub(Validator.path_segment(), Builder.raw_schema() | term, list, Builder.t()) ::
+  @spec take_sub(Validator.path_segment(), JSV.raw_schema() | term, list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, term}
   def take_sub(key, sub_raw_schema, acc, builder) when is_list(acc) do
     case Builder.build_sub(sub_raw_schema, builder) do

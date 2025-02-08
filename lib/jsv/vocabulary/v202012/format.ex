@@ -1,6 +1,6 @@
 defmodule JSV.Vocabulary.V202012.Format do
   alias JSV.Validator
-  use JSV.Vocabulary, priority: 800
+  use JSV.Vocabulary, priority: 700
 
   @moduledoc """
   Implementation for the

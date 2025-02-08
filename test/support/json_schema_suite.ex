@@ -42,7 +42,7 @@ defmodule JSV.Test.JsonSchemaSuite do
         end}
 
         JSON SCHEMA
-        #{inspect(AtomTools.fmap_atom_to_binary(json_schema), pretty: true)}
+        #{inspect(AtomTools.normalize_schema(json_schema), pretty: true)}
 
         DATA
         #{inspect(data, pretty: true)}
@@ -72,7 +72,7 @@ defmodule JSV.Test.JsonSchemaSuite do
       assert is_binary(unit.instanceLocation)
     end)
 
-    # Json encodable
+    # Ensure JSON encodable
     json_errors = JSV.Codec.format!(formatted)
 
     if opts[:print_errors] do
