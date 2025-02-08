@@ -6,8 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 Features
 
-- Added a default resolver using static schemas
 - Support module-based schemas with structs
+
+## [0.3.0] - 2025-01-08
+
+### 🚀 Features
+
+- Added a default resolver using static schemas
 
 ### 🐛 Bug Fixes
 
