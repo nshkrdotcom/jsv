@@ -24,5 +24,8 @@ _mix_format:
 _git_status:
   git status
 
-check: deps _mix_format test lint dialyzer _git_status
+readme:
+  mix run tools/readme-formats.exs --no-dump
+
+check: deps _mix_format test lint dialyzer readme _git_status
 

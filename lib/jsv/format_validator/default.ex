@@ -47,6 +47,14 @@ defmodule JSV.FormatValidator.Default do
     @formats
   end
 
+  @doc """
+  Returns the regular expression used to validate hostnames.
+  """
+  @spec hostname_regex :: Regex.t()
+  def hostname_regex do
+    @re_hostname
+  end
+
   @impl true
   def validate_cast("date-time", data) do
     case DateTime.from_iso8601(data) do

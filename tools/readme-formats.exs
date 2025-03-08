@@ -1,19 +1,19 @@
-alias JSV.Resolver.BuiltIn
+alias JSV.FormatValidator.Default
+
+abnf_req = {:abnf_parsec, "~> 2.0"}
 
 specs = %{
   "date" => %{
     input: "2020-04-22",
-    support: "Native.",
+    native: Date,
     notes: [
-      "The format is implemented with the native `Date` module.",
       "The native `Date` module supports the `YYYY-MM-DD` format only. `2024`, `2024-W50`, `2024-12` will not be valid."
     ]
   },
   "date-time" => %{
     input: "2025-01-02T00:11:23.416689Z",
-    support: "Native.",
+    native: DateTime,
     notes: [
-      "The format is implemented with the native `DateTime` module.",
       "The native `DateTime` module supports the `YYYY-MM-DD` format only for dates. `2024T...`, `2024-W50T...`, `2024-12T...` will not be valid.",
       "Decimal precision is not capped to milliseconds. `2024-12-14T23:10:00.500000001Z` will be valid."
     ]
@@ -21,6 +21,7 @@ specs = %{
   "duration" => %{
     input: "P1DT4,5S",
     support: "Requires Elixir 1.17",
+    native: Duration,
     notes: [
       "Elixir documentation states that _Only seconds may be specified with a decimal fraction, using either a comma or a full stop: P1DT4,5S_.",
       "Elixir durations accept negative values.",
@@ -38,52 +39,47 @@ specs = %{
   },
   "hostname" => %{
     input: "some-host",
-    support: "Native",
-    notes: ["Accepts numerical TLDs and single letter TLDs."]
+    native: Regex,
+    notes: [
+      "Accepts numerical TLDs and single letter TLDs.",
+      ~s[Uses this regular expression: `#{Regex.source(Default.hostname_regex())}` (<a href="https://regexper.com/##{URI.encode(Regex.source(Default.hostname_regex()))}">Regexper</a>).]
+    ]
   },
   "ipv4" => %{
     input: "127.0.0.1",
-    support: "Native",
-    notes: []
+    native: :inet
   },
   "ipv6" => %{
     input: "::1",
-    support: "Native",
-    notes: []
+    native: :inet
   },
   "iri" => %{
     input: "https://héhé.com/héhé",
-    support: {:abnf_parsec, "~> 1.0"},
-    notes: []
+    support: abnf_req
   },
   "iri-reference" => %{
     input: "//héhé",
-    support: {:abnf_parsec, "~> 1.0"},
-    notes: []
+    support: abnf_req
   },
   "json-pointer" => %{
     input: "/foo/bar/baz",
-    support: {:abnf_parsec, "~> 1.0"},
-    notes: []
+    support: abnf_req
   },
   "relative-json-pointer" => %{
     input: "0/foo/bar",
-    support: {:abnf_parsec, "~> 1.0"},
-    notes: []
+    support: abnf_req
   },
   "regex" => %{
     input: "[a-zA-Z0-9]",
-    support: "Native",
+    native: Regex,
     notes: [
-      "The format is implemented with the native `Regex` module.",
       "The `Regex` module does not follow the `ECMA-262` specification."
     ]
   },
   "time" => %{
     input: "20:20:08.378586",
-    support: "Native",
+    native: Time,
     notes: [
-      "The format is implemented with the native `Time` module.",
       "The native `Time` implementation will completely discard the time offset information. Invalid offsets will be valid.",
       "Decimal precision is not capped to milliseconds. `23:10:00.500000001` will be valid."
     ]
@@ -95,27 +91,27 @@ specs = %{
   },
   "uri" => %{
     input: "http://example.com",
-    support: ~s(Native, optionally uses `{:abnf_parsec, "~> 1.0"}`.),
+    native: URI,
+    support: "Native, optionally uses `#{inspect(abnf_req)}`.",
     notes: [
       "Without the optional dependency, the `URI` module is used and a minimum checks on hostname and scheme presence are made."
     ]
   },
   "uri-reference" => %{
     input: "/example-path",
-    support: ~s(Native, optionally uses `{:abnf_parsec, "~> 1.0"}`.),
+    native: URI,
+    support: "Native, optionally uses `#{inspect(abnf_req)}`.",
     notes: [
       "Without the optional dependency, the `URI` module will cast most non url-like strings as a `path`."
     ]
   },
   "uri-template" => %{
     input: "http://example.com/search{?query,lang}",
-    support: {:abnf_parsec, "~> 1.0"},
-    notes: []
+    support: abnf_req
   },
   "uuid" => %{
     input: "bf22824c-c8a4-11ef-9642-0fdaf117eeb9",
-    support: "Native",
-    notes: []
+    support: "Native"
   }
 }
 
@@ -123,23 +119,38 @@ generated =
   JSV.FormatValidator.Default.supported_formats()
   |> Enum.sort()
   |> Enum.map(fn format ->
-    schema = JSV.build!(%{format: format}, resolver: BuiltIn.as_default(), formats: true)
+    schema = JSV.build!(%{format: format}, formats: true)
 
-    {input, support, notes} =
+    spec =
       case Map.fetch(specs, format) do
-        {:ok, %{input: input, support: support, notes: notes}} ->
-          {input, support, notes}
+        {:ok, %{input: _} = spec} ->
+          spec
 
         _ ->
           raise ~s'''
           Add specs:
 
           ,"#{format}" => %{
-            input: ____,
-            support: ____,
-            notes: []
+          input: ____,
+          support: ____,
+
           }
           '''
+      end
+
+    %{input: input} = spec
+    notes = Map.get(spec, :notes, [])
+
+    {support, notes} =
+      case spec do
+        %{native: module, support: support} ->
+          {support, ["The format is implemented with the native `#{inspect(module)}` module." | notes]}
+
+        %{native: module} ->
+          {"Native.", ["The format is implemented with the native `#{inspect(module)}` module." | notes]}
+
+        %{support: support} ->
+          {support, notes}
       end
 
     {:ok, casted} = JSV.validate(input, schema, cast_formats: true)
@@ -152,20 +163,24 @@ generated =
 
     output =
       case casted do
-        ^input -> "`#{inspect(casted)}` (same value)"
+        ^input -> "Input value."
         _ -> "`#{inspect(casted)}`"
       end
 
-    """
-    #### #{format}
+    _wrapped =
+      """
+      #### #{format}
 
-    * **support**: #{support}
-    * **input**: `#{inspect(input)}`
-    * **output**: #{output}
-    #{Enum.map(notes, &["* ", &1, "\n"])}
-    """
-    |> tap(&IO.puts/1)
+      * **support**: #{support}
+      * **input**: `#{inspect(input)}`
+      * **output**: #{output}
+      #{Enum.map(notes, &["* ", &1, "\n"])}
+      """
   end)
+
+if "--no-dump" not in System.argv() do
+  IO.puts(generated)
+end
 
 readme_path = "README.md"
 
@@ -179,3 +194,4 @@ tag_after = "\n<!-- endblock:formats-table -->\n"
 readme = [before, tag_before, generated, tag_after, afterw]
 
 :ok = File.write!(readme_path, readme)
+IO.puts("wrote #{readme_path}")

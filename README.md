@@ -517,6 +517,7 @@ many inputs. An alternative solution will be implemented in future versions.
 * **support**: Requires Elixir 1.17
 * **input**: `"P1DT4,5S"`
 * **output**: `%Duration{day: 1, second: 4, microsecond: {500000, 1}}`
+* The format is implemented with the native `Duration` module.
 * Elixir documentation states that _Only seconds may be specified with a decimal fraction, using either a comma or a full stop: P1DT4,5S_.
 * Elixir durations accept negative values.
 * Elixir durations accept out-of-range values, for instance more than 59 minutes.
@@ -526,50 +527,54 @@ many inputs. An alternative solution will be implemented in future versions.
 
 * **support**: Requires `{:mail_address, "~> 1.0"}`.
 * **input**: `"hello@json-schema.org"`
-* **output**: `"hello@json-schema.org"` (same value)
+* **output**: Input value.
 * Support is limited by the implementation of that library.
 * The `idn-email` format is not supported out-of-the-box.
 
 #### hostname
 
-* **support**: Native
+* **support**: Native.
 * **input**: `"some-host"`
-* **output**: `"some-host"` (same value)
+* **output**: Input value.
+* The format is implemented with the native `Regex` module.
 * Accepts numerical TLDs and single letter TLDs.
+* Uses this regular expression: `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$` (<a href="https://regexper.com/#%5E(([a-zA-Z0-9]%7C[a-zA-Z0-9][a-zA-Z0-9%5C-]*[a-zA-Z0-9])%5C.)*([A-Za-z0-9]%7C[A-Za-z0-9][A-Za-z0-9%5C-]*[A-Za-z0-9])$">Regexper</a>).
 
 #### ipv4
 
-* **support**: Native
+* **support**: Native.
 * **input**: `"127.0.0.1"`
 * **output**: `{127, 0, 0, 1}`
+* The format is implemented with the native `:inet` module.
 
 #### ipv6
 
-* **support**: Native
+* **support**: Native.
 * **input**: `"::1"`
 * **output**: `{0, 0, 0, 0, 0, 0, 0, 1}`
+* The format is implemented with the native `:inet` module.
 
 #### iri
 
-* **support**: Requires `{:abnf_parsec, "~> 1.0"}`.
+* **support**: Requires `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"https://héhé.com/héhé"`
 * **output**: `%URI{scheme: "https", authority: "héhé.com", userinfo: nil, host: "héhé.com", port: 443, path: "/héhé", query: nil, fragment: nil}`
 
 #### iri-reference
 
-* **support**: Requires `{:abnf_parsec, "~> 1.0"}`.
+* **support**: Requires `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"//héhé"`
 * **output**: `%URI{scheme: nil, authority: "héhé", userinfo: nil, host: "héhé", port: nil, path: nil, query: nil, fragment: nil}`
 
 #### json-pointer
 
-* **support**: Requires `{:abnf_parsec, "~> 1.0"}`.
+* **support**: Requires `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"/foo/bar/baz"`
-* **output**: `"/foo/bar/baz"` (same value)
+* **output**: Input value.
 
 #### regex
 
-* **support**: Native
+* **support**: Native.
 * **input**: `"[a-zA-Z0-9]"`
 * **output**: `~r/[a-zA-Z0-9]/`
 * The format is implemented with the native `Regex` module.
@@ -577,13 +582,13 @@ many inputs. An alternative solution will be implemented in future versions.
 
 #### relative-json-pointer
 
-* **support**: Requires `{:abnf_parsec, "~> 1.0"}`.
+* **support**: Requires `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"0/foo/bar"`
-* **output**: `"0/foo/bar"` (same value)
+* **output**: Input value.
 
 #### time
 
-* **support**: Native
+* **support**: Native.
 * **input**: `"20:20:08.378586"`
 * **output**: `~T[20:20:08.378586]`
 * The format is implemented with the native `Time` module.
@@ -594,34 +599,36 @@ many inputs. An alternative solution will be implemented in future versions.
 
 * **support**: Native
 * **input**: `"anything"`
-* **output**: `"anything"` (same value)
+* **output**: Input value.
 * No validation or transformation is done.
 
 #### uri
 
-* **support**: Native, optionally uses `{:abnf_parsec, "~> 1.0"}`.
+* **support**: Native, optionally uses `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"http://example.com"`
 * **output**: `%URI{scheme: "http", authority: "example.com", userinfo: nil, host: "example.com", port: 80, path: nil, query: nil, fragment: nil}`
+* The format is implemented with the native `URI` module.
 * Without the optional dependency, the `URI` module is used and a minimum checks on hostname and scheme presence are made.
 
 #### uri-reference
 
-* **support**: Native, optionally uses `{:abnf_parsec, "~> 1.0"}`.
+* **support**: Native, optionally uses `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"/example-path"`
 * **output**: `%URI{scheme: nil, userinfo: nil, host: nil, port: nil, path: "/example-path", query: nil, fragment: nil}`
+* The format is implemented with the native `URI` module.
 * Without the optional dependency, the `URI` module will cast most non url-like strings as a `path`.
 
 #### uri-template
 
-* **support**: Requires `{:abnf_parsec, "~> 1.0"}`.
+* **support**: Requires `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"http://example.com/search{?query,lang}"`
-* **output**: `"http://example.com/search{?query,lang}"` (same value)
+* **output**: Input value.
 
 #### uuid
 
 * **support**: Native
 * **input**: `"bf22824c-c8a4-11ef-9642-0fdaf117eeb9"`
-* **output**: `"bf22824c-c8a4-11ef-9642-0fdaf117eeb9"` (same value)
+* **output**: Input value.
 
 
 <!-- endblock:formats-table -->
