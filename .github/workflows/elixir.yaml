@@ -41,31 +41,13 @@ jobs:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
 
-      - name: Dependencies cache
-        uses: actions/cache@v4
-        id: mix-deps-code
-        with:
-          path: deps
-          key: deps-code-${{ runner.os }}--${{ matrix.otp }}--${{ matrix.elixir }}--${{ hashFiles('mix.lock') }}
-          # For the deps code we can take from any elixir version as the code
-          # source should be the same.
-          restore-keys: |
-            deps-code-${{ runner.os }}--${{ matrix.otp }}--${{ matrix.elixir }}--${{ hashFiles('mix.lock') }}
-            deps-code-${{ runner.os }}--${{ matrix.otp }}--${{ matrix.elixir }}--
-            deps-code-${{ runner.os }}--${{ matrix.otp }}--
-            deps-code-${{ runner.os }}--
-
-      - name: Install Dependencies
-        run: |
-          mix local.rebar --force
-          mix local.hex --force
-          mix deps.get
 
       - name: Dependencies build cache
         uses: actions/cache@v4
-        id: mix-deps-build
+        id: mix-deps
         with:
           path: |
+            deps
             _build
             !_build/plts
           key: deps-build-${{ runner.os }}--${{ matrix.otp }}--${{ matrix.elixir }}--${{ hashFiles('mix.lock') }}
@@ -74,8 +56,11 @@ jobs:
             deps-build-${{ runner.os }}--${{ matrix.otp }}--${{ matrix.elixir }}--${{ hashFiles('mix.lock') }}
             deps-build-${{ runner.os }}--${{ matrix.otp }}--${{ matrix.elixir }}--
 
-      - name: Compile Dependencies
-        run: mix loadpaths
+      - name: Install Dependencies
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
 
       # Use force as we use a template config so we do not want to ignore a
       # specific directory from the cache. So we always want to compile all the
