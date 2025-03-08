@@ -1,7 +1,7 @@
 # JSV [![Hex.pm Version](https://img.shields.io/hexpm/v/jsv?color=4e2a8e)](https://hex.pm/packages/jsv) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/lud/jsv/elixir.yaml?label=CI)](https://github.com/lud/jsv/actions/workflows/elixir.yaml)
 
 
-A JSON Schema Validation library for Elixir with full support for the 2020-12
+A JSON Schema Validation library for Elixir with full support for the latest
 JSON Schema specification.
 
 
