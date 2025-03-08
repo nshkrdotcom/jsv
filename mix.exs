@@ -57,6 +57,8 @@ defmodule JSV.MixProject do
 
       # Test
       {:excoveralls, "~> 0.18", only: :test},
+      {:briefly, "~> 0.5.1", only: :test},
+      {:patch, "~> 0.15.0"},
       json_schema_test_suite()
     ]
   end
@@ -75,9 +77,7 @@ defmodule JSV.MixProject do
       main: "JSV",
       groups_for_modules: [
         Resolvers: [
-          JSV.Resolver,
-          JSV.Resolver.Embedded,
-          JSV.Resolver.Httpc
+          ~r/^JSV.Resolver/
         ],
         Build: [
           JSV.Builder,

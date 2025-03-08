@@ -23,3 +23,10 @@ defmodule MyApp.CompanySchema do
     }
   })
 end
+
+defmodule MyApp.LocalResolver do
+  require JSV
+  use JSV.Resolver.Local, source: __ENV__.file |> Path.dirname() |> Path.join("schemas")
+
+  @moduledoc false
+end

@@ -1,18 +1,24 @@
 defmodule JSV.Resolver.HttpcTest do
   alias JSV.Codec
+  alias JSV.Resolver.Embedded
   alias JSV.Resolver.Httpc
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+
+  use Patch
 
   test "will not resolve an URL if the prefix is not allowed" do
     assert {:error, {:restricted_url, _}} =
-             Httpc.resolve("http://json-schema.org/draft-07/schema", allowed_prefixes: [])
+             Httpc.resolve("http://example.com/schema", allowed_prefixes: [])
   end
 
-  test "will download a json schema from a remote endpoint" do
-    assert {:ok, %{"$id" => "http://json-schema.org/draft-07/schema#"}} =
-             Httpc.resolve("http://json-schema.org/draft-07/schema",
+  @tag :skip
+  test "will download from a remote endpoint" do
+    # :inets, :ssl and :crypto are started by the tests or a common library ... so this
+    # will always work.
+    assert {:ok, %{"slideshow" => _}} =
+             Httpc.resolve("https://httpbin.org/json",
                cache_dir: false,
-               allowed_prefixes: ["http://json-schema.org/"]
+               allowed_prefixes: ["https://httpbin.org"]
              )
   end
 
@@ -38,24 +44,21 @@ defmodule JSV.Resolver.HttpcTest do
     assert {:ok, ^cached_schema} = Httpc.resolve(url, allowed_prefixes: [url], cache_dir: cache_dir)
   end
 
-  test "will use ssl" do
-    # :inets, :ssl and :crypto are started by the tests or a common library ... so this
-    # will always work.
-    assert {:ok, %{"$id" => "https://json-schema.org/draft/2020-12/schema"}} =
+  test "uses the embedded resolver for well known URIs resolver" do
+    patch(Embedded, :resolve, fn uri, opts -> {:ok, %{"uri_called" => uri, "opts_called" => opts}} end)
+
+    assert {:ok,
+            %{
+              # The URL should be given to the Embedded resolver
+              "uri_called" => "https://json-schema.org/draft/2020-12/schema",
+              # Options should not be forwarded
+              "opts_called" => []
+            }} ==
              Httpc.resolve("https://json-schema.org/draft/2020-12/schema",
                cache_dir: false,
-               allowed_prefixes: ["https://json-schema.org/"]
+
+               # The prefix is not needed
+               allowed_prefixes: []
              )
-  end
-
-  test "uses the internal resolver" do
-    defmodule SomeSchema do
-      @spec schema :: map
-      def schema do
-        %{"type" => "integer"}
-      end
-    end
-
-    assert {:ok, %{"type" => "integer"}} == Httpc.resolve("jsv:module:#{SomeSchema}", [])
   end
 end

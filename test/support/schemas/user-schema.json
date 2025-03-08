@@ -1,0 +1,9 @@
+{
+  "$id": "myapp:user-0.0.1",
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string"
+    }
+  }
+}

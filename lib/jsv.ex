@@ -25,15 +25,21 @@ defmodule JSV do
 
   @build_opts_schema NimbleOptions.new!(
                        resolver: [
-                         type: {:or, [:atom, :mod_arg]},
-                         default: JSV.Resolver.Embedded,
+                         type: {:or, [:atom, :mod_arg, {:list, {:or, [:atom, :mod_arg]}}]},
+                         default: [],
                          doc: """
                          The `JSV.Resolver` behaviour implementation module to
                          retrieve schemas identified by an URL.
 
-                         Accepts a `module` or a `{module, options}` tuple.
+                         Accepts a `module`, a `{module, options}` tuple or a
+                         list of those forms.
+
                          The options can be any term and will be given to the
                          `resolve/2` callback of the module.
+
+                         The `JSV.Resolver.Embedded` and `JSV.Resolver.Internal`
+                         will be automatically appended to support module-based
+                         schemas and meta-schemas.
                          """
                        ],
                        default_meta: [
@@ -81,7 +87,10 @@ defmodule JSV do
   def build(raw_schema, opts) when is_map(raw_schema) when is_atom(raw_schema) do
     case NimbleOptions.validate(opts, @build_opts_schema) do
       {:ok, opts} ->
-        builder = Builder.new(opts)
+        builder =
+          opts
+          |> build_resolvers()
+          |> Builder.new()
 
         case Builder.build(builder, raw_schema) do
           {:ok, root} -> {:ok, root}
@@ -91,6 +100,20 @@ defmodule JSV do
       {:error, _} = err ->
         err
     end
+  end
+
+  defp build_resolvers(opts) do
+    {resolvers, opts} = Keyword.pop!(opts, :resolver)
+    resolvers = List.wrap(resolvers)
+    extra = [JSV.Resolver.Internal, JSV.Resolver.Embedded] -- resolvers
+
+    resolvers =
+      Enum.map(resolvers ++ extra, fn
+        {module, res_opts} -> {module, res_opts}
+        module -> {module, []}
+      end)
+
+    Keyword.put(opts, :resolvers, resolvers)
   end
 
   @doc """

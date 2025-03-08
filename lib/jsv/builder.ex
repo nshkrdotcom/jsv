@@ -27,9 +27,9 @@ defmodule JSV.Builder do
   """
   @spec new(keyword) :: t
   def new(opts) do
-    {resolver_impl, opts} = Keyword.pop!(opts, :resolver)
+    {resolver_chain, opts} = Keyword.pop!(opts, :resolvers)
     {default_meta, opts} = Keyword.pop!(opts, :default_meta)
-    resolver = Resolver.new(resolver_impl, default_meta)
+    resolver = Resolver.chain_of(resolver_chain, default_meta)
     struct!(__MODULE__, resolver: resolver, opts: opts)
   end
 

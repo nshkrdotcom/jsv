@@ -14,7 +14,6 @@ JSON Schema specification.
   - [Meta-schemas: Introduction to vocabularies](#meta-schemas-introduction-to-vocabularies)
   - [Resolvers overview](#resolvers-overview)
 - [Building schemas](#building-schemas)
-  - [Custom resolvers](#custom-resolvers)
   - [Enable or disable format validation](#enable-or-disable-format-validation)
   - [Custom build modules](#custom-build-modules)
   - [Compile-time builds](#compile-time-builds)
@@ -23,6 +22,8 @@ JSON Schema specification.
   - [Formats](#formats)
   - [Custom formats](#custom-formats)
 - [Struct schemas](#struct-schemas)
+- [Resolvers](#resolvers)
+  - [Custom resolvers](#custom-resolvers)
 - [Development](#development)
   - [Contributing](#contributing)
   - [Roadmap](#roadmap)
@@ -216,10 +217,7 @@ For convenience reasons, a resolver that can fetch from the web is provided
 (`JSV.Resolver.Httpc`) but it needs to be manually declared by users of the JSV
 library. Refer to the documentation of this module for more information.
 
-Users are encouraged to write their own resolver to benefit from HTTP libraries
-like [Req](https://github.com/wojtekmach/req) or to resolve owned schemas from
-source or local repositories. See the custom resolvers section for more
-information.
+Custom resolvers can be defined for more advanced use cases.
 
 
 ## Building schemas
@@ -236,53 +234,6 @@ default if not provided.**
 Once built, a schema is converted into a `JSV.Root`, an internal representation
 of the schema that can be used to perform validation.
 
-
-### Custom resolvers
-
-The `Httpc` resolver is here to help for common use cases, but you may need to
-resolve resources from custom locations instead of just fetching the web URL.
-
-`JSV.build/2` accepts any resolver implementation as long as it implements the
-`JSV.Resolver` behaviour. See the documentation of that behaviour for more
-information.
-
-It is also possible to delegate to that resolver. If for instance we support a
-`my-company://` custom scheme, we could define the behaviour like so:
-
-```elixir
-defmodule MyApp.SchemaResolver do
-  alias JSV.Resolver.BuiltIn
-
-  def resolve("my-company://" <> _ = url, _opts) do
-    uri = URI.parse(url)
-    schema_dir = "priv/schemas"
-    # In this example the hostname in URL is ignored
-    schema_path = Path.join(schema_dir, uri.path)
-    json_schema = File.read!(schema_path)
-    JSON.decode(json_schema)
-  end
-
-  def resolve("https://" <> _url, _opts) do
-    JSV.Resolver.BuiltIn.resolve(url,
-      allowed_prefixes: [
-        "https://json-schema.org/",
-        "https://some-friend-company/",
-        "https://some-other-provider/"
-      ]
-    )
-  end
-end
-```
-
-Of course a possible optimization would be to try the default
-`JSV.Resolver.Embedded` resolver for well known schemas instead of fetching them
-from the web.
-
-The resolver can now be used:
-
-```elixir
-JSV.build(raw_schema, resolver: MyApp.SchemaResolver)
-```
 
 ### Enable or disable format validation
 
@@ -777,6 +728,62 @@ The module can also be used in other schemas:
     owner: MyApp.UserSchema
   }
 }
+```
+
+## Resolvers
+
+The `JSV.build/2` and `JSV.build!/2` function accept a `:resolver` option that
+takes one one multiple `JSV.Resolver` implementations.
+
+JSV will try each one in order to resolve a schema by it's URI.
+
+The `JSV.Resolver.Embedded` and `JSV.Resolver.Internal` are always enabled to
+support well-known URIs like `https://json-schema.org/draft/2020-12/schema` and
+module-based structs. They are tried last unless you provide them explicitly in
+a specific order in the option.
+
+
+### Custom resolvers
+
+
+Users are encouraged to write their own resolver to support advanced use cases.
+
+To load schemas from a local directory, the `JSV.Resolver.Local` module can be _used_:
+
+```elixir
+defmodule MyApp.LocalResolver do
+  use JSV.Resolver.Local, source: [
+    "priv/schemas",
+    "priv/messaging/schemas",
+    "priv/special.schema.json"
+  ]
+end
+```
+
+To resolve schemas from the web, you can use the `JSV.Resolver.Httpc` resolver, or implement your own web fetching resolver with an HTTP library like [Req](https://hex.pm/packages/req):
+
+```elixir
+defmodule MyApp.WebResolver do
+  @behaviour JSV.Resolver
+
+  def resolve("https://" <> _ = uri, _opts) do
+    # Delegate known meta schemas to the embedded resolver
+    with {:error, {:not_embedded, _}} <- JSV.Resolver.Embedded.resolve(uri, []),
+         {:ok, %{status: 200, body: schema}} <- Req.get(uri) do
+      {:ok, schema}
+    end
+  end
+
+  def resolve(uri, _) do
+    {:error, {:not_an_https_url, uri}}
+  end
+end
+```
+
+As mentionned above, you can pass both resolvers when needed:
+
+```elixir
+root = JSV.build!(schema, resolver: [MyApp.LocalResolver, MyApp.WebResolver])
 ```
 
 ## Development

@@ -53,7 +53,8 @@ defmodule JSV.RNS do
   end
 
   defp merge(:root, relative) do
-    {:error, {:no_derivable_root_ns, URI.to_string(relative)}}
+    # Cannot merge a relative URI on :root
+    {:error, {:invalid_ns_merge, :root, URI.to_string(relative)}}
   end
 
   defp merge(base, relative) do
@@ -102,7 +103,8 @@ defmodule JSV.RNS do
         {:ok, base_uri}
 
       _ ->
-        {:error, {:invalid_uri_merge, base_uri, relative_uri}}
+        # Cannot merge onto relative uri if more than a fragment to merge
+        {:error, {:invalid_ns_merge, to_string(base_uri), to_string(relative_uri)}}
     end
   end
 

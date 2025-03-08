@@ -24,9 +24,6 @@ defmodule JSV.Resolver do
   - Returning a different schema depending on the environment, whether this is a
     good idea or not.
 
-  Custom resolvers should delegate to the #{inspect(JSV.Resolver.Internal)}
-  resolver for easy support of the internal resolution features.
-
   ### Internal resolution
 
   The JSV library supports exporting schemas from Elixir modules. A valid module
@@ -101,10 +98,11 @@ defmodule JSV.Resolver do
   @vocabulary %{} |> Map.merge(@draft_202012_vocabulary) |> Map.merge(@draft7_vocabulary)
 
   @derive {Inspect, except: [:fetch_cache]}
-  defstruct mod: UnknownResolver,
+  defstruct chain: [{UnknownResolver, []}],
             default_meta: nil,
-            # fetch_cache is a local cache for the resolver instance. Actual caching of
-            # remote resources should be done in the resolver implementation.
+            # fetch_cache is a local cache for the resolver instance. Actual
+            # caching of remote resources should be done in each resolver
+            # implementation.
             fetch_cache: %{},
             resolved: %{}
 
@@ -116,9 +114,9 @@ defmodule JSV.Resolver do
   and a default meta-schema URL to use with schemas that do not declare a
   `$schema` property.
   """
-  @spec new(module, binary) :: t
-  def new(module, default_meta) do
-    %__MODULE__{mod: module, default_meta: default_meta}
+  @spec chain_of([{module, term}], binary) :: t
+  def chain_of([_ | _] = resolvers, default_meta) do
+    %__MODULE__{chain: resolvers, default_meta: default_meta}
   end
 
   @doc """
@@ -451,29 +449,26 @@ defmodule JSV.Resolver do
   end
 
   defp fetch_raw_schema(rsv, url) when is_binary(url) do
-    call_resolver(rsv.mod, url)
+    call_chain(rsv.chain, url)
   end
 
   defp fetch_raw_schema(rsv, %Ref{ns: ns}) do
     fetch_raw_schema(rsv, ns)
   end
 
-  defp call_resolver({resolver, resolver_opts}, url) when is_atom(resolver) do
-    case resolver.resolve(url, resolver_opts) do
+  defp call_chain(chain, url) do
+    call_chain(chain, url, _err_acc = [])
+  end
+
+  defp call_chain([{module, opts} | chain], url, err_acc) do
+    case module.resolve(url, opts) do
       {:ok, resolved} -> {:ok, url, resolved}
-      {:error, reason} -> {:error, to_resolver_reason(reason)}
+      {:error, reason} -> call_chain(chain, url, [{module, reason} | err_acc])
     end
   end
 
-  defp call_resolver(resolver, url) when is_atom(resolver) do
-    case resolver.resolve(url, []) do
-      {:ok, resolved} -> {:ok, url, resolved}
-      {:error, reason} -> {:error, to_resolver_reason(reason)}
-    end
-  end
-
-  defp to_resolver_reason(reason) do
-    {:resolver_error, reason}
+  defp call_chain([], _url, err_acc) do
+    {:error, {:resolver_error, :lists.reverse(err_acc)}}
   end
 
   defp merge_id(nil, child) do

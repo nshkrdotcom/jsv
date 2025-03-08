@@ -1,5 +1,4 @@
 defmodule JSV.Resolver.Httpc do
-  alias JSV.Resolver.Internal
   require Logger
 
   @behaviour JSV.Resolver
@@ -8,8 +7,8 @@ defmodule JSV.Resolver.Httpc do
   A `JSV.Resolver` implementation that will fetch the schemas from the web with
   the help of the `:httpc` module.
 
-  This resolver must be configured when used to build a schema. It also needs a
-  proper JSON library to decode fetched schemas:
+  This resolver needs an allowed URL prefixes for URLs to download from. It also
+  needs a proper JSON library to decode fetched schemas:
 
   * From Elixir 1.18, the `JSON` module is automatically available in the
     standard library.
@@ -18,12 +17,18 @@ defmodule JSV.Resolver.Httpc do
   * JSV also supports [Poison](https://hex.pm/packages/poison) with the `"~> 6.0
     or ~> 5.0"` requirement.
 
+  Schemas known by the `JSV.Resolver.Embedded` will be fetched from that module
+  instead of being fetched from the web. Allowed prefixes are not needed for
+  those schemas.
+
   ### Options
 
   This resolver supports the following options:
 
   - `:allowed_prefixes` - This option is mandatory and contains the allowed
-    prefixes to download from.
+    prefixes to download from. For security reasons, the prefixes should contain
+    at leath the first `/` of the URI path, like `https://example.com/` instead
+    of `https://example.com`.
   - `:cache_dir` - The path of a directory to cache downloaded resources. The
     default value can be retrieved with `default_cache_dir/0` and is based on
     `System.tmp_dir!/0`. The option also accepts `false` to disable that cache.
@@ -31,10 +36,11 @@ defmodule JSV.Resolver.Httpc do
 
   ### Example
 
-      resolver_opts = [allowed_prefixes: ["https://json-schema.org/"], cache_dir: "_build/custom/dir"]
+      resolver_opts = [allowed_prefixes: ["https://my-company.org/schemas"], cache_dir: "_build/custom/dir"]
       JSV.build(schema, resolver: {JSV.Resolver.BuiltIn, resolver_opts})
 
   """
+  alias JSV.Resolver.Embedded
 
   @doc false
   # Used in scripts for development and experiments
@@ -44,28 +50,27 @@ defmodule JSV.Resolver.Httpc do
   end
 
   @impl true
-  def resolve("http://" <> _ = url, opts) do
-    allow_and_resolve(url, opts)
+  def resolve(uri, opts) do
+    case uri do
+      "https://" <> _ -> try_embedded_or_fetch(uri, opts)
+      "http://" <> _ -> try_embedded_or_fetch(uri, opts)
+      other -> {:error, {:invalid_scheme, other}}
+    end
   end
 
-  def resolve("https://" <> _ = url, opts) do
-    allow_and_resolve(url, opts)
+  defp try_embedded_or_fetch(url, opts) do
+    case Embedded.resolve(url, []) do
+      {:ok, schema} -> {:ok, schema}
+      {:error, {:not_embedded, _}} -> allow_and_fetch(url, opts)
+    end
   end
 
-  def resolve("jsv:" <> _ = uri, _opts) do
-    Internal.resolve(uri, [])
-  end
-
-  def resolve(url, _opts) do
-    {:error, {:invalid_scheme, url}}
-  end
-
-  defp allow_and_resolve(url, opts) do
+  defp allow_and_fetch(url, opts) do
     allowed_prefixes = Keyword.fetch!(opts, :allowed_prefixes)
     cache_dir = Keyword.get_lazy(opts, :cache_dir, &default_cache_dir/0)
 
     with :ok <- check_allowed(url, allowed_prefixes) do
-      do_resolve(url, make_disk_cache(url, cache_dir))
+      disk_cached_http_get(url, make_disk_cache(url, cache_dir))
     end
   end
 
@@ -75,10 +80,6 @@ defmodule JSV.Resolver.Httpc do
     else
       {:error, {:restricted_url, url}}
     end
-  end
-
-  defp do_resolve(url, disk_cache) do
-    disk_cached_http_get(url, disk_cache)
   end
 
   defp disk_cached_http_get(url, disk_cache) do

@@ -29,6 +29,10 @@ defmodule JSV.Resolver.Internal do
     e -> {:error, {:invalid_schema_module, Exception.message(e)}}
   end
 
+  def resolve(other, _) do
+    {:error, {:unsupported, other}}
+  end
+
   defp cast_to_existing_atom(module_string) do
     {:ok, String.to_existing_atom(module_string)}
   rescue
