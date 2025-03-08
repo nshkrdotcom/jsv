@@ -42,7 +42,7 @@ defmodule JSV.MixProject do
       {:nimble_options, "~> 1.0"},
 
       # Optional JSON support
-      {:jason, "~> 1.0", optional: true},
+      {:jason, "== 1.4.3", optional: true},
       {:poison, "~> 6.0 or ~> 5.0", optional: true},
 
       # Optional Formats
