@@ -306,4 +306,46 @@ defmodule JSV.ErrorFormatTest do
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
   end
+
+  test "error formatting for additionalProperties: false" do
+    schema = %{properties: %{a: %{type: :integer}}, additionalProperties: false}
+    root = JSV.build!(schema)
+
+    assert {:ok, %{"a" => 1}} = JSV.validate(%{"a" => 1}, root)
+    assert {:error, err} = JSV.validate(%{"a" => 1, "b" => 2}, root)
+
+    # In case additionalProperties is a boolean schema we want a custom message,
+    # so we must have the info in the error (boolean_schema_false: true) here:
+
+    assert %JSV.ValidationError{errors: [%JSV.Validator.Error{args: [key: "b", boolean_schema_false: true]}, _]} = err
+
+    assert %{
+             valid: false,
+             details: [
+               %{
+                 errors: [
+                   # Here is the custom message in that case
+                   %{
+                     message: message,
+                     kind: :additionalProperties
+                   }
+                 ],
+                 valid: false,
+                 schemaLocation: "",
+                 evaluationPath: "",
+                 instanceLocation: ""
+               },
+               %{
+                 errors: [%{message: "value was rejected from boolean schema: false", kind: :boolean_schema}],
+                 valid: false,
+                 schemaLocation: "/additionalProperties",
+                 evaluationPath: "/additionalProperties",
+                 instanceLocation: "/b"
+               }
+             ]
+           } =
+             JSV.normalize_error(err)
+
+    assert "additional properties are not allowed but found property 'b'" == message
+  end
 end

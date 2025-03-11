@@ -503,6 +503,11 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     {:lists.reverse(valids), :lists.reverse(invalids), vctx}
   end
 
+  # Special case for additionalProperties: false
+  defp with_property_error(vctx, data, {:additionalProperties, key, %JSV.BooleanSchema{valid?: false}, _pattern}) do
+    Validator.with_error(vctx, :additionalProperties, data, key: key, boolean_schema_false: true)
+  end
+
   defp with_property_error(vctx, data, {kind, key, _, pattern}) do
     case kind do
       :properties -> Validator.with_error(vctx, :properties, data, key: key)
@@ -573,6 +578,10 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   def format_error(:properties, %{key: key}, _) do
     "property '#{key}' did not conform to the property schema"
+  end
+
+  def format_error(:additionalProperties, %{key: key, boolean_schema_false: true}, _data) do
+    "additional properties are not allowed but found property '#{key}'"
   end
 
   def format_error(:additionalProperties, %{key: key}, _data) do
