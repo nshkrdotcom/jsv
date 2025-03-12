@@ -52,7 +52,7 @@ defmodule JSV.Resolver do
     """
 
     # TODO drop parent_ns once we do not support draft-7
-    @enforce_keys [:raw, :meta, :vocabularies, :ns, :parent_ns]
+    @enforce_keys [:raw, :meta, :vocabularies, :ns, :parent_ns, :rev_path]
     defstruct @enforce_keys
 
     @type t :: %__MODULE__{
@@ -62,6 +62,12 @@ defmodule JSV.Resolver do
             ns: binary,
             parent_ns: binary
           }
+  end
+
+  defmodule Descriptor do
+    @enforce_keys [:raw, :meta, :aliases, :ns, :parent_ns, :rev_path]
+    defstruct @enforce_keys
+    @moduledoc false
   end
 
   @doc """
@@ -251,13 +257,21 @@ defmodule JSV.Resolver do
     # If no metaschema is defined we will use the default draft as a fallback
     meta = normalize_meta(Map.get(top_schema, "$schema", default_meta))
 
-    top_descriptor = %{raw: top_schema, meta: meta, aliases: aliases, ns: ns, parent_ns: nil}
+    top_descriptor = %Descriptor{
+      raw: top_schema,
+      meta: meta,
+      aliases: aliases,
+      ns: ns,
+      parent_ns: nil,
+      rev_path: [external_id]
+    }
+
     acc = [top_descriptor]
 
-    scan_map_values(top_schema, id, nss, meta, acc)
+    scan_map_values(top_schema, id, nss, meta, [ns], acc)
   end
 
-  defp scan_subschema(raw_schema, ns, nss, meta, acc) when is_map(raw_schema) do
+  defp scan_subschema(raw_schema, ns, nss, meta, path, acc) when is_map(raw_schema) do
     # If the subschema defines an id, we will discard the current namespaces, as
     # the sibling or nested anchors will now only relate to this id
 
@@ -299,22 +313,35 @@ defmodule JSV.Resolver do
           acc
 
         aliases ->
-          descriptor = %{raw: raw_schema, meta: meta, aliases: aliases, ns: ns, parent_ns: parent_ns}
+          descriptor =
+            %Descriptor{
+              raw: raw_schema,
+              meta: meta,
+              aliases: aliases,
+              ns: ns,
+              parent_ns: parent_ns,
+              rev_path: path
+            }
+
           [descriptor | acc]
       end
 
-    scan_map_values(raw_schema, ns, nss, meta, acc)
+    scan_map_values(raw_schema, ns, nss, meta, path, acc)
   end
 
-  defp scan_subschema(scalar, _parent_id, _nss, _meta, acc)
+  defp scan_subschema(scalar, _parent_id, _nss, _meta, _path, acc)
        when is_binary(scalar)
        when is_atom(scalar)
        when is_number(scalar) do
     {:ok, acc}
   end
 
-  defp scan_subschema(list, parent_id, nss, meta, acc) when is_list(list) do
-    Helpers.reduce_ok(list, acc, fn item, acc -> scan_subschema(item, parent_id, nss, meta, acc) end)
+  defp scan_subschema(list, parent_id, nss, meta, path, acc) when is_list(list) do
+    list
+    |> Enum.with_index()
+    |> Helpers.reduce_ok(acc, fn {item, index}, acc ->
+      scan_subschema(item, parent_id, nss, meta, [index | path], acc)
+    end)
   end
 
   defp extract_keys(schema) do
@@ -339,19 +366,19 @@ defmodule JSV.Resolver do
     {id, anchor, dynamic_anchor}
   end
 
-  defp scan_map_values(schema, parent_id, nss, meta, acc) do
+  defp scan_map_values(schema, parent_id, nss, meta, path, acc) do
     Helpers.reduce_ok(schema, acc, fn
       {"properties", props}, acc when is_map(props) ->
-        scan_map_values(props, parent_id, nss, meta, acc)
+        scan_map_values(props, parent_id, nss, meta, ["properties" | path], acc)
 
       {"properties", props}, _ ->
-        raise "TODO what are those properties?: #{inspect(props)}"
+        raise "invalid properties: #{inspect(props)}"
 
       {ignored, _}, _ when ignored in ["enum", "const"] ->
         {:ok, acc}
 
-      {_k, v}, acc ->
-        scan_subschema(v, parent_id, nss, meta, acc)
+      {k, v}, acc ->
+        scan_subschema(v, parent_id, nss, meta, [k | path], acc)
     end)
   end
 
@@ -360,9 +387,10 @@ defmodule JSV.Resolver do
   end
 
   defp to_cache_entries(descriptor) do
-    %{aliases: aliases, meta: meta, raw: raw, ns: ns, parent_ns: parent_ns} = descriptor
+    %Descriptor{aliases: aliases, meta: meta, raw: raw, ns: ns, parent_ns: parent_ns, rev_path: rev_path} = descriptor
 
-    resolved = %Resolved{meta: meta, raw: raw, ns: ns, parent_ns: parent_ns, vocabularies: nil}
+    resolved =
+      %Resolved{meta: meta, raw: raw, ns: ns, parent_ns: parent_ns, vocabularies: nil, rev_path: rev_path}
 
     case aliases do
       [single] -> [{single, resolved}]
@@ -374,19 +402,28 @@ defmodule JSV.Resolver do
     %{resolved: cache} = rsv
 
     cache_result =
-      Helpers.reduce_ok(entries, cache, fn {k, v}, cache ->
+      Helpers.reduce_ok(entries, cache, fn {k, resolved}, cache ->
         case cache do
-          # Allow a duplicate resolution that is the exact same value as the
-          # preexisting copy. This allows a root schema with an $id to reference
-          # itself with an external id such as `jsv:module:MODULE`.
-          %{^k => ^v} -> {:ok, cache}
-          %{^k => _} -> {:error, {:duplicate_resolution, k}}
-          _ -> {:ok, Map.put(cache, k, v)}
+          %{^k => existing} ->
+            # Allow a duplicate resolution that is the exact same value as the
+            # preexisting copy. This allows a root schema with an $id to reference
+            # itself with an external id such as `jsv:module:MODULE`.
+            check_duplicated_cache_entry(k, resolved, existing, cache)
+
+          _ ->
+            {:ok, Map.put(cache, k, resolved)}
         end
       end)
 
     with {:ok, cache} <- cache_result do
       {:ok, %__MODULE__{rsv | resolved: cache}}
+    end
+  end
+
+  defp check_duplicated_cache_entry(k, resolved, existing, cache) do
+    case {resolved, existing} do
+      {%Resolved{raw: same}, %Resolved{raw: same}} -> {:ok, cache}
+      _ -> {:error, {:duplicate_resolution, k}}
     end
   end
 
@@ -398,7 +435,15 @@ defmodule JSV.Resolver do
 
     case load_vocabularies(vocabulary, ext_id) do
       {:ok, vocabularies} ->
-        {:ok, %Resolved{vocabularies: vocabularies, meta: nil, ns: :__meta__, parent_ns: nil, raw: :__meta__}}
+        {:ok,
+         %Resolved{
+           vocabularies: vocabularies,
+           meta: nil,
+           ns: :__meta__,
+           parent_ns: nil,
+           raw: :__meta__,
+           rev_path: [ext_id]
+         }}
 
       {:error, _} = err ->
         err
@@ -554,10 +599,19 @@ defmodule JSV.Resolver do
   end
 
   defp fetch_pointer(cache, {:pointer, ns, docpath}) do
-    with {:ok, %Resolved{raw: raw, meta: meta, ns: ns, parent_ns: parent_ns}} <- fetch_local(cache, ns, :dealias),
-         {:ok, [sub | _] = subs} <- fetch_docpath(raw, docpath),
-         {:ok, ns, parent_ns} <- derive_docpath_ns(subs, ns, parent_ns) do
-      {:ok, %Resolved{raw: sub, meta: meta, vocabularies: nil, ns: ns, parent_ns: parent_ns}}
+    with {:ok, %Resolved{raw: raw, meta: meta, ns: ns, parent_ns: parent_ns, rev_path: rev_path}} <-
+           fetch_local(cache, ns, :dealias),
+         {:ok, [sub | _] = parent_chain} <- fetch_docpath(raw, docpath),
+         {:ok, ns, parent_ns} <- derive_docpath_ns(parent_chain, ns, parent_ns) do
+      {:ok,
+       %Resolved{
+         raw: sub,
+         meta: meta,
+         vocabularies: nil,
+         ns: ns,
+         parent_ns: parent_ns,
+         rev_path: :lists.reverse(docpath, rev_path)
+       }}
     else
       {:error, _} = err -> err
     end
@@ -579,6 +633,12 @@ defmodule JSV.Resolver do
     end
   end
 
+  # When fetching a docpath we will create a list of all parents up to the
+  # fetched subschema. The top parent is the last item in the list, the fetched
+  # subschema is the head.
+  #
+  # TODO This is to support Draft 7 to define the correct NS for the subschema.
+  # We can remove that list building once Draft 7 is not supported anymore.
   defp do_fetch_docpath(list, [h | t], parents) when is_list(list) and is_integer(h) do
     with {:ok, item} <- Enum.fetch(list, h) do
       do_fetch_docpath(item, t, [list | parents])
@@ -595,7 +655,8 @@ defmodule JSV.Resolver do
     {:ok, [raw_schema | parents]}
   end
 
-  # TODO remove  derive_docpath_ns/3, this is only to support Draft7
+  # TODO remove derive_docpath_ns/3, this is only to support Draft7 where we
+  # must keep the parent_ns around in a %Resolved{}
   defp derive_docpath_ns([%{"$id" => id} | [_ | _] = tail], parent_ns, parent_parent_ns) do
     # Recursion first to go back to the top schema of the docpath
     with {:ok, parent_ns, _parent_parent_ns} <- derive_docpath_ns(tail, parent_ns, parent_parent_ns),

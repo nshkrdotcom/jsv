@@ -50,147 +50,32 @@ defmodule JSV.ErrorFormatter do
   defp normalize_errors(errors, opts) do
     errors
     |> Enum.group_by(fn
-      %Error{data_path: dp, eval_path: ep} -> {dp, ep}
-      %{valid: _, instanceLocation: _, evaluationPath: _, schemaLocation: _} = unit -> unit
+      %Error{data_path: dp, eval_path: ep, schema_path: sp} -> {dp, ep, sp}
+      %{valid: _, instanceLocation: _, evaluationPath: _, schemaLocation: _} = already_normalized -> already_normalized
     end)
     |> Enum.map(fn
-      {{data_path, eval_path}, errors} -> build_unit(data_path, eval_path, errors, opts)
-      {unit, [unit]} -> unit
+      {{data_path, eval_path, schema_path}, errors} -> error_annot(data_path, eval_path, schema_path, errors, opts)
+      {already_normalized, [already_normalized]} -> already_normalized
     end)
     |> Enum.sort_by(& &1.schemaLocation)
   end
 
-  defp build_unit(data_path, rev_eval_path, errors, opts) do
-    {absolute_location, keyword_location} = format_keyword_paths(rev_eval_path)
-
+  defp error_annot(rev_data_path, rev_eval_path, rev_schema_path, errors, opts) do
     errors_fmt = Enum.map(errors, &build_error(&1, opts))
 
     %{
       valid: false,
       errors: errors_fmt,
-      instanceLocation: format_data_path(data_path),
-      evaluationPath: keyword_location,
-      schemaLocation: absolute_location
+      instanceLocation: format_data_path(rev_data_path),
+      evaluationPath: format_eval_path(rev_eval_path),
+      schemaLocation: format_schema_path(rev_schema_path)
     }
-  end
-
-  @spec format_data_path(raw_path) :: String.t()
-  def format_data_path([]) do
-    ""
-  end
-
-  def format_data_path(rev_data_path) do
-    "/" <>
-      (rev_data_path
-       |> :lists.reverse()
-       |> Enum.map_join("/", fn
-         index when is_integer(index) -> Integer.to_string(index)
-         key -> Ref.escape_json_pointer(key)
-       end))
-  end
-
-  defp format_keyword_paths([]) do
-    {"", ""}
-  end
-
-  defp format_keyword_paths(eval_path) do
-    flat_path = flatten_path(eval_path)
-
-    absolute_path =
-      flat_path
-      |> take_last_abs_path_segments([])
-      |> format_path()
-
-    schema_path = flat_path_to_schema_path(flat_path)
-
-    {absolute_path, schema_path}
-  end
-
-  @doc false
-  @spec format_schema_path(raw_path) :: String.t()
-  def format_schema_path(eval_path) do
-    flat_path = flatten_path(eval_path)
-
-    flat_path_to_schema_path(flat_path)
-  end
-
-  defp flat_path_to_schema_path(flat_path) do
-    flat_path
-    |> take_eval_path_segments([])
-    |> format_path()
-  end
-
-  # eval path is built in reverse while iterating the schemas by consing to the
-  # list. But for convenience, adding multiple items to the list is done by
-  # keeping them ordered. For instance, we are consing ["properties","foo"] and
-  # not ["foo","properties"].
-  #
-  # Here we need to flatten the list on only one level while reversing the
-  # sublists. The overall list is _not_ reversed.
-  defp flatten_path(list) do
-    case list do
-      [h | t] when is_list(h) -> :lists.reverse(h, flatten_path(t))
-      [h | t] -> [h | flatten_path(t)]
-      [] -> []
-    end
-  end
-
-  defp take_last_abs_path_segments(list, acc) do
-    case list do
-      [h | t] when is_integer(h) when is_atom(h) when is_binary(h) -> take_last_abs_path_segments(t, [h | acc])
-      # stop at the first scope changing element
-      [{:ref, _, _} = ref | _] -> [{:abs, ref} | acc]
-      [{:alias_of, ns} | _] -> [{:abs, ns} | acc]
-      [] -> acc
-    end
-  end
-
-  defp take_eval_path_segments(list, acc) do
-    case list do
-      [h | t] when is_integer(h) when is_atom(h) when is_binary(h) -> take_eval_path_segments(t, [h | acc])
-      # # stop at the first scope changing element
-      [{:ref, keyword, _} | t] -> take_eval_path_segments(t, [keyword | acc])
-      [{:alias_of, _} | t] -> take_eval_path_segments(t, acc)
-      [] -> acc
-    end
-  end
-
-  defp format_path(items) do
-    items
-    |> Enum.map(fn
-      {:abs, _} = item -> format_path_segment(item)
-      item -> ["/", format_path_segment(item)]
-    end)
-    |> IO.iodata_to_binary()
-  end
-
-  defp format_path_segment(item) do
-    case item do
-      atom when is_atom(atom) -> Atom.to_string(atom)
-      key when is_binary(key) -> Ref.escape_json_pointer(key)
-      index when is_integer(index) -> Integer.to_string(index)
-      {:abs, path_origin} -> format_origin(path_origin)
-      other -> raise "invalid eval path segment: #{inspect(other)}"
-    end
-  end
-
-  defp format_origin(binary) when is_binary(binary) do
-    binary
-  end
-
-  defp format_origin({:ref, _, ref}) do
-    Key.to_iodata(ref)
-  end
-
-  defp format_origin(key) do
-    Key.to_iodata(key)
   end
 
   defp build_error(error, opts) do
     %Error{kind: kind, data: data, formatter: formatter, args: args} =
       error
 
-    formatter = formatter || Error
     args_map = Map.new(args)
 
     case formatter.format_error(kind, args_map, data) do
@@ -211,15 +96,85 @@ defmodule JSV.ErrorFormatter do
   nested details of an error. Mostly used to show multiple validated schemas
   with `:oneOf`.
   """
-  @spec valid_unit(Validator.context()) :: annotation
-  def valid_unit(vctx) do
-    {absolute_location, keyword_location} = format_keyword_paths(vctx.eval_path)
+  @spec valid_annot(Validator.validator(), Validator.context()) :: annotation
+
+  def valid_annot(subschema, vctx) do
+    evaluation_path = format_eval_path(vctx.eval_path)
 
     %{
       valid: true,
       instanceLocation: format_data_path(vctx.data_path),
-      evaluationPath: keyword_location,
-      schemaLocation: absolute_location
+      evaluationPath: evaluation_path,
+      schemaLocation: format_schema_path(subschema)
     }
+  end
+
+  @spec format_data_path(raw_path) :: String.t()
+  def format_data_path([]) do
+    "#"
+  end
+
+  def format_data_path(rev_data_path) do
+    iodata =
+      List.foldl(rev_data_path, [], fn
+        index, acc when is_integer(index) -> [?/, Integer.to_string(index) | acc]
+        key, acc -> [?/, Ref.escape_json_pointer(key) | acc]
+      end)
+
+    IO.iodata_to_binary(["#" | iodata])
+  end
+
+  defp format_eval_path([]) do
+    "#"
+  end
+
+  defp format_eval_path(rev_eval_path) do
+    # map to string but also reverse the path
+    iodata = List.foldl(rev_eval_path, [], fn segment, acc -> [?/, format_eval_path_segment(segment) | acc] end)
+    IO.iodata_to_binary(["#" | iodata])
+  end
+
+  # defp format_schema_path([]) do
+  #   "#"
+  # end
+
+  defp format_schema_path(rev_path) when is_list(rev_path) do
+    format_schema_path(rev_path, [])
+  end
+
+  defp format_schema_path({:alias_of, key}) do
+    [Key.to_iodata(key)]
+  end
+
+  defp format_schema_path(%{schema_path: sp}) do
+    format_schema_path(sp)
+  end
+
+  defp format_schema_path([segment, next | rev_path], acc) do
+    format_schema_path([next | rev_path], [?/, format_eval_path_segment(segment) | acc])
+  end
+
+  defp format_schema_path([last], acc) do
+    final_path =
+      case last do
+        :root -> IO.iodata_to_binary(["#" | acc])
+        id when is_binary(id) -> [id, "#" | acc]
+      end
+
+    IO.iodata_to_binary(final_path)
+  end
+
+  defp format_eval_path_segment(item) do
+    case item do
+      atom when is_atom(atom) -> Atom.to_string(atom)
+      key when is_binary(key) -> key
+      index when is_integer(index) -> Integer.to_string(index)
+      # {tag, atom} when is_atom(atom) -> [Atom.to_string(tag), ?/, Atom.to_string(atom)]
+      {tag, key} when is_binary(key) -> [Atom.to_string(tag), ?/, Ref.escape_json_pointer(key)]
+      {tag, index} when is_integer(index) -> [Atom.to_string(tag), ?/, Integer.to_string(index)]
+      {_, :"$ref", _} -> "$ref"
+      {_, :"$dynamicRef", _} -> "$dynamicRef"
+      other -> raise "invalid eval path segment: #{inspect(other)}"
+    end
   end
 end

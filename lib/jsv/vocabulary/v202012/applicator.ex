@@ -28,7 +28,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
           k
         end
 
-      case Builder.build_sub(pschema, builder) do
+      case Builder.build_sub(pschema, [properties: k], builder) do
         {:ok, subvalidators, builder} -> {:ok, {Map.put(acc, k, subvalidators), builder}}
         {:error, _} = err -> err
       end
@@ -47,7 +47,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     pattern_properties
     |> Helpers.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
       with {:ok, re} <- Regex.compile(k),
-           {:ok, subvalidators, builder} <- Builder.build_sub(pschema, builder) do
+           {:ok, subvalidators, builder} <- Builder.build_sub(pschema, [patternProperties: k], builder) do
         {:ok, {Map.put(acc, {k, re}, subvalidators), builder}}
       end
     end)
@@ -62,28 +62,28 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   end
 
   take_keyword :prefixItems, prefix_items when is_list(prefix_items), acc, builder, _ do
-    case build_sub_list(prefix_items, builder) do
+    case build_sub_list(:prefixItems, prefix_items, builder) do
       {:ok, subvalidators, builder} -> {:ok, [{:prefixItems, subvalidators} | acc], builder}
       {:error, _} = err -> err
     end
   end
 
   take_keyword :allOf, [_ | _] = all_of, acc, builder, _ do
-    case build_sub_list(all_of, builder) do
+    case build_sub_list(:allOf, all_of, builder) do
       {:ok, subvalidators, builder} -> {:ok, [{:allOf, subvalidators} | acc], builder}
       {:error, _} = err -> err
     end
   end
 
   take_keyword :anyOf, [_ | _] = any_of, acc, builder, _ do
-    case build_sub_list(any_of, builder) do
+    case build_sub_list(:anyOf, any_of, builder) do
       {:ok, subvalidators, builder} -> {:ok, [{:anyOf, subvalidators} | acc], builder}
       {:error, _} = err -> err
     end
   end
 
   take_keyword :oneOf, [_ | _] = one_of, acc, builder, _ do
-    case build_sub_list(one_of, builder) do
+    case build_sub_list(:oneOf, one_of, builder) do
       {:ok, subvalidators, builder} -> {:ok, [{:oneOf, subvalidators} | acc], builder}
       {:error, _} = err -> err
     end
@@ -128,7 +128,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   take_keyword :dependentSchemas, dependent_schemas when is_map(dependent_schemas), acc, builder, _ do
     dependent_schemas
     |> Helpers.reduce_ok({%{}, builder}, fn {k, depschema}, {acc, builder} ->
-      case Builder.build_sub(depschema, builder) do
+      case Builder.build_sub(depschema, [k], builder) do
         {:ok, subvalidators, builder} -> {:ok, {Map.put(acc, k, subvalidators), builder}}
         {:error, _} = err -> err
       end
@@ -165,10 +165,12 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   # ---------------------------------------------------------------------------
 
-  defp build_sub_list(subschemas, builder) do
+  defp build_sub_list(keyword, subschemas, builder) do
     subs =
-      Helpers.reduce_ok(subschemas, {[], builder}, fn subschema, {acc, builder} ->
-        case Builder.build_sub(subschema, builder) do
+      subschemas
+      |> Enum.with_index()
+      |> Helpers.reduce_ok({[], builder}, fn {subschema, index}, {acc, builder} ->
+        case Builder.build_sub(subschema, [path_segment(keyword, index)], builder) do
           {:ok, subvalidators, builder} -> {:ok, {[subvalidators | acc], builder}}
           {:error, _} = err -> err
         end
@@ -304,7 +306,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
     Validator.reduce(all_validations, data, vctx, fn
       {kind, key, subschema, pattern} = propcase, data, vctx ->
-        eval_path = eval_path(kind, pattern || key)
+        eval_path = path_segment(kind, pattern || key)
 
         case Validator.validate_in(Map.fetch!(data, key), key, eval_path, subschema, vctx) do
           {:ok, casted, vctx} -> {:ok, Map.put(data, key, casted), vctx}
@@ -339,29 +341,31 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   pass validate_keyword({:jsv@array, _})
 
-  def validate_keyword({:oneOf, subvalidators}, data, vctx) do
-    case validate_split(subvalidators, :oneOf, data, vctx) do
-      {[{_, data, _detached_vctx}], _, vctx} ->
+  def validate_keyword({:oneOf, subschemas}, data, vctx) do
+    case validate_split(subschemas, :oneOf, data, vctx) do
+      {[{_, data, _subschema_, _detached_vctx}], _, vctx} ->
         {:ok, data, vctx}
 
       {[], _, _} ->
         # TODO compute branch error of all invalid
         {:error, Validator.with_error(vctx, :oneOf, data, validated: [])}
 
-      {[_ | _] = too_much, _, _} ->
-        validated = Enum.map(too_much, fn {index, _, vctx} -> {index, vctx} end)
+      # with oneOf we also return the subschema so we can compute the
+      # schemaLocation of the extra validated subschemas
+      {[_, _ | _] = too_much, _, _} ->
+        validated = Enum.map(too_much, fn {index, _, subschema, vctx} -> {index, subschema, vctx} end)
 
         {:error, Validator.with_error(vctx, :oneOf, data, validated: validated)}
     end
   end
 
-  def validate_keyword({:anyOf, subvalidators}, data, vctx) do
+  def validate_keyword({:anyOf, subschemas}, data, vctx) do
     # TODO return early once we validate at least one schema. There is no need
     # to continue validation afterwards.
-    case validate_split(subvalidators, :anyOf, data, vctx) do
+    case validate_split(subschemas, :anyOf, data, vctx) do
       # If multiple schemas validate the data, we take the casted value of the
       # first one, arbitrarily.
-      {[{_, data, _detached_vctx} | _], _, vctx} ->
+      {[{_, data, _subschema, _detached_vctx} | _], _, vctx} ->
         {:ok, data, vctx}
 
       {[], invalids, vctx} ->
@@ -369,12 +373,12 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     end
   end
 
-  def validate_keyword({:allOf, subvalidators}, data, vctx) do
-    case validate_split(subvalidators, :allOf, data, vctx) do
+  def validate_keyword({:allOf, subschemas}, data, vctx) do
+    case validate_split(subschemas, :allOf, data, vctx) do
       # If multiple schemas validate the data, we take the casted value of the
-      # first one, arbitrarily.
-      # TODO merge evaluated
-      {[{_, data, _detached_vctx} | _], [], vctx} ->
+      # first one, arbitrarily. TODO if multiple casts are applied we should use
+      # that data recursively.
+      {[{_, data, _subschema_, _detached_vctx} | _], [], vctx} ->
         {:ok, data, vctx}
 
       {_, invalids, vctx} ->
@@ -385,8 +389,11 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   def validate_keyword({:jsv@if, {if_vds, then_vds, else_vds}}, data, vctx) do
     {to_validate, vctx, eval_path, meta} =
       case Validator.validate_detach(data, "if", if_vds, vctx) do
-        {:ok, _, ok_vctx} -> {then_vds, Validator.merge_evaluated(vctx, ok_vctx), "then", if_ok: ok_vctx}
-        {:error, err_vctx} -> {else_vds, vctx, "else", if_err: err_vctx}
+        {:ok, _, ok_vctx} ->
+          {then_vds, Validator.merge_evaluated(vctx, ok_vctx), "then", ok_if_vctx: ok_vctx, ok_if_subschema: if_vds}
+
+        {:error, err_vctx} ->
+          {else_vds, vctx, "else", err_if_vctx: err_vctx}
       end
 
     case to_validate do
@@ -395,8 +402,11 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
       sub ->
         case Validator.validate_detach(data, eval_path, sub, vctx) do
-          {:ok, data, ok_vctx} -> {:ok, data, Validator.merge_evaluated(vctx, ok_vctx)}
-          {:error, err_vctx} -> {:error, Validator.with_error(vctx, :jsv@if, data, [{:after_err, err_vctx} | meta])}
+          {:ok, data, ok_vctx} ->
+            {:ok, data, Validator.merge_evaluated(vctx, ok_vctx)}
+
+          {:error, err_vctx} ->
+            {:error, Validator.with_error(vctx, :jsv@if, data, [{:after_err_vctx, err_vctx} | meta])}
         end
     end
   end
@@ -469,31 +479,40 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   # ---------------------------------------------------------------------------
 
-  defp eval_path(kind, arg) do
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  defp path_segment(kind, arg) do
     case kind do
-      :prefixItems -> [:prefixItems, arg]
+      #
+      # use the argument
+      :prefixItems -> {:prefixItems, arg}
+      :properties -> {:properties, arg}
+      :anyOf -> {:anyOf, arg}
+      :allOf -> {:allOf, arg}
+      :oneOf -> {:oneOf, arg}
+      :patternProperties -> {:patternProperties, arg}
+      #
+      # no need for the argument
       :items -> :items
-      :properties -> [:properties, arg]
       :additionalProperties -> :additionalProperties
-      :patternProperties -> [:patternProperties, arg]
+      #
       # Draft 7 support
-      :items_as_prefix -> [:items, arg]
+      :items_as_prefix -> {:items, arg}
       :additionalItems -> :additionalItems
     end
   end
 
-  defp validate_split(validators, kind, data, vctx) do
+  defp validate_split(subschemas, kind, data, vctx) do
     # TODO return vctx for each matched or unmatched schema, do not return a
     # global vctx
     {valids, invalids, vctx, _} =
-      Enum.reduce(validators, {[], [], vctx, _index = 0}, fn subvalidator, {valids, invalids, vctx, index} ->
-        case Validator.validate_detach(data, [kind, index], subvalidator, vctx) do
+      Enum.reduce(subschemas, {[], [], vctx, _index = 0}, fn subschema, {valids, invalids, vctx, index} ->
+        case Validator.validate_detach(data, {kind, index}, subschema, vctx) do
           {:ok, data, detached_vctx} ->
             # Valid subschemas must produce "annotations" for the data they
             # validate. For us it means that we merge the evaluated properties
             # for successful schemas.
             vctx = Validator.merge_evaluated(vctx, detached_vctx)
-            {[{index, data, detached_vctx} | valids], invalids, vctx, index + 1}
+            {[{index, data, subschema, detached_vctx} | valids], invalids, vctx, index + 1}
 
           {:error, err_vctx} ->
             {valids, [{index, err_vctx} | invalids], vctx, index + 1}
@@ -534,7 +553,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
           {[data_item | casted], vctx}
 
         {kind, index, data_item, subschema}, {casted, vctx} ->
-          eval_path = eval_path(kind, index)
+          eval_path = path_segment(kind, index)
 
           case Validator.validate_in(data_item, index, eval_path, subschema, vctx) do
             {:ok, casted_item, vctx} ->
@@ -599,7 +618,10 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   def format_error(:oneOf, %{validated: validated}, _data) do
     # Best effort for now, we are not accumulating annotations for valid data,
     # so we only return the paths of the multiples schemas that were validated
-    validated = Enum.map(validated, fn {_index, vctx} -> ErrorFormatter.valid_unit(vctx) end)
+    validated =
+      Enum.map(validated, fn {_index, subschema, vctx} ->
+        ErrorFormatter.valid_annot(subschema, vctx)
+      end)
 
     # {"value did conform to more than one of the given schemas", %{validated: validated}}
     {"value did conform to more than one of the given schemas", validated}
@@ -623,13 +645,13 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   def format_error(:jsv@if, meta, _data) do
     case meta do
-      %{if_ok: if_ok, after_err: then_err} ->
+      %{ok_if_subschema: if_schema, ok_if_vctx: ok_if_vctx, after_err_vctx: then_err} ->
         {:"if/then", "value validated 'if' but not 'then'",
-         [ErrorFormatter.valid_unit(if_ok)] ++ Validator.flat_errors(then_err)}
+         [ErrorFormatter.valid_annot(if_schema, ok_if_vctx)] ++ Validator.flat_errors(then_err)}
 
-      %{if_err: if_err, after_err: else_err} ->
+      %{err_if_vctx: err_if_vctx, after_err_vctx: else_err} ->
         {:"if/else", "value validated neither 'if' nor 'else'",
-         Validator.flat_errors(if_err) ++ Validator.flat_errors(else_err)}
+         Validator.flat_errors(err_if_vctx) ++ Validator.flat_errors(else_err)}
     end
   end
 

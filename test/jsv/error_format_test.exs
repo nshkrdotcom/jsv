@@ -26,6 +26,64 @@ defmodule JSV.ErrorFormatTest do
     end
   end
 
+  defmacrop assert_match_error(err, pattern) do
+    as_string = Macro.to_string(pattern)
+
+    quote do
+      try do
+        matcher = &match?(unquote(pattern), &1)
+        err = unquote(err)
+
+        deep_match_error(err, matcher)
+
+        raise """
+        could not find matching error
+
+        PATTERN
+        #{unquote(as_string)}
+
+        ERRORS
+        #{inspect(err, pretty: true)}
+        """
+      catch
+        :throw, {:found_error, e} -> e
+      end
+    end
+  end
+
+  defp deep_match_error(map, matcher) when is_map(map) do
+    if matcher.(map) do
+      throw({:found_error, map})
+    else
+      Enum.each(map, fn {_, v} -> deep_match_error(v, matcher) end)
+    end
+  end
+
+  defp deep_match_error(list, matcher) when is_list(list) do
+    Enum.each(list, &deep_match_error(&1, matcher))
+  end
+
+  defp deep_match_error({_, v}, matcher) do
+    deep_match_error(v, matcher)
+  end
+
+  defp deep_match_error(_, _matcher) do
+    :nope
+  end
+
+  # defp prune_error(term) do
+  #   case term do
+  #     %JSV.Validator.ValidationContext{} -> "__CONTEXT__"
+  #     %s{} = struct -> Map.put(prune_error(Map.from_struct(struct)), :__struct__, s)
+  #     map when is_map(map) -> Map.new(map, fn {k, v} -> {prune_error(k), prune_error(v)} end)
+  #     list when is_list(list) -> Enum.map(list, &prune_error/1)
+  #     tuple when is_tuple(tuple) -> tuple |> Tuple.to_list() |> prune_error() |> List.to_tuple()
+  #     atom when is_atom(atom) -> atom
+  #     binary when is_binary(binary) -> binary
+  #     number when is_number(number) -> number
+  #   end
+  # end
+
   @error_output_schema %Schema{
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "jsv://error-output",
@@ -169,6 +227,15 @@ defmodule JSV.ErrorFormatTest do
 
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
+
+    assert_match_error(formatted_error, %{
+      schemaLocation: "https://example.com/anyOfExample#/properties/a/properties/b/properties/foo/anyOf/0"
+    })
+
+    assert_match_error(formatted_error, %{
+      schemaLocation:
+        "https://example.com/anyOfExample#/properties/a/properties/b/properties/foo/anyOf/1/properties/bar"
+    })
   end
 
   test "error formatting for not all of allOf" do
@@ -176,7 +243,7 @@ defmodule JSV.ErrorFormatTest do
       build_schema!(
         Codec.decode!(~S"""
         {
-          "$id": "https://example.com/anyOfExample",
+          "$id": "https://example.com/allOfExample",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "properties": {
             "foo": {
@@ -208,6 +275,17 @@ defmodule JSV.ErrorFormatTest do
 
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
+
+    assert_match_error(formatted_error, %{
+      schemaLocation: "https://example.com/allOfExample#/properties/foo/allOf/1/properties/baz"
+    })
+
+    assert_match_error(formatted_error, %{
+      schemaLocation: "https://example.com/allOfExample#/properties/foo/allOf/2",
+      errors: [
+        %{message: "property 'qux' is required", kind: :required}
+      ]
+    })
   end
 
   test "error formatting for more than one of oneOf" do
@@ -215,7 +293,7 @@ defmodule JSV.ErrorFormatTest do
       build_schema!(
         Codec.decode!(~S"""
         {
-          "$id": "https://example.com/anyOfExample",
+          "$id": "https://example.com/oneOfExample",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "properties": {
             "foo": {
@@ -247,6 +325,16 @@ defmodule JSV.ErrorFormatTest do
     formatted_error = JSV.normalize_error(validation_error)
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
+
+    assert_match_error(formatted_error, %{
+      valid: true,
+      schemaLocation: "https://example.com/oneOfExample#/properties/foo/oneOf/0"
+    })
+
+    assert_match_error(formatted_error, %{
+      valid: true,
+      schemaLocation: "https://example.com/oneOfExample#/properties/foo/oneOf/2"
+    })
   end
 
   test "error formatting for if / else" do
@@ -298,6 +386,16 @@ defmodule JSV.ErrorFormatTest do
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
 
+    assert_match_error(formatted_error, %{
+      schemaLocation: "#/then",
+      errors: [
+        %{
+          message: "property 'driverLicense' is required",
+          kind: :required
+        }
+      ]
+    })
+
     # does not validate 'if' nor 'else'
 
     invalid_data = %{"age" => 12, "guardianName" => 123}
@@ -305,6 +403,8 @@ defmodule JSV.ErrorFormatTest do
     formatted_error = JSV.normalize_error(validation_error)
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
+    assert_match_error(formatted_error, %{schemaLocation: "#/if/properties/age"})
+    assert_match_error(formatted_error, %{schemaLocation: "#/else/properties/guardianName"})
   end
 
   test "error formatting for additionalProperties: false" do
@@ -331,21 +431,150 @@ defmodule JSV.ErrorFormatTest do
                    }
                  ],
                  valid: false,
-                 schemaLocation: "",
-                 evaluationPath: "",
-                 instanceLocation: ""
+                 schemaLocation: "#",
+                 evaluationPath: "#",
+                 instanceLocation: "#"
                },
                %{
                  errors: [%{message: "value was rejected from boolean schema: false", kind: :boolean_schema}],
                  valid: false,
-                 schemaLocation: "/additionalProperties",
-                 evaluationPath: "/additionalProperties",
-                 instanceLocation: "/b"
+                 schemaLocation: "#/additionalProperties",
+                 evaluationPath: "#/additionalProperties",
+                 instanceLocation: "#/b"
                }
              ]
            } =
              JSV.normalize_error(err)
 
     assert "additional properties are not allowed but found property 'b'" == message
+  end
+
+  test "dynamic anchor schema location" do
+    # In case of a dynamic ref/anchor, the schema location on the error should
+    # be correct and tell which anchor was used
+
+    schema = %{
+      "$schema" => "https://json-schema.org/draft/2020-12/schema",
+      "$id" => "https://some-id/somepath",
+      "$ref" => "list",
+      "$defs" => %{
+        "foo" => %{"$dynamicAnchor" => "items", "type" => "integer"},
+        "list" => %{
+          "$id" => "list",
+          "$defs" => %{
+            "items" => %{
+              "$dynamicAnchor" => "items",
+              "$comment" => "This is only needed to satisfy the bookending requirement"
+            }
+          },
+          "type" => "array",
+          "items" => %{"$dynamicRef" => "#items"}
+        }
+      }
+    }
+
+    root = JSV.build!(schema)
+
+    data = [123, "not an integer"]
+
+    assert {:error, err} = JSV.validate(data, root)
+    formatted_error = JSV.normalize_error(err)
+
+    # The schema location should be in the correct anchor definition
+    assert_match_error(formatted_error, %{schemaLocation: "https://some-id/somepath#/$defs/foo"})
+  end
+
+  test "schema location on referenced schema" do
+    defmodule OtherResolver do
+      @behaviour JSV.Resolver
+
+      @impl true
+      def resolve("other:hello", _) do
+        {:ok, %{"properties" => %{"b" => %{"type" => "integer"}}}}
+      end
+
+      def resolve(_, _) do
+        {:error, :unknown}
+      end
+    end
+
+    schema = %{"properties" => %{"a" => %{"$ref" => "other:hello"}}}
+    root = JSV.build!(schema, resolver: OtherResolver)
+    data = %{"a" => %{"b" => "not an integer"}}
+    assert {:error, err} = JSV.validate(data, root)
+    formatted_error = JSV.normalize_error(err)
+    # The schema location should be in the correct anchor definition
+    assert_match_error(formatted_error, %{
+      errors: [%{message: "value is not of type integer", kind: :type}],
+      valid: false,
+      schemaLocation: "other:hello#/properties/b",
+      evaluationPath: "#/properties/a/$ref/properties/b",
+      instanceLocation: "#/a/b"
+    })
+  end
+
+  test "inner reference should not have relative id before '#'" do
+    schema = %{
+      "$id" => "https://some/base",
+      "$ref" => "extended",
+      "$defs" => %{
+        "foo" => %{
+          "$id" => "extended",
+          "type" => "integer"
+        }
+      }
+    }
+
+    root = JSV.build!(schema)
+    data = "not an integer"
+    assert {:error, err} = JSV.validate(data, root)
+    formatted_error = JSV.normalize_error(err)
+    # The schema location should not be https://some/extended...
+
+    assert_match_error(formatted_error, %{schemaLocation: "https://some/base#/$defs/foo"})
+  end
+
+  test "inner reference from dynamic anchor should not have relative id before '#'" do
+    schema = %JSV.Schema{
+      "$id": "https://test/base",
+      "$dynamicAnchor": "meta",
+      "$ref": "extended",
+      "$defs": %{
+        bar: %JSV.Schema{
+          "$id": "bar",
+          type: "object",
+          properties: %{baz: %JSV.Schema{"$dynamicRef": "extended#meta"}}
+        },
+        extended: %JSV.Schema{
+          "$id": "extended",
+          "$anchor": "meta",
+          type: "object",
+          properties: %{bar: %JSV.Schema{"$ref": "bar"}}
+        }
+      },
+      type: "object",
+      properties: %{foo: %{const: "pass"}}
+    }
+
+    root = JSV.build!(schema)
+    data = "not an integer"
+    assert {:error, err} = JSV.validate(data, root)
+    formatted_error = JSV.normalize_error(err)
+
+    # schema locations should not be https://test/extended
+
+    assert_match_error(formatted_error, %{
+      errors: [%{kind: :type}],
+      schemaLocation: "https://test/base#",
+      evaluationPath: "#",
+      instanceLocation: "#"
+    })
+
+    assert_match_error(formatted_error, %{
+      errors: [%{kind: :type}],
+      schemaLocation: "https://test/base#/$defs/extended",
+      evaluationPath: "#/$ref",
+      instanceLocation: "#"
+    })
   end
 end

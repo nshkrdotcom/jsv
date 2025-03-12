@@ -15,11 +15,12 @@ defmodule JSV.Builder do
 
   @derive {Inspect, except: []}
   @enforce_keys [:resolver]
-  defstruct [:resolver, staged: [], vocabularies: nil, ns: nil, parent_ns: nil, opts: []]
-  @type t :: %__MODULE__{resolver: term, staged: [term], vocabularies: term, ns: term, parent_ns: term, opts: term}
+  defstruct [:resolver, staged: [], vocabularies: nil, ns: nil, parent_ns: nil, opts: [], current_rev_path: []]
 
+  @type t :: %__MODULE__{resolver: term, staged: [term], vocabularies: term, ns: term, parent_ns: term, opts: term}
   @type resolvable :: Resolver.resolvable()
   @type buildable :: {:resolved, resolvable} | resolvable
+  @type path_segment :: binary | non_neg_integer | atom | {atom, term}
 
   @doc """
   Returns a new builder. Builders are not reusable ; a fresh builder must be
@@ -38,7 +39,7 @@ defmodule JSV.Builder do
   """
   @spec build(t, JSV.raw_schema()) :: {:ok, JSV.Root.t()} | {:error, term}
   def build(_builder, valid?) when is_boolean(valid?) do
-    {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?)}}}
+    {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?, [:root])}}}
   end
 
   def build(builder, module) when is_atom(module) do
@@ -181,6 +182,9 @@ defmodule JSV.Builder do
     end
   end
 
+  # TODO we should only stage for build the dynamic anchors that have the same
+  # anchor name as the ref. Not a big deal since we will not waste time to
+  # rebuilt what is arealdy built thanks to check_not_built/2 -> :already_built.
   defp stage_all_dynamic(builder) do
     # To build all dynamic references we tap into the resolver. The resolver
     # also conveniently allows to fetch by its own keys ({:dynamic_anchor, _,
@@ -229,17 +233,36 @@ defmodule JSV.Builder do
   end
 
   defp build_resolved(builder, resolved) do
-    %Resolved{meta: meta, ns: ns, parent_ns: parent_ns} = resolved
+    %Resolved{meta: meta, ns: ns, parent_ns: parent_ns, rev_path: rev_path} = resolved
 
     case fetch_vocabularies(builder, meta) do
       {:ok, vocabularies} when is_list(vocabularies) ->
         builder = %__MODULE__{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
-        # Directly call do_build sub because in this case, if the sub schema has
-        # an $id we want to actually build it and not register an alias.
-        do_build_sub(resolved.raw, builder)
+        # Directly call to `do_build_sub` instead of `build_sub` because in this
+        # case, if the sub schema has an $id we want to actually build it and
+        # not register an alias.
+        #
+        # We set the current_rev_path on the builder because if the vocabulary
+        # module recursively calls build_sub we will need the current path
+        # later.
+
+        with_current_path(builder, rev_path, fn builder ->
+          do_build_sub(resolved.raw, rev_path, builder)
+        end)
 
       {:error, _} = err ->
         err
+    end
+  end
+
+  defp with_current_path(builder, rev_path, fun) do
+    previous_rev_path = builder.current_rev_path
+
+    next = %__MODULE__{builder | current_rev_path: rev_path}
+
+    case fun.(next) do
+      {:ok, value, %__MODULE__{} = new_builder} ->
+        {:ok, value, %__MODULE__{new_builder | current_rev_path: previous_rev_path}}
     end
   end
 
@@ -250,18 +273,26 @@ defmodule JSV.Builder do
     end
   end
 
-  @spec build_sub(JSV.raw_schema(), t) :: {:ok, Validator.validator(), t} | {:error, term}
-  def build_sub(%{"$id" => id}, builder) do
+  @doc """
+  Builds a subschema. Called from vocabulary modules to build nested schemas
+  such as in properties, if/else, items, etc.
+  """
+  @spec build_sub(JSV.raw_schema(), [path_segment()], t) :: {:ok, Validator.validator(), t} | {:error, term}
+  def build_sub(%{"$id" => id}, _add_rev_path, builder) do
     with {:ok, key} <- RNS.derive(builder.ns, id) do
       {:ok, {:alias_of, key}, stage_build(builder, key)}
     end
   end
 
-  def build_sub(raw_schema, builder) when is_map(raw_schema) when is_boolean(raw_schema) do
-    do_build_sub(raw_schema, builder)
+  def build_sub(raw_schema, add_rev_path, builder) when is_map(raw_schema) when is_boolean(raw_schema) do
+    new_rev_path = add_rev_path ++ builder.current_rev_path
+
+    with_current_path(builder, new_rev_path, fn builder ->
+      do_build_sub(raw_schema, new_rev_path, builder)
+    end)
   end
 
-  defp do_build_sub(raw_schema, builder) when is_map(raw_schema) do
+  defp do_build_sub(raw_schema, rev_path, builder) when is_map(raw_schema) do
     {_leftovers, schema_validators, builder} =
       Enum.reduce(builder.vocabularies, {raw_schema, [], builder}, fn module_or_tuple,
                                                                       {remaining_pairs, schema_validators, builder} ->
@@ -290,11 +321,11 @@ defmodule JSV.Builder do
     # Reverse the list to keep the priority order from builder.vocabularies
     schema_validators = :lists.reverse(schema_validators)
 
-    {:ok, %JSV.Subschema{validators: schema_validators}, builder}
+    {:ok, %JSV.Subschema{validators: schema_validators, schema_path: rev_path}, builder}
   end
 
-  defp do_build_sub(valid?, builder) when is_boolean(valid?) do
-    {:ok, BooleanSchema.of(valid?), builder}
+  defp do_build_sub(valid?, rev_path, builder) when is_boolean(valid?) do
+    {:ok, BooleanSchema.of(valid?, rev_path), builder}
   end
 
   defp mod_and_init_opts({module, opts}) when is_atom(module) and is_list(opts) do

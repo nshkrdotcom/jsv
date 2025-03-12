@@ -24,7 +24,7 @@ defmodule JSV.Vocabulary.V7.Applicator do
   take_keyword :items, items when is_list(items), acc, builder, _ do
     items
     |> Helpers.reduce_ok({[], builder}, fn item, {subacc, builder} ->
-      case Builder.build_sub(item, builder) do
+      case Builder.build_sub(item, [:items], builder) do
         {:ok, subvalidators, builder} -> {:ok, {[subvalidators | subacc], builder}}
         {:error, _} = err -> err
       end

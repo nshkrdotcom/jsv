@@ -110,15 +110,15 @@ defmodule JSV.Key do
   end
 
   def to_iodata({:pointer, ns, [_ | _] = path}) do
-    [ns_to_iodata(ns), "/" | Enum.map_intersperse(path, "/", &to_iodata_segment/1)]
+    [ns_to_iodata(ns), "#/" | Enum.map_intersperse(path, "/", &to_iodata_segment/1)]
   end
 
   def to_iodata({:dynamic_anchor, ns, anchor}) do
-    [ns_to_iodata(ns), "/", anchor]
+    [ns_to_iodata(ns), "#/", anchor]
   end
 
   def to_iodata({:anchor, ns, anchor}) do
-    [ns_to_iodata(ns), "/", anchor]
+    [ns_to_iodata(ns), "#/", anchor]
   end
 
   defp ns_to_iodata(:root) do

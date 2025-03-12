@@ -15,7 +15,8 @@ defmodule JSV.Test.JsonSchemaSuite do
     {valid?, %ValidationContext{} = validator} =
       case JSV.validation_entrypoint(schema, data, []) do
         {:ok, casted, vctx} ->
-          # This may fail if we have casting during the validation.
+          # This can fail if we have casting during the validation. It should
+          # not happen for the generated suite.
           assert data == casted
           {true, vctx}
 
@@ -28,10 +29,10 @@ defmodule JSV.Test.JsonSchemaSuite do
 
     case {expected_valid, valid?} do
       {true, true} ->
-        :ok
+        {valid?, validator}
 
       {false, false} ->
-        :ok
+        {valid?, validator}
 
       _ ->
         flunk("""

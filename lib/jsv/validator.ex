@@ -1,6 +1,7 @@
 defmodule JSV.Validator do
   alias JSV
   alias JSV.BooleanSchema
+  alias JSV.Builder
   alias JSV.Key
   alias JSV.Subschema
   alias JSV.ValidationError
@@ -27,23 +28,23 @@ defmodule JSV.Validator do
     # :eval_path stores both the current keyword nesting leading to an error, and
     # the namespace changes for error absolute location.
 
-    @enforce_keys [:data_path, :eval_path, :validators, :scope, :errors, :evaluated, :opts]
+    @enforce_keys [:validators, :scope, :errors, :evaluated, :data_path, :eval_path, :schema_path, :opts]
     defstruct @enforce_keys
 
     @type t :: %__MODULE__{}
   end
 
   @type context :: %ValidationContext{}
-  @type path_segment :: binary | non_neg_integer | atom
-  @type eval_path_segment :: path_segment | [path_segment]
+  @type eval_sub_path :: Builder.path_segment() | [Builder.path_segment()]
   @type validator :: JSV.Subschema.t() | BooleanSchema.t() | {:alias_of, binary}
   @type result :: {:ok, term, context} | {:error, context}
 
   @spec context(%{Key.t() => validator}, [Key.ns()], keyword()) :: context
-  def context(validators, scope, opts) do
+  def context(validators, [_] = scope, opts) do
     %ValidationContext{
       data_path: [],
       eval_path: [],
+      schema_path: [scope],
       validators: validators,
       scope: scope,
       errors: [],
@@ -68,19 +69,16 @@ defmodule JSV.Validator do
   end
 
   def validate(data, {:alias_of, key}, vctx) do
-    with_scope(vctx, key, _eval_path = {:alias_of, key}, fn vctx ->
+    with_scope(vctx, key, _eval_path = [], fn vctx ->
       validate(data, Map.fetch!(vctx.validators, key), vctx)
     end)
   end
 
-  def validate(data, sub_schema, vctx) do
-    do_validate(data, sub_schema, vctx)
-  end
-
   # Executes all validators with the given data, collecting errors on the way,
   # then return either ok or error with all errors.
-  defp do_validate(data, %Subschema{} = sub, vctx) do
+  def validate(data, %Subschema{} = sub, vctx) do
     %{validators: validators} = sub
+    vctx = reset_schema_path(vctx, sub)
 
     reduce(validators, data, vctx, fn {module, mod_validators}, data, vctx ->
       module.validate(data, mod_validators, vctx)
@@ -138,10 +136,16 @@ defmodule JSV.Validator do
   Currently evaluated properties or items will not be seen as evaluated during
   the validation by the given `subschema`.
   """
-  @spec validate_detach(term, eval_path_segment, validator, context) :: result
+  @spec validate_detach(term, eval_sub_path, validator, context) :: result
   def validate_detach(data, add_eval_path, subschema, vctx) do
-    %{eval_path: eval_path} = vctx
-    sub_vctx = %ValidationContext{vctx | evaluated: [%{}], eval_path: [add_eval_path | eval_path]}
+    %{eval_path: eval_path, schema_path: schema_path} = vctx
+
+    sub_vctx = %ValidationContext{
+      vctx
+      | evaluated: [%{}],
+        eval_path: append_eval_path(eval_path, add_eval_path),
+        schema_path: append_schema_path(schema_path, add_eval_path)
+    }
 
     case validate(data, subschema, sub_vctx) do
       {:ok, data, new_sub} -> {:ok, data, new_sub}
@@ -156,20 +160,22 @@ defmodule JSV.Validator do
   See `validate_as/4` to validate the same data point with a nested keyword. For
   instance `if`, `then` or `else`.
   """
-  @spec validate_in(term, path_segment, eval_path_segment, validator, context) :: result
+  @spec validate_in(term, Builder.path_segment(), eval_sub_path, validator, context) :: result
   def validate_in(data, key, add_eval_path, subvalidators, vctx)
       when is_binary(key)
       when is_integer(key) do
     %ValidationContext{
       data_path: data_path,
       evaluated: evaluated,
-      eval_path: eval_path
+      eval_path: eval_path,
+      schema_path: schema_path
     } = vctx
 
     sub_vctx = %ValidationContext{
       vctx
       | data_path: [key | data_path],
-        eval_path: [add_eval_path | eval_path],
+        eval_path: append_eval_path(eval_path, add_eval_path),
+        schema_path: append_schema_path(schema_path, add_eval_path),
         errors: [],
         evaluated: [%{} | evaluated]
     }
@@ -191,13 +197,14 @@ defmodule JSV.Validator do
 
   See `validate_in/5` to validate sub terms of the data.
   """
-  @spec validate_as(term, eval_path_segment(), validator(), context) :: result
+  @spec validate_as(term, eval_sub_path(), validator(), context) :: result
   def validate_as(data, add_eval_path, subvalidators, vctx) do
-    %ValidationContext{evaluated: evaluated, eval_path: eval_path} = vctx
+    %ValidationContext{evaluated: evaluated, eval_path: eval_path, schema_path: schema_path} = vctx
 
     sub_vctx = %ValidationContext{
       vctx
-      | eval_path: [add_eval_path | eval_path],
+      | eval_path: append_eval_path(eval_path, add_eval_path),
+        schema_path: append_schema_path(schema_path, add_eval_path),
         errors: [],
         evaluated: [%{} | evaluated]
     }
@@ -213,8 +220,7 @@ defmodule JSV.Validator do
     end
   end
 
-  # Kind is for the eval path
-  @spec validate_ref(term, Key.t(), eval_path_segment(), context) :: result
+  @spec validate_ref(term, Key.t(), eval_sub_path(), context) :: result
   def validate_ref(data, ref, eval_path, vctx) do
     with_scope(vctx, ref, {:ref, eval_path, ref}, fn vctx ->
       do_validate_ref(data, ref, vctx)
@@ -239,23 +245,64 @@ defmodule JSV.Validator do
   end
 
   defp with_scope(vctx, sub_key, add_eval_path, fun) do
-    %{scope: scopes, eval_path: eval_path} = vctx
+    %{scope: scopes, eval_path: eval_path, schema_path: schema_path} = vctx
 
     # Premature optimization that can be removed: skip appending scope if it is
     # the same as the current one.
     sub_vctx =
       case {Key.namespace_of(sub_key), scopes} do
         {same, [same | _]} ->
-          %ValidationContext{vctx | eval_path: [add_eval_path | eval_path]}
+          %ValidationContext{
+            vctx
+            | eval_path: append_eval_path(eval_path, add_eval_path),
+              schema_path: append_schema_path(schema_path, add_eval_path)
+          }
 
         {new_scope, scopes} ->
-          %ValidationContext{vctx | scope: [new_scope | scopes], eval_path: [add_eval_path | eval_path]}
+          %ValidationContext{
+            vctx
+            | scope: [new_scope | scopes],
+              eval_path: append_eval_path(eval_path, add_eval_path),
+              schema_path: append_schema_path(schema_path, add_eval_path)
+          }
       end
 
     case fun.(sub_vctx) do
       {:ok, data, vctx} -> {:ok, data, %ValidationContext{vctx | scope: scopes, eval_path: eval_path}}
       {:error, vctx} -> {:error, %ValidationContext{vctx | scope: scopes, eval_path: eval_path}}
     end
+  end
+
+  defp append_eval_path(eval_path, add_eval_path) when is_list(add_eval_path) do
+    :lists.flatten(add_eval_path, eval_path)
+  end
+
+  defp append_eval_path(eval_path, segment) do
+    [segment | eval_path]
+  end
+
+  defp append_schema_path(schema_path, {tag, arg}) when is_atom(arg) when is_integer(arg) when is_binary(arg) do
+    [{tag, arg} | schema_path]
+  end
+
+  defp append_schema_path(schema_path, arg) when is_atom(arg) when is_integer(arg) when is_binary(arg) do
+    [arg | schema_path]
+  end
+
+  defp append_schema_path(schema_path, {:ref, _, _}) do
+    schema_path
+  end
+
+  defp append_schema_path(schema_path, [h | t]) do
+    append_schema_path(t, append_schema_path(schema_path, h))
+  end
+
+  defp append_schema_path(schema_path, []) do
+    schema_path
+  end
+
+  defp reset_schema_path(vctx, sub) do
+    %ValidationContext{vctx | schema_path: sub.schema_path}
   end
 
   defp merge_errors(vctx, sub) do
@@ -317,13 +364,14 @@ defmodule JSV.Validator do
     :error
   end
 
-  defp boolean_schema_error(vctx, %BooleanSchema{valid?: false}, data) do
+  defp boolean_schema_error(vctx, %BooleanSchema{valid?: false} = bs, data) do
     %Error{
       kind: :boolean_schema,
       data: data,
       data_path: vctx.data_path,
       eval_path: vctx.eval_path,
-      formatter: nil,
+      schema_path: bs.schema_path,
+      formatter: __MODULE__,
       args: []
     }
   end
@@ -337,11 +385,16 @@ defmodule JSV.Validator do
   @doc false
   @spec __with_error__(module, context, atom, term, term) :: context
   def __with_error__(module, vctx, kind, data, args) do
+    if [] == vctx.schema_path do
+      raise "empty schema path"
+    end
+
     error = %Error{
       kind: kind,
       data: data,
       data_path: vctx.data_path,
       eval_path: vctx.eval_path,
+      schema_path: vctx.schema_path,
       formatter: module,
       args: args
     }
@@ -360,7 +413,7 @@ defmodule JSV.Validator do
     %ValidationContext{vctx | evaluated: [current | ev]}
   end
 
-  @spec list_evaluaded(context) :: [path_segment()]
+  @spec list_evaluaded(context) :: [String.t() | integer()]
   def list_evaluaded(vctx) do
     %{evaluated: [current | _]} = vctx
     Map.keys(current)
@@ -385,5 +438,12 @@ defmodule JSV.Validator do
       %ValidationContext{errors: [_ | _]} -> true
       %ValidationContext{errors: []} -> false
     end
+  end
+
+  @doc false
+  # error formatter implementation for the boolean schema
+  @spec format_error(:boolean_schema, term, term) :: binary
+  def format_error(:boolean_schema, %{}, _data) do
+    "value was rejected from boolean schema: false"
   end
 end

@@ -268,10 +268,20 @@ defmodule JSV.Vocabulary do
   Gives the sub raw schema to the builder and adds the build result in the list
   accumulator as a 2-tuple with the given `key`.
   """
-  @spec take_sub(Validator.path_segment(), JSV.raw_schema() | term, list, Builder.t()) ::
+  @spec take_sub(Builder.path_segment(), JSV.raw_schema(), list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, term}
   def take_sub(key, sub_raw_schema, acc, builder) when is_list(acc) do
-    case Builder.build_sub(sub_raw_schema, builder) do
+    take_sub(key, key, sub_raw_schema, acc, builder)
+  end
+
+  @doc """
+  Same as `take_sub/4` but uses a custom `path_segment` to append to the
+  `schemaLocation` of the built subschema.
+  """
+  @spec take_sub(Builder.path_segment(), Builder.path_segment(), JSV.raw_schema(), list, Builder.t()) ::
+          {:ok, list, Builder.t()} | {:error, term}
+  def take_sub(key, path_segment, sub_raw_schema, acc, builder) when is_list(acc) do
+    case Builder.build_sub(sub_raw_schema, [path_segment], builder) do
       {:ok, subvalidators, builder} -> {:ok, [{key, subvalidators} | acc], builder}
       {:error, _} = err -> err
     end
@@ -284,7 +294,7 @@ defmodule JSV.Vocabulary do
   Fails if the value is not an integer. Floats with zero-fractional (as `123.0`)
   will be accepted and converted to integer, as the JSON Schema spec dictates.
   """
-  @spec take_integer(Validator.path_segment(), integer | term, list, Builder.t()) ::
+  @spec take_integer(Builder.path_segment(), integer | term, list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, binary}
   def take_integer(key, n, acc, builder) when is_list(acc) do
     with {:ok, n} <- force_integer(n) do
@@ -314,7 +324,7 @@ defmodule JSV.Vocabulary do
 
   Fails if the value is not a number.
   """
-  @spec take_number(Validator.path_segment(), number | term, list, Builder.t()) ::
+  @spec take_number(Builder.path_segment(), number | term, list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, binary}
   def take_number(key, n, acc, builder) when is_list(acc) do
     with :ok <- check_number(n) do
