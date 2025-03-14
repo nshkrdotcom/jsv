@@ -3,16 +3,8 @@ defmodule JSV.Codec do
   JSON encoder/decoder based on available implementation.
   """
 
-  @doc false
-  @spec codec :: module
-  def codec
-
   cond do
     Code.ensure_loaded?(JSON) ->
-      def codec do
-        JSON
-      end
-
       defp do_decode(json) do
         JSON.decode(json)
       end
@@ -36,10 +28,6 @@ defmodule JSV.Codec do
       end
 
     Code.ensure_loaded?(Poison) ->
-      def codec do
-        Poison
-      end
-
       defp do_decode(json) do
         Poison.decode(json)
       end
@@ -57,10 +45,6 @@ defmodule JSV.Codec do
       end
 
     Code.ensure_loaded(Jason) ->
-      def codec do
-        Jason
-      end
-
       defp do_decode(json) do
         Jason.decode(json)
       end

@@ -1,5 +1,5 @@
 defmodule JSV.Vocabulary.Internal do
-  alias JSV.AtomTools
+  alias JSV.Helpers.StringExt
   alias JSV.Validator
   use JSV.Vocabulary, priority: 900
 
@@ -20,7 +20,7 @@ defmodule JSV.Vocabulary.Internal do
 
   @spec find_module(binary) :: {:ok, module} | {:error, term}
   def find_module(module_str) do
-    case AtomTools.safe_string_to_existing_atom(module_str) do
+    case StringExt.safe_string_to_existing_module(module_str) do
       {:ok, module} -> check_is_struct(module)
       {:error, _} = err -> err
     end

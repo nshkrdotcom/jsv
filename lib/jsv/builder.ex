@@ -1,5 +1,4 @@
 defmodule JSV.Builder do
-  alias JSV.AtomTools
   alias JSV.BooleanSchema
   alias JSV.Key
   alias JSV.Ref
@@ -7,6 +6,7 @@ defmodule JSV.Builder do
   alias JSV.Resolver.Resolved
   alias JSV.RNS
   alias JSV.Root
+  alias JSV.Schema
   alias JSV.Validator
 
   @moduledoc """
@@ -54,7 +54,7 @@ defmodule JSV.Builder do
 
   @spec build_root(t, map) :: {:ok, JSV.Root.t()} | {:error, term}
   defp build_root(builder, raw_schema) do
-    raw_schema = AtomTools.normalize_schema(raw_schema)
+    raw_schema = Schema.normalize(raw_schema)
 
     with {:ok, root_key, resolver} <- Resolver.resolve_root(builder.resolver, raw_schema),
          builder = stage_build(%__MODULE__{builder | resolver: resolver}, root_key),

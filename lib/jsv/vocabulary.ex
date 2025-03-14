@@ -1,7 +1,7 @@
 defmodule JSV.Vocabulary do
   alias JSV.Builder
   alias JSV.ErrorFormatter
-  alias JSV.Helpers
+  alias JSV.Helpers.Math
   alias JSV.Validator
 
   @moduledoc """
@@ -307,8 +307,8 @@ defmodule JSV.Vocabulary do
   end
 
   defp force_integer(n) when is_float(n) do
-    if Helpers.fractional_is_zero?(n) do
-      {:ok, Helpers.trunc(n)}
+    if Math.fractional_is_zero?(n) do
+      {:ok, Math.trunc(n)}
     else
       {:error, "not an integer: #{inspect(n)}"}
     end

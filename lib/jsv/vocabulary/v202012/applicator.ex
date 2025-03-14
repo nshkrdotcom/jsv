@@ -1,7 +1,7 @@
 defmodule JSV.Vocabulary.V202012.Applicator do
   alias JSV.Builder
   alias JSV.ErrorFormatter
-  alias JSV.Helpers
+  alias JSV.Helpers.EnumExt
   alias JSV.Validator
   alias JSV.Vocabulary
   alias JSV.Vocabulary.V202012.Validation
@@ -19,7 +19,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   take_keyword :properties, properties, acc, builder, _ do
     properties
-    |> Helpers.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
+    |> EnumExt.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
       # Support properties as atoms for atom schemas
       k =
         if is_atom(k) do
@@ -45,7 +45,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   take_keyword :patternProperties, pattern_properties, acc, builder, _ do
     pattern_properties
-    |> Helpers.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
+    |> EnumExt.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
       with {:ok, re} <- Regex.compile(k),
            {:ok, subvalidators, builder} <- Builder.build_sub(pschema, [patternProperties: k], builder) do
         {:ok, {Map.put(acc, {k, re}, subvalidators), builder}}
@@ -127,7 +127,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   take_keyword :dependentSchemas, dependent_schemas when is_map(dependent_schemas), acc, builder, _ do
     dependent_schemas
-    |> Helpers.reduce_ok({%{}, builder}, fn {k, depschema}, {acc, builder} ->
+    |> EnumExt.reduce_ok({%{}, builder}, fn {k, depschema}, {acc, builder} ->
       case Builder.build_sub(depschema, [k], builder) do
         {:ok, subvalidators, builder} -> {:ok, {Map.put(acc, k, subvalidators), builder}}
         {:error, _} = err -> err
@@ -169,7 +169,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     subs =
       subschemas
       |> Enum.with_index()
-      |> Helpers.reduce_ok({[], builder}, fn {subschema, index}, {acc, builder} ->
+      |> EnumExt.reduce_ok({[], builder}, fn {subschema, index}, {acc, builder} ->
         case Builder.build_sub(subschema, [path_segment(keyword, index)], builder) do
           {:ok, subvalidators, builder} -> {:ok, {[subvalidators | acc], builder}}
           {:error, _} = err -> err

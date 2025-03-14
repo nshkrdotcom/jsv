@@ -1,5 +1,7 @@
-# credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.Schema do
+  alias JSV.Helpers.Traverse
+  alias JSV.Resolver.Internal
+
   @moduledoc """
   This module defines a struct where all the supported keywords of the JSON
   schema specification are defined as keys. Text editors that can predict the
@@ -138,7 +140,8 @@ defmodule JSV.Schema do
   defstruct @all_keys
 
   @type t :: %__MODULE__{}
-  @type prototype :: t | map | keyword
+  @type schema_data :: %{optional(binary) => schema_data} | [schema_data] | number | binary | boolean | nil
+  @type prototype :: t | map | [{atom | binary, term}]
   @type base :: prototype | nil
 
   @doc """
@@ -158,7 +161,7 @@ defmodule JSV.Schema do
 
   Accepts `nil` as the base schema, which is equivalent to `new(overrides)`.
   """
-  @spec override(prototype | nil, prototype) :: t
+  @spec override(base, prototype) :: t
   def override(nil, overrides) do
     new(overrides)
   end
@@ -168,21 +171,25 @@ defmodule JSV.Schema do
   end
 
   @doc "Returns a schema with `type: :boolean`."
+  @spec boolean(base) :: t
   def boolean(base \\ nil) do
     override(base, type: :boolean)
   end
 
   @doc "Returns a schema with `type: :string`."
+  @spec string(base) :: t
   def string(base \\ nil) do
     override(base, type: :string)
   end
 
   @doc "Returns a schema with `type: :integer`."
+  @spec integer(base) :: t
   def integer(base \\ nil) do
     override(base, type: :integer)
   end
 
   @doc "Returns a schema with `type: :number`."
+  @spec number(base) :: t
   def number(base \\ nil) do
     override(base, type: :number)
   end
@@ -192,16 +199,19 @@ defmodule JSV.Schema do
 
   See `props/2` to define the properties as well.
   """
+  @spec object(base) :: t
   def object(base \\ nil) do
     override(base, type: :object)
   end
 
   @doc "Returns a schema with `type: :array` and `items: item_schema`."
+  @spec items(base, map | boolean) :: t
   def items(base \\ nil, item_schema) do
     override(base, type: :array, items: item_schema)
   end
 
   @doc ~S(Returns a schema with `"$ref": ref`.)
+  @spec ref(base, String.t()) :: t
   def ref(base \\ nil, ref) do
     override(base, "$ref": ref)
   end
@@ -209,6 +219,7 @@ defmodule JSV.Schema do
   @doc """
   Returns a schema with the `type: :object` and the given `properties`.
   """
+  @spec props(base, map | [{atom | binary, term}]) :: t
   def props(base \\ nil, properties) do
     override(base, type: :object, properties: Map.new(properties))
   end
@@ -235,6 +246,137 @@ defmodule JSV.Schema do
     case new(base) do
       %__MODULE__{required: nil} -> %__MODULE__{base | required: [key]}
       %__MODULE__{required: list} -> %__MODULE__{base | required: [key | list]}
+    end
+  end
+
+  @doc """
+  Returns the given term with all atoms converted to binaries except for special
+  cases.
+
+  Note that this function accepts any data and not actually a `%JSV.Schema{}` or
+  a raw schema.
+
+  * `JSV.Schema` structs pairs where the value is `nil` will be completely
+    removed. `%JSV.Schema{type: :object}` becomes `%{"type" => "object"}`
+    whereas the struct contains many more keys.
+  * Structs will be simply converted to map with `Map.from_struct/1`, not JSON
+    encoder protocol will be used.
+  * `true`, `false` and `nil` will be kept as-is in all places except map keys.
+  * `true`, `false` and `nil` as map keys will be converted to string.
+  * Other atoms will be checked to see if they correspond to a module name that
+    exports a `schema/0` function.
+
+  In any case, the resulting function will alway contain no atom other than
+  `true`, `false` or `nil`.
+
+  ### Examples
+
+      iex> JSV.Schema.normalize(%JSV.Schema{title: :"My Schema"})
+      %{"title" => "My Schema"}
+
+      iex> JSV.Schema.normalize(%{name: :joe})
+      %{"name" => "joe"}
+
+      iex> JSV.Schema.normalize(%{"name" => :joe})
+      %{"name" => "joe"}
+
+      iex> JSV.Schema.normalize(%{"name" => "joe"})
+      %{"name" => "joe"}
+
+      iex> JSV.Schema.normalize(%{true: false})
+      %{"true" => false}
+
+      iex> JSV.Schema.normalize(%{specials: [true, false, nil]})
+      %{"specials" => [true, false, nil]}
+
+      iex> map_size(JSV.Schema.normalize(%JSV.Schema{}))
+      0
+
+      iex> JSV.Schema.normalize(1..10)
+      %{"first" => 1, "last" => 10, "step" => 1}
+
+      iex> defmodule :some_module_with_schema do
+      iex>   def schema, do: %{}
+      iex> end
+      iex> JSV.Schema.normalize(:some_module_with_schema)
+      %{"$ref" => "jsv:module:some_module_with_schema"}
+
+      iex> defmodule :some_module_without_schema do
+      iex>   def hello, do: "world"
+      iex> end
+      iex> JSV.Schema.normalize(:some_module_without_schema)
+      "some_module_without_schema"
+  """
+  @spec normalize(term) :: %{optional(binary) => schema_data} | [schema_data] | number | binary | boolean | nil
+  def normalize(term) do
+    Traverse.postwalk(term, fn
+      {:val, v} when is_binary(v) when is_list(v) when is_map(v) when is_number(v) ->
+        v
+
+      {:val, v} when v in [true, false, nil] ->
+        v
+
+      {:val, v} when is_atom(v) ->
+        as_string = Atom.to_string(v)
+
+        if schema_module?(v, as_string) do
+          %{"$ref" => Internal.module_to_uri(v)}
+        else
+          as_string
+        end
+
+      {:val, other} ->
+        raise ArgumentError, "invalid value in schema: #{inspect(other)}"
+
+      {:key, k} when is_binary(k) ->
+        k
+
+      {:key, k} when is_atom(k) ->
+        Atom.to_string(k)
+
+      {:key, other} ->
+        raise ArgumentError, "invalid key in schema: #{inspect(other)}"
+
+      {:pair, pair} ->
+        pair
+
+      {:struct, %__MODULE__{} = schema, cont} ->
+        raw_map_no_nils =
+          schema
+          |> Map.from_struct()
+          |> Map.filter(fn {_, v} -> v != nil end)
+
+        {normal_map, nil} = cont.(raw_map_no_nils, nil)
+        normal_map
+
+      {:struct, other, cont} ->
+        {map, nil} = cont.(Map.from_struct(other), nil)
+        map
+    end)
+  end
+
+  # IO.warn("if the module to string is 'Elixir.... do not check if loaded, assume its always a ref")
+
+  # def deatomize(term) when is_atom(term) do
+  #   as_string = Atom.to_string(term)
+
+  #   case schema_module?(term) do
+  #     true -> %{"$ref" => "jsv:module:#{as_string}"}
+  #     false -> as_string
+  #   end
+  # end
+
+  # Returns whether the given atom is a module exporting a schema EXCEPT that if
+  # the module-as-string name starts with "Elixir." we assume that it should be
+  # a schema module.
+  defp schema_module?(_, "Elixir." <> _) do
+    true
+  end
+
+  defp schema_module?(module, _as_string) do
+    case Code.ensure_loaded(module) do
+      {:module, ^module} -> function_exported?(module, :schema, 0)
+      _ -> false
     end
   end
 end

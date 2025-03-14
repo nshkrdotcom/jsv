@@ -1,5 +1,5 @@
 defmodule JSV.Resolver do
-  alias JSV.Helpers
+  alias JSV.Helpers.EnumExt
   alias JSV.Key
   alias JSV.Ref
   alias JSV.RNS
@@ -339,7 +339,7 @@ defmodule JSV.Resolver do
   defp scan_subschema(list, parent_id, nss, meta, path, acc) when is_list(list) do
     list
     |> Enum.with_index()
-    |> Helpers.reduce_ok(acc, fn {item, index}, acc ->
+    |> EnumExt.reduce_ok(acc, fn {item, index}, acc ->
       scan_subschema(item, parent_id, nss, meta, [index | path], acc)
     end)
   end
@@ -367,7 +367,7 @@ defmodule JSV.Resolver do
   end
 
   defp scan_map_values(schema, parent_id, nss, meta, path, acc) do
-    Helpers.reduce_ok(schema, acc, fn
+    EnumExt.reduce_ok(schema, acc, fn
       {"properties", props}, acc when is_map(props) ->
         scan_map_values(props, parent_id, nss, meta, ["properties" | path], acc)
 
@@ -402,7 +402,7 @@ defmodule JSV.Resolver do
     %{resolved: cache} = rsv
 
     cache_result =
-      Helpers.reduce_ok(entries, cache, fn {k, resolved}, cache ->
+      EnumExt.reduce_ok(entries, cache, fn {k, resolved}, cache ->
         case cache do
           %{^k => existing} ->
             # Allow a duplicate resolution that is the exact same value as the

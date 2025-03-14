@@ -21,11 +21,14 @@ dialyzer:
 _mix_format:
   mix format
 
+_mix_check:
+  mix check
+
 _git_status:
   git status
 
 readme:
   mix run tools/readme-formats.exs --no-dump
 
-check: deps _mix_format test lint dialyzer readme _git_status
+check: deps _mix_format _mix_check readme _git_status
 

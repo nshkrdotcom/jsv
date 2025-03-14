@@ -1,4 +1,7 @@
 defmodule JSV.Resolver.Internal do
+  alias JSV.Helpers.StringExt
+  alias JSV.Schema
+
   @behaviour JSV.Resolver
 
   @moduledoc """
@@ -15,27 +18,35 @@ defmodule JSV.Resolver.Internal do
   MUST export a `schema/0` function that returns a normalized (with binary keys
   and values) JSON schema.
   """
-  alias JSV.AtomTools
+
+  @uri_prefix "jsv:module:"
 
   @impl true
   def resolve(url, opts)
 
-  def resolve("jsv:module:" <> module_string, _) do
-    case cast_to_existing_atom(module_string) do
-      {:ok, module} -> {:ok, AtomTools.deatomize(module.schema())}
-      {:error, reason} -> {:error, {:invalid_schema_module, reason}}
+  def resolve(@uri_prefix <> module_string, _) do
+    case StringExt.safe_string_to_existing_module(module_string) do
+      {:ok, module} -> {:ok, Schema.normalize(module.schema())}
+      {:error, reason} -> {:error, reason}
     end
   rescue
-    e -> {:error, {:invalid_schema_module, Exception.message(e)}}
+    e -> {:error, {:invalid_schema_module, e}}
   end
 
   def resolve(other, _) do
     {:error, {:unsupported, other}}
   end
 
-  defp cast_to_existing_atom(module_string) do
-    {:ok, String.to_existing_atom(module_string)}
-  rescue
-    _ -> {:error, "not an existing atom: #{module_string}"}
+  @doc """
+  Returns a JSV internal URI for the given module.
+
+  ### Example
+
+      iex> module_to_uri(Inspect.Opts)
+      "jsv:module:Elixir.Inspect.Opts"
+  """
+  @spec module_to_uri(module) :: binary
+  def module_to_uri(module) when is_atom(module) do
+    @uri_prefix <> Atom.to_string(module)
   end
 end

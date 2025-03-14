@@ -1,6 +1,6 @@
 defmodule JSV.Vocabulary.V202012.Validation do
   alias JSV.Codec
-  alias JSV.Helpers
+  alias JSV.Helpers.Math
   alias JSV.Validator
   use JSV.Vocabulary, priority: 300
 
@@ -238,7 +238,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
   pass validate_keyword({:minItems, _})
 
   def validate_keyword({:multipleOf, n}, data, vctx) when is_number(data) do
-    case Helpers.fractional_is_zero?(data / n) do
+    case Math.fractional_is_zero?(data / n) do
       true -> {:ok, data, vctx}
       false -> {:error, Validator.with_error(vctx, :multipleOf, data, multipleOf: n)}
     end
@@ -398,7 +398,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
   end
 
   defp validate_type(data, :integer) when is_float(data) do
-    Helpers.fractional_is_zero?(data) && {:swap, trunc(data)}
+    Math.fractional_is_zero?(data) && {:swap, trunc(data)}
   end
 
   defp validate_type(data, :integer) do

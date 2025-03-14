@@ -1,7 +1,7 @@
 # credo:disable-for-this-file Credo.Check.Readability.Specs
 
 defmodule JSV.Test.JsonSchemaSuite do
-  alias JSV.AtomTools
+  alias JSV.Schema
   alias JSV.ValidationError
   alias JSV.Validator
   alias JSV.Validator.ValidationContext
@@ -43,7 +43,7 @@ defmodule JSV.Test.JsonSchemaSuite do
         end}
 
         JSON SCHEMA
-        #{inspect(AtomTools.normalize_schema(json_schema), pretty: true)}
+        #{inspect(Schema.normalize(json_schema), pretty: true)}
 
         DATA
         #{inspect(data, pretty: true)}

@@ -1,6 +1,5 @@
 defmodule JSV.ErrorFormatTest do
   alias JSV
-  alias JSV.AtomTools
   alias JSV.Codec
   alias JSV.Schema
   use ExUnit.Case, async: true
@@ -118,7 +117,7 @@ defmodule JSV.ErrorFormatTest do
 
   defp assert_output_schema(formatted_error) do
     {:ok, output_schema} = JSV.build(@error_output_schema, resolver: JSV.Test.TestResolver)
-    raw = AtomTools.normalize_schema(formatted_error)
+    raw = Schema.normalize(formatted_error)
 
     case JSV.validate(raw, output_schema) do
       {:ok, _} ->

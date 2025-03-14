@@ -1,7 +1,7 @@
 defmodule JSV do
-  alias JSV.AtomTools
   alias JSV.Builder
   alias JSV.ErrorFormatter
+  alias JSV.Resolver.Internal
   alias JSV.Root
   alias JSV.ValidationError
   alias JSV.Validator
@@ -330,7 +330,7 @@ defmodule JSV do
       # defined with atoms and we do not want to mix key types at this point.
       @jsv_raw_schema schema
                       |> Map.put(:"jsv-struct", Atom.to_string(__MODULE__))
-                      |> Map.put_new(:"$id", AtomTools.module_to_uri(__MODULE__))
+                      |> Map.put_new(:"$id", Internal.module_to_uri(__MODULE__))
 
       @enforce_keys required
       defstruct data_pairs
