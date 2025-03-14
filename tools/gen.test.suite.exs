@@ -511,27 +511,41 @@ defmodule JSV.GenTestSuite do
       end
 
     ordered_map = JSV.SchemaDumpWrapper.from_map(schema, key_format)
-    inspect(ordered_map, pretty: true)
+    inspect(ordered_map, pretty: true, limit: :infinity, printable_limit: :infinity)
   end
 
   defp render_ordered_schema(schema, _) when is_boolean(schema) do
-    inspect(schema)
+    inspect(schema, pretty: true, limit: :infinity, printable_limit: :infinity)
   end
 end
 
 defmodule JSV.SchemaDumpWrapper do
   @key_order [
+               # metada of the schema
                "$schema",
                "$id",
                "$anchor",
                "$dynamicAnchor",
+
+               # text headers
                "title",
+               "description",
                "comment",
-               "$ref",
-               "$dynamicRef",
-               "$defs",
+
+               # collection of other schemas
                "definitions",
+               "$defs",
+
+               # references to other schemas
+               "$dynamicRef",
+               "$ref",
+
+               # validations
+
+               # type should be the first validation
                "type",
+
+               # properties should be ordered like so, with required afterwards
                "properties",
                "patternProperties",
                "additionalProperties",

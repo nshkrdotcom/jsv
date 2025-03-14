@@ -445,8 +445,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedItemsTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "$ref" => "#/$defs/bar",
         "$defs" => %{"bar" => %{"prefixItems" => [true, %{"type" => "string"}]}},
+        "$ref" => "#/$defs/bar",
         "prefixItems" => [%{"type" => "string"}],
         "unevaluatedItems" => false
       }
@@ -472,8 +472,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedItemsTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "$ref" => "#/$defs/bar",
         "$defs" => %{"bar" => %{"prefixItems" => [true, %{"type" => "string"}]}},
+        "$ref" => "#/$defs/bar",
         "prefixItems" => [%{"type" => "string"}],
         "unevaluatedItems" => false
       }
@@ -500,17 +500,16 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedItemsTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://example.com/unevaluated-items-with-dynamic-ref/derived",
-        "$ref" => "./baseSchema",
         "$defs" => %{
           "baseSchema" => %{
             "$id" => "./baseSchema",
-            "$dynamicRef" => "#addons",
             "$defs" => %{
               "defaultAddons" => %{
                 "$dynamicAnchor" => "addons",
                 "$comment" => "Needed to satisfy the bookending requirement"
               }
             },
+            "$dynamicRef" => "#addons",
             "type" => "array",
             "$comment" =>
               "unevaluatedItems comes first so it's more likely to catch bugs with implementations that are sensitive to keyword ordering",
@@ -521,7 +520,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedItemsTest do
             "$dynamicAnchor" => "addons",
             "prefixItems" => [true, %{"type" => "string"}]
           }
-        }
+        },
+        "$ref" => "./baseSchema"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")

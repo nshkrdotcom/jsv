@@ -158,12 +158,12 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "$ref" => "#/$defs/c",
         "$defs" => %{
           "a" => %{"type" => "integer"},
           "b" => %{"$ref" => "#/$defs/a"},
           "c" => %{"$ref" => "#/$defs/b"}
-        }
+        },
+        "$ref" => "#/$defs/c"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -291,8 +291,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "$ref" => "#/$defs/bool",
-        "$defs" => %{"bool" => true}
+        "$defs" => %{"bool" => true},
+        "$ref" => "#/$defs/bool"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -310,8 +310,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "$ref" => "#/$defs/bool",
-        "$defs" => %{"bool" => false}
+        "$defs" => %{"bool" => false},
+        "$ref" => "#/$defs/bool"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -330,16 +330,17 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "http://localhost:1234/draft2020-12/tree",
+        "description" => "tree of nodes",
         "$defs" => %{
           "node" => %{
             "$id" => "http://localhost:1234/draft2020-12/node",
+            "description" => "node",
             "type" => "object",
             "properties" => %{
               "subtree" => %{"$ref" => "tree"},
               "value" => %{"type" => "number"}
             },
-            "required" => ["value"],
-            "description" => "node"
+            "required" => ["value"]
           }
         },
         "type" => "object",
@@ -347,8 +348,7 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
           "meta" => %{"type" => "string"},
           "nodes" => %{"type" => "array", "items" => %{"$ref" => "node"}}
         },
-        "required" => ["meta", "nodes"],
-        "description" => "tree of nodes"
+        "required" => ["meta", "nodes"]
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -435,8 +435,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "$ref" => "#/$defs/A",
         "$defs" => %{"A" => %{"unevaluatedProperties" => false}},
+        "$ref" => "#/$defs/A",
         "properties" => %{"prop1" => %{"type" => "string"}}
       }
 
@@ -491,10 +491,10 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
         "properties" => %{
           "foo" => %{
             "$id" => "schema-relative-uri-defs2.json",
-            "$ref" => "#/$defs/inner",
             "$defs" => %{
               "inner" => %{"properties" => %{"bar" => %{"type" => "string"}}}
-            }
+            },
+            "$ref" => "#/$defs/inner"
           }
         }
       }
@@ -531,10 +531,10 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
         "properties" => %{
           "foo" => %{
             "$id" => "http://example.com/schema-refs-absolute-uris-defs2.json",
-            "$ref" => "#/$defs/inner",
             "$defs" => %{
               "inner" => %{"properties" => %{"bar" => %{"type" => "string"}}}
-            }
+            },
+            "$ref" => "#/$defs/inner"
           }
         }
       }
@@ -598,7 +598,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://example.com/draft2020-12/ref-and-id1/base.json",
-        "$ref" => "int.json",
         "$defs" => %{
           "bigint" => %{
             "$id" => "int.json",
@@ -611,6 +610,7 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
             "maximum" => 2
           }
         },
+        "$ref" => "int.json",
         "$comment" => "$id must be evaluated before $ref to get the proper $ref destination"
       }
 
@@ -636,7 +636,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://example.com/draft2020-12/ref-and-id2/base.json",
-        "$ref" => "#bigint",
         "$defs" => %{
           "bigint" => %{
             "$anchor" => "bigint",
@@ -652,6 +651,7 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
             "maximum" => 2
           }
         },
+        "$ref" => "#bigint",
         "$comment" => "$id must be evaluated before $ref to get the proper $ref destination"
       }
 
@@ -873,14 +873,14 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "$ref" => "urn:uuid:deadbeef-4321-ffff-ffff-1234feebdaed",
         "$defs" => %{
           "foo" => %{
             "$id" => "urn:uuid:deadbeef-4321-ffff-ffff-1234feebdaed",
-            "$ref" => "#/$defs/bar",
-            "$defs" => %{"bar" => %{"type" => "string"}}
+            "$defs" => %{"bar" => %{"type" => "string"}},
+            "$ref" => "#/$defs/bar"
           }
-        }
+        },
+        "$ref" => "urn:uuid:deadbeef-4321-ffff-ffff-1234feebdaed"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -980,7 +980,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "http://example.com/ref/absref.json",
-        "$ref" => "/absref/foobar.json",
         "$defs" => %{
           "a" => %{
             "$id" => "http://example.com/ref/absref/foobar.json",
@@ -990,7 +989,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
             "$id" => "http://example.com/absref/foobar.json",
             "type" => "string"
           }
-        }
+        },
+        "$ref" => "/absref/foobar.json"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -1015,8 +1015,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "file:///folder/file.json",
-        "$ref" => "#/$defs/foo",
-        "$defs" => %{"foo" => %{"type" => "number"}}
+        "$defs" => %{"foo" => %{"type" => "number"}},
+        "$ref" => "#/$defs/foo"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -1041,8 +1041,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.RefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "file:///c:/folder/file.json",
-        "$ref" => "#/$defs/foo",
-        "$defs" => %{"foo" => %{"type" => "number"}}
+        "$defs" => %{"foo" => %{"type" => "number"}},
+        "$ref" => "#/$defs/foo"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")

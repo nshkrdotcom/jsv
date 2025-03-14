@@ -356,16 +356,17 @@ defmodule JSV.Generated.Draft7.AtomKeys.RefTest do
     setup do
       json_schema = %{
         "$id": "http://localhost:1234/tree",
+        description: "tree of nodes",
         definitions: %{
           node: %JSV.Schema{
             "$id": "http://localhost:1234/node",
+            description: "node",
             type: "object",
             properties: %{
               subtree: %JSV.Schema{"$ref": "tree"},
               value: %JSV.Schema{type: "number"}
             },
-            required: ["value"],
-            description: "node"
+            required: ["value"]
           }
         },
         type: "object",
@@ -373,8 +374,7 @@ defmodule JSV.Generated.Draft7.AtomKeys.RefTest do
           meta: %JSV.Schema{type: "string"},
           nodes: %JSV.Schema{type: "array", items: %JSV.Schema{"$ref": "node"}}
         },
-        required: ["meta", "nodes"],
-        description: "tree of nodes"
+        required: ["meta", "nodes"]
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "http://json-schema.org/draft-07/schema")

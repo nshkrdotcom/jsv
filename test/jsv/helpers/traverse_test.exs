@@ -14,14 +14,12 @@ defmodule JSV.Helpers.TraverseTest do
       # Here we match directly of what is expected.
       data = %{"parent" => %{"child" => 0}}
 
-      assert %{"parent" => %{"child" => 5}} =
+      assert %{"parent" => %{"child" => 3}} =
                Traverse.postwalk(data, fn
                  {:val, 0} -> 1
                  {:key, k} -> k
-                 {:pair, {"child", 1}} -> {"child", 2}
-                 {:val, %{"child" => 2}} -> %{"child" => 3}
-                 {:pair, {"parent", %{"child" => 3}}} -> {"parent", %{"child" => 4}}
-                 {:val, %{"parent" => %{"child" => 4}}} -> %{"parent" => %{"child" => 5}}
+                 {:val, %{"child" => 1}} -> %{"child" => 2}
+                 {:val, %{"parent" => %{"child" => 2}}} -> %{"parent" => %{"child" => 3}}
                end)
     end
 
@@ -75,12 +73,9 @@ defmodule JSV.Helpers.TraverseTest do
                  {:val, [10, 20, 30] = v} ->
                    v
 
-                 # Keys and pairs are passed since we call Map.from_struct/1
+                 # Keys are passed since we call Map.from_struct/1
                  {:key, :enum} ->
                    :enum
-
-                 {:pair, {:enum, [10, 20, 30]} = pair} ->
-                   pair
 
                  # The map-from-struct itself should not be passed as it represents the struct
                  {:val, %{enum: _}} ->
@@ -97,12 +92,11 @@ defmodule JSV.Helpers.TraverseTest do
     test "keys are not traversed" do
       data = %{{1, 2} => "position"}
 
-      assert %{{1, 2} => "position-3"} =
+      assert %{{1, 2} => "position-2"} =
                Traverse.postwalk(data, fn
                  {:val, "position"} -> "position-1"
                  {:key, {1, 2} = k} -> k
-                 {:pair, {{1, 2}, "position-1"}} -> {{1, 2}, "position-2"}
-                 {:val, %{{1, 2} => "position-2"}} -> %{{1, 2} => "position-3"}
+                 {:val, %{{1, 2} => "position-1"}} -> %{{1, 2} => "position-2"}
                end)
     end
   end

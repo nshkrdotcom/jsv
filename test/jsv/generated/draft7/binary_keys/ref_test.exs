@@ -349,16 +349,17 @@ defmodule JSV.Generated.Draft7.BinaryKeys.RefTest do
     setup do
       json_schema = %{
         "$id" => "http://localhost:1234/tree",
+        "description" => "tree of nodes",
         "definitions" => %{
           "node" => %{
             "$id" => "http://localhost:1234/node",
+            "description" => "node",
             "type" => "object",
             "properties" => %{
               "subtree" => %{"$ref" => "tree"},
               "value" => %{"type" => "number"}
             },
-            "required" => ["value"],
-            "description" => "node"
+            "required" => ["value"]
           }
         },
         "type" => "object",
@@ -366,8 +367,7 @@ defmodule JSV.Generated.Draft7.BinaryKeys.RefTest do
           "meta" => %{"type" => "string"},
           "nodes" => %{"type" => "array", "items" => %{"$ref" => "node"}}
         },
-        "required" => ["meta", "nodes"],
-        "description" => "tree of nodes"
+        "required" => ["meta", "nodes"]
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "http://json-schema.org/draft-07/schema")

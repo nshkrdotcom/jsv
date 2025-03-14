@@ -4,7 +4,7 @@ defmodule JSV.Helpers.Traverse do
   """
 
   @type traverse_struct_cont :: (map, term -> {map, term})
-  @type traverse_callback_elem :: {:key | :val, term} | {:pair, {term, term}} | {:struct, struct, traverse_struct_cont}
+  @type traverse_callback_elem :: {:key | term} | {:val, term} | {:struct, struct, traverse_struct_cont}
 
   @doc """
   Updates a data structure in depth-first, post-order traversal.
@@ -103,20 +103,9 @@ defmodule JSV.Helpers.Traverse do
       Enum.map_reduce(map, acc, fn {k, v}, acc ->
         {v, acc} = postwalk_val(v, acc, fun)
         {k, acc} = postwalk_key(k, acc, fun)
-        {_pair, _acc} = postwalk_pair({k, v}, acc, fun)
+        {{k, v}, acc}
       end)
 
     {Map.new(pairs), acc}
-  end
-
-  defp postwalk_pair(pair, acc, fun) do
-    case fun.({:pair, pair}, acc) do
-      {{k, v}, acc} ->
-        {{k, v}, acc}
-
-      {other, _acc} ->
-        raise ArgumentError,
-              "callback function must return a {{k, v}, acc} when called for :pair, got: #{inspect(other)}"
-    end
   end
 end

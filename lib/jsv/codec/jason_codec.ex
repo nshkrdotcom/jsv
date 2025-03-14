@@ -1,0 +1,44 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
+
+if Code.ensure_loaded?(Jason) do
+  defmodule JSV.Codec.JasonCodec do
+    alias JSV.Helpers.Traverse
+
+    @moduledoc false
+
+    def decode!(json) do
+      Jason.decode!(json)
+    end
+
+    def decode(json) do
+      Jason.decode(json)
+    end
+
+    def encode_to_iodata!(data) do
+      Jason.encode_to_iodata!(data)
+    end
+
+    def format_to_iodata!(data) do
+      Jason.encode_to_iodata!(data, pretty: true)
+    end
+
+    def to_ordered_data(data, key_sorter) do
+      Traverse.postwalk(data, fn
+        {:val, map} when is_map(map) ->
+          map
+          |> Map.to_list()
+          |> Enum.sort(fn {ka, _}, {kb, _} -> key_sorter.(ka, kb) end)
+          |> Jason.OrderedObject.new()
+
+        {:val, v} ->
+          v
+
+        {:key, k} ->
+          k
+
+        {:struct, struct, _cont} ->
+          raise ArgumentError, "ordered JSON encoding does not support structs, got: #{inspect(struct)}"
+      end)
+    end
+  end
+end

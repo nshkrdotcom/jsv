@@ -95,7 +95,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/typical-dynamic-resolution/root",
-        "$ref" => "list",
         "$defs" => %{
           "foo" => %{"$dynamicAnchor" => "items", "type" => "string"},
           "list" => %{
@@ -109,7 +108,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "type" => "array",
             "items" => %{"$dynamicRef" => "#items"}
           }
-        }
+        },
+        "$ref" => "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -134,7 +134,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/dynamicRef-without-anchor/root",
-        "$ref" => "list",
         "$defs" => %{
           "foo" => %{"$dynamicAnchor" => "items", "type" => "string"},
           "list" => %{
@@ -149,7 +148,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "type" => "array",
             "items" => %{"$dynamicRef" => "#/$defs/items"}
           }
-        }
+        },
+        "$ref" => "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -174,7 +174,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/dynamic-resolution-with-intermediate-scopes/root",
-        "$ref" => "intermediate-scope",
         "$defs" => %{
           "foo" => %{"$dynamicAnchor" => "items", "type" => "string"},
           "intermediate-scope" => %{"$id" => "intermediate-scope", "$ref" => "list"},
@@ -189,7 +188,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "type" => "array",
             "items" => %{"$dynamicRef" => "#items"}
           }
-        }
+        },
+        "$ref" => "intermediate-scope"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -214,7 +214,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/dynamic-resolution-ignores-anchors/root",
-        "$ref" => "list",
         "$defs" => %{
           "foo" => %{"$anchor" => "items", "type" => "string"},
           "list" => %{
@@ -228,7 +227,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "type" => "array",
             "items" => %{"$dynamicRef" => "#items"}
           }
-        }
+        },
+        "$ref" => "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -247,7 +247,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/dynamic-resolution-without-bookend/root",
-        "$ref" => "list",
         "$defs" => %{
           "foo" => %{"$dynamicAnchor" => "items", "type" => "string"},
           "list" => %{
@@ -262,7 +261,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "type" => "array",
             "items" => %{"$dynamicRef" => "#items"}
           }
-        }
+        },
+        "$ref" => "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -281,7 +281,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/unmatched-dynamic-anchor/root",
-        "$ref" => "list",
         "$defs" => %{
           "foo" => %{"$dynamicAnchor" => "items", "type" => "string"},
           "list" => %{
@@ -297,7 +296,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "type" => "array",
             "items" => %{"$dynamicRef" => "#items"}
           }
-        }
+        },
+        "$ref" => "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -317,7 +317,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/relative-dynamic-reference/root",
         "$dynamicAnchor" => "meta",
-        "$ref" => "extended",
         "$defs" => %{
           "bar" => %{
             "$id" => "bar",
@@ -331,6 +330,7 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "properties" => %{"bar" => %{"$ref" => "bar"}}
           }
         },
+        "$ref" => "extended",
         "type" => "object",
         "properties" => %{"foo" => %{"const" => "pass"}}
       }
@@ -358,7 +358,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "https://test.json-schema.org/relative-dynamic-reference-without-bookend/root",
         "$dynamicAnchor" => "meta",
-        "$ref" => "extended",
         "$defs" => %{
           "bar" => %{
             "$id" => "bar",
@@ -372,6 +371,7 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "properties" => %{"bar" => %{"$ref" => "bar"}}
           }
         },
+        "$ref" => "extended",
         "type" => "object",
         "properties" => %{"foo" => %{"const" => "pass"}}
       }
@@ -405,17 +405,17 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
           },
           "numberList" => %{
             "$id" => "numberList",
-            "$ref" => "genericList",
             "$defs" => %{
               "itemType" => %{"$dynamicAnchor" => "itemType", "type" => "number"}
-            }
+            },
+            "$ref" => "genericList"
           },
           "stringList" => %{
             "$id" => "stringList",
-            "$ref" => "genericList",
             "$defs" => %{
               "itemType" => %{"$dynamicAnchor" => "itemType", "type" => "string"}
-            }
+            },
+            "$ref" => "genericList"
           }
         },
         "else" => %{"$ref" => "stringList"},
@@ -485,14 +485,14 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
         },
         "then" => %{
           "$id" => "second_scope",
-          "$ref" => "start",
           "$defs" => %{
             "thingy" => %{
               "$dynamicAnchor" => "thingy",
               "type" => "null",
               "$comment" => "this is second_scope#thingy, the final destination of the $dynamicRef"
             }
-          }
+          },
+          "$ref" => "start"
         }
       }
 
@@ -551,7 +551,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$id" => "http://localhost:1234/draft2020-12/strict-extendible.json",
-        "$ref" => "extendible-dynamic-ref.json",
         "$defs" => %{
           "elements" => %{
             "$dynamicAnchor" => "elements",
@@ -559,7 +558,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.DynamicRefTest do
             "additionalProperties" => false,
             "required" => ["a"]
           }
-        }
+        },
+        "$ref" => "extendible-dynamic-ref.json"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")

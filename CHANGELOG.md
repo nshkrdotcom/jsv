@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [unreleased]
+
+### 🚀 Features
+
+- Added JSV.Resolver.Local to resolve disk stored schemas
+- Special error format for additionalProperties:false
+- Provide correct schemaLocation in all errors
+
+### ⚙️ Miscellaneous Tasks
+
+- Update library configuration (#10)
+- Update Elixir workflow (#13)
+- Refactored schema normalization
+
 ## [0.4.0] - 2025-02-08
 
 ### 🚀 Features

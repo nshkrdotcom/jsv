@@ -337,16 +337,8 @@ defmodule JSV.Schema do
       {:key, other} ->
         raise ArgumentError, "invalid key in schema: #{inspect(other)}"
 
-      {:pair, pair} ->
-        pair
-
       {:struct, %__MODULE__{} = schema, cont} ->
-        raw_map_no_nils =
-          schema
-          |> Map.from_struct()
-          |> Map.filter(fn {_, v} -> v != nil end)
-
-        {normal_map, nil} = cont.(raw_map_no_nils, nil)
+        {normal_map, nil} = cont.(to_map(schema), nil)
         normal_map
 
       {:struct, other, cont} ->
@@ -378,5 +370,15 @@ defmodule JSV.Schema do
       {:module, ^module} -> function_exported?(module, :schema, 0)
       _ -> false
     end
+  end
+
+  @doc """
+  Returns the given schema as a map without keys containing a `nil` value.
+  """
+  @spec to_map(t) :: %{optional(atom) => term}
+  def to_map(%__MODULE__{} = schema) do
+    schema
+    |> Map.from_struct()
+    |> Map.filter(fn {_, v} -> v != nil end)
   end
 end

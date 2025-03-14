@@ -565,8 +565,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$ref": "#/$defs/bar",
         "$defs": %{bar: %JSV.Schema{properties: %{bar: %JSV.Schema{type: "string"}}}},
+        "$ref": "#/$defs/bar",
         type: "object",
         properties: %{foo: %JSV.Schema{type: "string"}},
         unevaluatedProperties: false
@@ -593,8 +593,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$ref": "#/$defs/bar",
         "$defs": %{bar: %JSV.Schema{properties: %{bar: %JSV.Schema{type: "string"}}}},
+        "$ref": "#/$defs/bar",
         type: "object",
         properties: %{foo: %JSV.Schema{type: "string"}},
         unevaluatedProperties: false
@@ -622,17 +622,16 @@ defmodule JSV.Generated.Draft202012.AtomKeys.UnevaluatedPropertiesTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://example.com/unevaluated-properties-with-dynamic-ref/derived",
-        "$ref": "./baseSchema",
         "$defs": %{
           baseSchema: %JSV.Schema{
             "$id": "./baseSchema",
-            "$dynamicRef": "#addons",
             "$defs": %{
               defaultAddons: %JSV.Schema{
                 "$dynamicAnchor": "addons",
                 "$comment": "Needed to satisfy the bookending requirement"
               }
             },
+            "$dynamicRef": "#addons",
             type: "object",
             properties: %{foo: %JSV.Schema{type: "string"}},
             "$comment":
@@ -643,7 +642,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.UnevaluatedPropertiesTest do
             "$dynamicAnchor": "addons",
             properties: %{bar: %JSV.Schema{type: "string"}}
           }
-        }
+        },
+        "$ref": "./baseSchema"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")

@@ -58,9 +58,11 @@ defmodule JSV.MixProject do
       # Test
       {:excoveralls, "~> 0.18", only: :test},
       {:briefly, "~> 0.5.1", only: :test},
-      {:patch, "~> 0.15.0"},
-      {:ex_check, "~> 0.16.0"},
-      {:mix_audit, "~> 2.1"},
+      {:patch, "~> 0.15.0", only: :test},
+      {:ex_check, "~> 0.16.0", only: [:dev, :test]},
+      {:mix_audit, "~> 2.1", only: [:dev, :test]},
+
+      # JSON Schema Test Suite
       json_schema_test_suite()
     ]
   end

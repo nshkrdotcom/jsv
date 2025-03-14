@@ -95,7 +95,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/typical-dynamic-resolution/root",
-        "$ref": "list",
         "$defs": %{
           foo: %JSV.Schema{"$dynamicAnchor": "items", type: "string"},
           list: %JSV.Schema{
@@ -109,7 +108,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             type: "array",
             items: %JSV.Schema{"$dynamicRef": "#items"}
           }
-        }
+        },
+        "$ref": "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -134,7 +134,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/dynamicRef-without-anchor/root",
-        "$ref": "list",
         "$defs": %{
           foo: %JSV.Schema{"$dynamicAnchor": "items", type: "string"},
           list: %JSV.Schema{
@@ -149,7 +148,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             type: "array",
             items: %JSV.Schema{"$dynamicRef": "#/$defs/items"}
           }
-        }
+        },
+        "$ref": "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -174,7 +174,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/dynamic-resolution-with-intermediate-scopes/root",
-        "$ref": "intermediate-scope",
         "$defs": %{
           foo: %JSV.Schema{"$dynamicAnchor": "items", type: "string"},
           "intermediate-scope": %JSV.Schema{
@@ -192,7 +191,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             type: "array",
             items: %JSV.Schema{"$dynamicRef": "#items"}
           }
-        }
+        },
+        "$ref": "intermediate-scope"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -217,7 +217,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/dynamic-resolution-ignores-anchors/root",
-        "$ref": "list",
         "$defs": %{
           foo: %JSV.Schema{"$anchor": "items", type: "string"},
           list: %JSV.Schema{
@@ -231,7 +230,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             type: "array",
             items: %JSV.Schema{"$dynamicRef": "#items"}
           }
-        }
+        },
+        "$ref": "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -250,7 +250,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/dynamic-resolution-without-bookend/root",
-        "$ref": "list",
         "$defs": %{
           foo: %JSV.Schema{"$dynamicAnchor": "items", type: "string"},
           list: %JSV.Schema{
@@ -265,7 +264,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             type: "array",
             items: %JSV.Schema{"$dynamicRef": "#items"}
           }
-        }
+        },
+        "$ref": "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -284,7 +284,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/unmatched-dynamic-anchor/root",
-        "$ref": "list",
         "$defs": %{
           foo: %JSV.Schema{"$dynamicAnchor": "items", type: "string"},
           list: %JSV.Schema{
@@ -300,7 +299,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             type: "array",
             items: %JSV.Schema{"$dynamicRef": "#items"}
           }
-        }
+        },
+        "$ref": "list"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
@@ -320,7 +320,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/relative-dynamic-reference/root",
         "$dynamicAnchor": "meta",
-        "$ref": "extended",
         "$defs": %{
           bar: %JSV.Schema{
             "$id": "bar",
@@ -334,6 +333,7 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             properties: %{bar: %JSV.Schema{"$ref": "bar"}}
           }
         },
+        "$ref": "extended",
         type: "object",
         properties: %{foo: %{const: "pass"}}
       }
@@ -361,7 +361,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://test.json-schema.org/relative-dynamic-reference-without-bookend/root",
         "$dynamicAnchor": "meta",
-        "$ref": "extended",
         "$defs": %{
           bar: %JSV.Schema{
             "$id": "bar",
@@ -375,6 +374,7 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             properties: %{bar: %JSV.Schema{"$ref": "bar"}}
           }
         },
+        "$ref": "extended",
         type: "object",
         properties: %{foo: %{const: "pass"}}
       }
@@ -410,17 +410,17 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
           },
           numberList: %JSV.Schema{
             "$id": "numberList",
-            "$ref": "genericList",
             "$defs": %{
               itemType: %JSV.Schema{"$dynamicAnchor": "itemType", type: "number"}
-            }
+            },
+            "$ref": "genericList"
           },
           stringList: %JSV.Schema{
             "$id": "stringList",
-            "$ref": "genericList",
             "$defs": %{
               itemType: %JSV.Schema{"$dynamicAnchor": "itemType", type: "string"}
-            }
+            },
+            "$ref": "genericList"
           }
         },
         else: %JSV.Schema{"$ref": "stringList"},
@@ -490,14 +490,14 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
         },
         then: %JSV.Schema{
           "$id": "second_scope",
-          "$ref": "start",
           "$defs": %{
             thingy: %JSV.Schema{
               "$dynamicAnchor": "thingy",
               type: "null",
               "$comment": "this is second_scope#thingy, the final destination of the $dynamicRef"
             }
-          }
+          },
+          "$ref": "start"
         }
       }
 
@@ -556,7 +556,6 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
       json_schema = %JSV.Schema{
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "http://localhost:1234/draft2020-12/strict-extendible.json",
-        "$ref": "extendible-dynamic-ref.json",
         "$defs": %{
           elements: %JSV.Schema{
             "$dynamicAnchor": "elements",
@@ -564,7 +563,8 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DynamicRefTest do
             additionalProperties: false,
             required: ["a"]
           }
-        }
+        },
+        "$ref": "extendible-dynamic-ref.json"
       }
 
       schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
