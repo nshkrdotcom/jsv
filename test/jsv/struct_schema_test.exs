@@ -103,6 +103,23 @@ defmodule JSV.StructSchemaTest do
     })
   end
 
+  defmodule FromGenericData do
+    schema = %{
+      "$defs": %{
+        user: %{
+          type: "object",
+          properties: %{
+            age: %{default: 123, type: "integer"},
+            name: %{type: "string"}
+          }
+        }
+      }
+    }
+
+    # Schema should be defineable from a function call
+    JSV.defschema(get_in(schema, [:"$defs", :user]))
+  end
+
   describe "generating modules from schemas" do
     test "can define a struct with a schema" do
       assert %BasicDefine{name: nil, age: 123} == BasicDefine.__struct__()
@@ -155,6 +172,11 @@ defmodule JSV.StructSchemaTest do
 
     test "self recursive module" do
       %RecursiveSelf{} = struct!(RecursiveSelf, sub_self: :stuff)
+    end
+
+    test "can define a struct with a schema from a quoted function call" do
+      assert %FromGenericData{name: nil, age: 123} == FromGenericData.__struct__()
+      assert [{"age", :age}, {"name", :name}] == FromGenericData.__jsv__(:keycast)
     end
   end
 
@@ -498,6 +520,91 @@ defmodule JSV.StructSchemaTest do
 
       assert {:alias_of, RecursiveSelfWithCustomId.schema()."$id"} ==
                root.validators["jsv:module:#{Atom.to_string(RecursiveSelfWithCustomId)}"]
+    end
+  end
+
+  describe "optional schemas" do
+    test "schema can be given in oneOf" do
+      schema = %{oneOf: [%{type: :null}, BasicDefine]}
+      root = JSV.build!(schema)
+      assert {:ok, nil} == JSV.validate(nil, root)
+
+      assert {:ok, %BasicDefine{name: "Alice", age: 456}} ==
+               JSV.validate(%{"name" => "Alice", "age" => 456}, root)
+    end
+  end
+
+  describe "deserializing into another module" do
+    defmodule OriginalStruct do
+      @enforce_keys [:some_integer]
+      defstruct some_integer: 100, some_bool: true, some_string: "hello"
+    end
+
+    defmodule DenormToStruct do
+      JSV.defschema_for(OriginalStruct, %{
+        type: :object,
+        properties: %{
+          # Orginal default is 100, but we override it
+          some_integer: %{type: :integer, default: 1},
+          # Default is :true
+          some_bool: %{type: :boolean}
+          # we do not declare :some_string
+        }
+      })
+    end
+
+    test "can deserialize to an existing struct" do
+      assert {:ok, root} = JSV.build(DenormToStruct)
+
+      # When deserializing, the declared default apply. So we will have
+      # some_integer:1 by default.
+      #
+      # :some_bool does not declare a default, so it should use the default from
+      # the original struct and not `nil`.
+      #
+      # Fields not declared like :some_string should have their original defaults
+      # too.
+
+      assert {:ok, %OriginalStruct{some_integer: 1, some_bool: true, some_string: "hello"}} =
+               JSV.validate(%{}, root)
+
+      # We can define the values
+
+      assert {:ok, %OriginalStruct{some_integer: 1234, some_bool: false, some_string: "hello"}} =
+               JSV.validate(%{"some_integer" => 1234, "some_bool" => false}, root)
+
+      # We cannot pass extra keys that are defined in the struct but not in the schema
+      assert {:ok, %OriginalStruct{some_string: "hello"}} =
+               JSV.validate(%{"some_string" => "ignored"}, root)
+    end
+
+    test "requires the schema to correspond to the struct" do
+      # The schema can be defined
+      defmodule DenormToStructWithLessKeys do
+        JSV.defschema_for(OriginalStruct, %{
+          type: :object,
+          properties: %{}
+        })
+      end
+
+      # The root can be built
+      assert {:ok, root} = JSV.build(DenormToStructWithLessKeys)
+
+      # But it will fail here
+      assert_raise ArgumentError, fn -> JSV.validate(%{}, root) end
+    end
+
+    test "cannot provide extra keys" do
+      assert_raise ArgumentError, ~r/ does not define keys given in defschema_for\//, fn ->
+        defmodule DenormToStructWithExtraKeys do
+          JSV.defschema_for(OriginalStruct, %{
+            type: :object,
+            properties: %{
+              some_unknown_key: %{}
+            }
+          })
+        end
+      end
     end
   end
 end
