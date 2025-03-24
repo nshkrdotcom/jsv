@@ -30,25 +30,34 @@ defmodule JSV.CodecTest do
     end
 
     defp expected_ordered_json do
-      """
-      {
-        "if": {
+      json =
+        """
+        {
           "if": {
-            "b": "vb",
-            "a": "va"
+            "if": {
+              "b": "vb",
+              "a": "va"
+            },
+            "minimum": 200,
+            "default": 200
           },
-          "minimum": 200,
+          "minimum": 100,
           "default": 200
-        },
-        "minimum": 100,
-        "default": 200
-      }\
-      """
+        }
+        """
+
+      String.trim(json)
     end
+
+    # We will compare the values trimmed since the native encoder and Jason have
+    # different behaviours.
 
     defp call_sort_encoder(module) do
       iodata = Codec.format_ordered_to_iodata!(module, sample_ordering_data(), &sample_key_sorter/2)
-      IO.iodata_to_binary(iodata)
+
+      iodata
+      |> IO.iodata_to_binary()
+      |> String.trim()
     end
 
     test "with Jason" do
@@ -61,7 +70,11 @@ defmodule JSV.CodecTest do
       end
     end
 
-    if Code.ensure_loaded?(JSON) do
+    if Code.ensure_loaded?(JSON) && Code.ensure_loaded?(:json) && function_exported?(:json, :format, 3) do
+      test "with Native" do
+        assert expected_ordered_json() == call_sort_encoder(JSV.Codec.NativeCodec)
+      end
+    else
       test "with Native" do
         assert_raise RuntimeError, "ordered JSON encoding requires Jason", fn ->
           call_sort_encoder(JSV.Codec.NativeCodec)
