@@ -15,7 +15,6 @@ defmodule JSV.MixProject do
       deps: deps(),
       source_url: @source_url,
       docs: docs(),
-      test_coverage: [tool: ExCoveralls],
       package: package(),
       modkit: modkit(),
       dialyzer: dialyzer()

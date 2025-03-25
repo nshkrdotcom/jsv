@@ -3,7 +3,6 @@
 if Code.ensure_loaded?(JSON) do
   defmodule JSV.Codec.NativeCodec do
     @moduledoc false
-    alias JSV.Helpers.Traverse
 
     def decode!(json) do
       JSON.decode!(json)
@@ -48,7 +47,7 @@ if Code.ensure_loaded?(JSON) do
 
       @spec to_ordered_data(term, term) :: term()
       def to_ordered_data(data, key_sorter) do
-        Traverse.postwalk(data, fn
+        JSV.Helpers.Traverse.postwalk(data, fn
           {:val, map} when is_map(map) ->
             map
             |> Map.to_list()
