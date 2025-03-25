@@ -2,19 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [0.5.0] - 2025-03-25
 
 ### 🚀 Features
 
 - Added JSV.Resolver.Local to resolve disk stored schemas
 - Special error format for additionalProperties:false
 - Provide correct schemaLocation in all errors
+- Added defschema_for to use different modules for schema and struct
+- Provide ordered JSON encoding with native JSON modules
+
+### 🐛 Bug Fixes
+
+- Check presence of JSON module in CI
+
+### 🧪 Testing
+
+- Make JSON codecs easier to test
+- Fixed assertions for JSON codec on old OTP versions
 
 ### ⚙️ Miscellaneous Tasks
 
 - Update library configuration (#10)
 - Update Elixir workflow (#13)
 - Refactored schema normalization
+- Removed unused alias
+- Update Elixir workflow (#15)
+- Use readmix to generate formats docs
 
 ## [0.4.0] - 2025-02-08
 

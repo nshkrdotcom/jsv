@@ -30,5 +30,8 @@ _git_status:
 readme:
   mix rdmx.update README.md
 
+changelog:
+  git cliff -o CHANGELOG.md
+
 check: deps _mix_format _mix_check readme _git_status
 
