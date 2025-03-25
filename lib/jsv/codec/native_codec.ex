@@ -4,6 +4,16 @@ if Code.ensure_loaded?(JSON) do
   defmodule JSV.Codec.NativeCodec do
     @moduledoc false
 
+    @supports_ordered_formatting Code.ensure_loaded?(:json) && function_exported?(:json, :format, 3)
+    def supports_ordered_formatting do
+      @supports_ordered_formatting
+    end
+
+    @supports_formatting Code.ensure_loaded?(:json) && function_exported?(:json, :format, 1)
+    def supports_formatting do
+      @supports_formatting
+    end
+
     def decode!(json) do
       JSON.decode!(json)
     end
@@ -17,12 +27,12 @@ if Code.ensure_loaded?(JSON) do
     end
 
     cond do
-      Code.ensure_loaded?(:json) && function_exported?(:json, :format, 3) ->
+      @supports_formatting and @supports_ordered_formatting ->
         def format_to_iodata!(data) do
           :json.format(data, &json_formatter/3, %{indent: 2})
         end
 
-      Code.ensure_loaded?(:json) && function_exported?(:json, :format, 1) ->
+      @supports_formatting ->
         def format_to_iodata!(data) do
           :json.format(data)
         end
@@ -34,7 +44,7 @@ if Code.ensure_loaded?(JSON) do
         end
     end
 
-    if Code.ensure_loaded?(:json) && function_exported?(:json, :format, 3) do
+    if @supports_ordered_formatting do
       defmodule OrderedObject do
         @moduledoc false
         defstruct [:values]

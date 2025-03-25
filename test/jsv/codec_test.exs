@@ -65,21 +65,26 @@ defmodule JSV.CodecTest do
     end
 
     test "with Poison" do
-      assert_raise RuntimeError, "ordered JSON encoding requires Jason", fn ->
+      assert_raise RuntimeError, ~r/ordered JSON encoding requires Jason/, fn ->
         call_sort_encoder(JSV.Codec.PoisonCodec)
       end
     end
 
-    if Code.ensure_loaded?(JSON) && Code.ensure_loaded?(:json) && function_exported?(:json, :format, 3) do
-      test "with Native" do
-        assert expected_ordered_json() == call_sort_encoder(JSV.Codec.NativeCodec)
-      end
-    else
-      test "with Native" do
-        assert_raise RuntimeError, "ordered JSON encoding requires Jason", fn ->
-          call_sort_encoder(JSV.Codec.NativeCodec)
+    cond do
+      Code.ensure_loaded?(JSON) && JSV.Codec.NativeCodec.supports_ordered_formatting() ->
+        test "with Native" do
+          assert expected_ordered_json() == call_sort_encoder(JSV.Codec.NativeCodec)
         end
-      end
+
+      Code.ensure_loaded?(JSON) ->
+        test "with Native" do
+          assert_raise RuntimeError, ~r/ordered JSON encoding requires Jason/, fn ->
+            call_sort_encoder(JSV.Codec.NativeCodec)
+          end
+        end
+
+      :otherwise ->
+        IO.puts("no native JSON codec test")
     end
   end
 end
