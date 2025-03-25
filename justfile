@@ -28,7 +28,7 @@ _git_status:
   git status
 
 readme:
-  mix run tools/readme-formats.exs --no-dump
+  mix rdmx.update README.md
 
 check: deps _mix_format _mix_check readme _git_status
 

@@ -1,5 +1,15 @@
-# JSV [![Hex.pm Version](https://img.shields.io/hexpm/v/jsv?color=4e2a8e)](https://hex.pm/packages/jsv) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/lud/jsv/elixir.yaml?label=CI)](https://github.com/lud/jsv/actions/workflows/elixir.yaml)
+# JSV
 
+
+<!-- rdmx :badges
+    hexpm         : "jsv?color=4e2a8e"
+    github_action : "lud/jsv/elixir.yaml?label=CI&branch=main"
+    license       : jsv
+    -->
+[![hex.pm Version](https://img.shields.io/hexpm/v/jsv?color=4e2a8e)](https://hex.pm/packages/jsv)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/lud/jsv/elixir.yaml?label=CI&branch=main)](https://github.com/lud/jsv/actions/workflows/elixir.yaml?query=branch%3Amain)
+[![License](https://img.shields.io/hexpm/l/jsv.svg)](https://hex.pm/packages/jsv)
+<!-- rdmx /:badges -->
 
 A JSON Schema Validation library for Elixir with full support for the latest
 JSON Schema specification.
@@ -40,13 +50,15 @@ This document describes general considerations and recipes to use the library.
 
 ### Installation
 
+<!-- rdmx :app_dep vsn:$app_vsn -->
 ```elixir
 def deps do
   [
-    {:jsv, "~> 0.2"},
+    {:jsv, "~> 0.4"},
   ]
 end
 ```
+<!-- rdmx /:app_dep -->
 
 Additional dependencies can be added to support more features:
 
@@ -491,7 +503,7 @@ The listing below describe values returned with that option enabled.
 You may add it as a dependency in your application and it will be used
 automatically.
 
-<!-- block:formats-table -->
+<!-- rdmx jsv:formats -->
 #### date
 
 * **support**: Native.
@@ -627,8 +639,7 @@ automatically.
 * **input**: `"bf22824c-c8a4-11ef-9642-0fdaf117eeb9"`
 * **output**: Input value.
 
-
-<!-- endblock:formats-table -->
+<!-- rdmx /jsv:formats -->
 
 
 ### Custom formats

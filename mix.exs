@@ -52,7 +52,7 @@ defmodule JSV.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :test, runtime: false},
-      {:modkit, "~> 0.6.1", only: :dev, runtime: false},
+      {:readmix, "~> 0.2.0", only: [:dev, :test], runtime: false},
 
       # Test
       {:excoveralls, "~> 0.18", only: :test},
@@ -132,7 +132,7 @@ defmodule JSV.MixProject do
       flags: [:unmatched_returns, :error_handling, :unknown, :extra_return],
       list_unused_filters: true,
       plt_add_deps: :app_tree,
-      plt_add_apps: [:ex_unit, :mix],
+      plt_add_apps: [:ex_unit, :mix, :readmix],
       plt_local_path: "_build/plts"
     ]
   end
