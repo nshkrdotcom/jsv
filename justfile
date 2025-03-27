@@ -1,7 +1,7 @@
 gen-test-suite:
   mix compile
-  elixir tools/gen.test.suite.exs draft2020-12
-  elixir tools/gen.test.suite.exs draft7
+  mix jsv.gen_test_suite draft2020-12
+  mix jsv.gen_test_suite draft7
   # mix format --check-formatted
   # git status --porcelain | rg "test/generated" --count && mix test || true
 

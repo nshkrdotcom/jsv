@@ -54,7 +54,7 @@ This document describes general considerations and recipes to use the library.
 ```elixir
 def deps do
   [
-    {:jsv, "~> 0.4"},
+    {:jsv, "~> 0.5"},
   ]
 end
 ```

@@ -1,10 +1,13 @@
-# We still rely on Jason to generate the test suite, as it allows to decode JSON
-# with atom keys.
-Mix.install([:modkit, :cli_mate, :jason, {:jsv, path: "."}], consolidate_protocols: false, verbose: true)
 
-defmodule JSV.GenTestSuite do
+
+
+defmodule Mix.Tasks.Jsv.GenTestSuite do
+  use Mix.Task
   alias CliMate.CLI
   require EEx
+
+
+  @shortdoc "Regenerate the JSON Schema Test Suite"
 
   @root_suites_dir Path.join([File.cwd!(), "deps", "json_schema_test_suite", "tests"])
 
@@ -257,7 +260,8 @@ defmodule JSV.GenTestSuite do
 
     do_run(suite, :binary)
     do_run(suite, :atom)
-    Mix.Task.run("format")
+    Mix.start()
+    Mix.Task.run("format", ["--migrate"])
   end
 
   # Format can be :binary or :atom, it changes the way the schemas will be
@@ -503,6 +507,8 @@ defmodule JSV.GenTestSuite do
     end
   end
 
+
+
   defp render_ordered_schema(schema, key_format) when is_map(schema) do
     schema =
       case key_format do
@@ -510,16 +516,17 @@ defmodule JSV.GenTestSuite do
         :atom -> schema |> Jason.encode!() |> Jason.decode!(keys: :atoms)
       end
 
-    ordered_map = JSV.SchemaDumpWrapper.from_map(schema, key_format)
+    ordered_map = __MODULE__.SchemaDumpWrapper.from_map(schema, key_format)
     inspect(ordered_map, pretty: true, limit: :infinity, printable_limit: :infinity)
   end
 
   defp render_ordered_schema(schema, _) when is_boolean(schema) do
     inspect(schema, pretty: true, limit: :infinity, printable_limit: :infinity)
   end
-end
 
-defmodule JSV.SchemaDumpWrapper do
+
+
+defmodule SchemaDumpWrapper do
   @key_order [
                # metada of the schema
                "$schema",
@@ -589,46 +596,47 @@ defmodule JSV.SchemaDumpWrapper do
       :error -> {1, key}
     end
   end
+
+  defimpl Inspect do
+    import Inspect.Algebra
+
+    def inspect(omap, opts) do
+      list = SchemaDumpWrapper.to_ordlist(omap)
+
+      fun =
+        if Inspect.List.keyword?(list) do
+          &Inspect.List.keyword/2
+        else
+          sep = color(" => ", :map, opts)
+          &to_assoc(&1, &2, sep)
+        end
+
+      known_keys = Map.keys(Map.from_struct(JSV.Schema.__struct__()))
+
+      struct_name =
+        with :atom <- omap.key_format,
+             false <- list |> Enum.map(&elem(&1, 0)) |> Enum.any?(&(&1 not in known_keys)) do
+          "JSV.Schema"
+        else
+          _ ->
+            ""
+        end
+
+      map_container_doc(list, struct_name, opts, fun)
+    end
+
+    defp to_assoc({key, value}, opts, sep) do
+      concat(concat(to_doc(key, opts), sep), to_doc(value, opts))
+    end
+
+    defp map_container_doc(list, name, opts, fun) do
+      open = color("%" <> name <> "{", :map, opts)
+      sep = color(",", :map, opts)
+      close = color("}", :map, opts)
+      container_doc(open, list, close, opts, fun, separator: sep, break: :strict)
+    end
+  end
+
 end
 
-defimpl Inspect, for: JSV.SchemaDumpWrapper do
-  import Inspect.Algebra
-
-  def inspect(omap, opts) do
-    list = JSV.SchemaDumpWrapper.to_ordlist(omap)
-
-    fun =
-      if Inspect.List.keyword?(list) do
-        &Inspect.List.keyword/2
-      else
-        sep = color(" => ", :map, opts)
-        &to_assoc(&1, &2, sep)
-      end
-
-    known_keys = Map.keys(Map.from_struct(JSV.Schema.__struct__()))
-
-    struct_name =
-      with :atom <- omap.key_format,
-           false <- list |> Enum.map(&elem(&1, 0)) |> Enum.any?(&(&1 not in known_keys)) do
-        "JSV.Schema"
-      else
-        _ ->
-          ""
-      end
-
-    map_container_doc(list, struct_name, opts, fun)
-  end
-
-  defp to_assoc({key, value}, opts, sep) do
-    concat(concat(to_doc(key, opts), sep), to_doc(value, opts))
-  end
-
-  defp map_container_doc(list, name, opts, fun) do
-    open = color("%" <> name <> "{", :map, opts)
-    sep = color(",", :map, opts)
-    close = color("}", :map, opts)
-    container_doc(open, list, close, opts, fun, separator: sep, break: :strict)
-  end
 end
-
-JSV.GenTestSuite.run(System.argv())

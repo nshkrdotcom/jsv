@@ -31,6 +31,10 @@ defmodule JSV.MixProject do
     ["lib", "test/support"]
   end
 
+  defp elixirc_paths(:dev) do
+    ["lib", "dev"]
+  end
+
   defp elixirc_paths(_) do
     ["lib"]
   end
@@ -53,6 +57,7 @@ defmodule JSV.MixProject do
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :test, runtime: false},
       {:readmix, "~> 0.2.0", only: [:dev, :test], runtime: false},
+      {:modkit, "~> 0.6", only: [:dev, :test], runtime: false},
 
       # Test
       {:excoveralls, "~> 0.18", only: :test},
@@ -140,7 +145,8 @@ defmodule JSV.MixProject do
   defp modkit do
     [
       mount: [
-        {JSV, "lib/jsv"}
+        {JSV, "lib/jsv"},
+        {JSV.DocGen, "dev/doc_gen"}
       ]
     ]
   end
