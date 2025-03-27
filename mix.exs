@@ -53,7 +53,7 @@ defmodule JSV.MixProject do
       {:abnf_parsec, "~> 2.0", optional: true},
 
       # Dev
-      {:credo, "~> 1.7", only: [:dev, :test]},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :test, runtime: false},
       {:readmix, "~> 0.2.0", only: [:dev, :test], runtime: false},
