@@ -1,11 +1,7 @@
-
-
-
 defmodule Mix.Tasks.Jsv.GenTestSuite do
   use Mix.Task
   alias CliMate.CLI
   require EEx
-
 
   @shortdoc "Regenerate the JSON Schema Test Suite"
 
@@ -507,8 +503,6 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     end
   end
 
-
-
   defp render_ordered_schema(schema, key_format) when is_map(schema) do
     schema =
       case key_format do
@@ -524,119 +518,115 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     inspect(schema, pretty: true, limit: :infinity, printable_limit: :infinity)
   end
 
+  defmodule SchemaDumpWrapper do
+    @key_order [
+                 # metada of the schema
+                 "$schema",
+                 "$id",
+                 "$anchor",
+                 "$dynamicAnchor",
 
+                 # text headers
+                 "title",
+                 "description",
+                 "comment",
 
-defmodule SchemaDumpWrapper do
-  @key_order [
-               # metada of the schema
-               "$schema",
-               "$id",
-               "$anchor",
-               "$dynamicAnchor",
+                 # collection of other schemas
+                 "definitions",
+                 "$defs",
 
-               # text headers
-               "title",
-               "description",
-               "comment",
+                 # references to other schemas
+                 "$dynamicRef",
+                 "$ref",
 
-               # collection of other schemas
-               "definitions",
-               "$defs",
+                 # validations
 
-               # references to other schemas
-               "$dynamicRef",
-               "$ref",
+                 # type should be the first validation
+                 "type",
 
-               # validations
+                 # properties should be ordered like so, with required afterwards
+                 "properties",
+                 "patternProperties",
+                 "additionalProperties",
+                 "required"
+               ]
+               |> Enum.with_index()
+               |> Map.new()
 
-               # type should be the first validation
-               "type",
+    defstruct wrapped_map: [], key_format: nil
 
-               # properties should be ordered like so, with required afterwards
-               "properties",
-               "patternProperties",
-               "additionalProperties",
-               "required"
-             ]
-             |> Enum.with_index()
-             |> Map.new()
-
-  defstruct wrapped_map: [], key_format: nil
-
-  def from_map(map, key_format) do
-    %__MODULE__{wrapped_map: map, key_format: key_format}
-  end
-
-  def to_ordlist(ordmap) do
-    ordmap.wrapped_map
-    |> Map.to_list()
-    |> Enum.sort_by(fn {k, _} -> order_of(k) end)
-    |> Enum.map(fn {k, v} -> {k, cast_sub(v, ordmap.key_format)} end)
-  end
-
-  defp cast_sub(map, key_format) when is_map(map) do
-    from_map(map, key_format)
-  end
-
-  defp cast_sub(list, key_format) when is_list(list) do
-    Enum.map(list, &cast_sub(&1, key_format))
-  end
-
-  defp cast_sub(tuple, _) when is_tuple(tuple) do
-    raise "we should not have tuples in JSON data"
-  end
-
-  defp cast_sub(sub, _) do
-    sub
-  end
-
-  defp order_of(key) do
-    case Map.fetch(@key_order, to_string(key)) do
-      {:ok, order} -> {0, order}
-      :error -> {1, key}
-    end
-  end
-
-  defimpl Inspect do
-    import Inspect.Algebra
-
-    def inspect(omap, opts) do
-      list = SchemaDumpWrapper.to_ordlist(omap)
-
-      fun =
-        if Inspect.List.keyword?(list) do
-          &Inspect.List.keyword/2
-        else
-          sep = color(" => ", :map, opts)
-          &to_assoc(&1, &2, sep)
-        end
-
-      known_keys = Map.keys(Map.from_struct(JSV.Schema.__struct__()))
-
-      struct_name =
-        with :atom <- omap.key_format,
-             false <- list |> Enum.map(&elem(&1, 0)) |> Enum.any?(&(&1 not in known_keys)) do
-          "JSV.Schema"
-        else
-          _ ->
-            ""
-        end
-
-      map_container_doc(list, struct_name, opts, fun)
+    def from_map(map, key_format) do
+      %__MODULE__{wrapped_map: map, key_format: key_format}
     end
 
-    defp to_assoc({key, value}, opts, sep) do
-      concat(concat(to_doc(key, opts), sep), to_doc(value, opts))
+    def to_ordlist(ordmap) do
+      ordmap.wrapped_map
+      |> Map.to_list()
+      |> Enum.sort_by(fn {k, _} -> order_of(k) end)
+      |> Enum.map(fn {k, v} -> {k, cast_sub(v, ordmap.key_format)} end)
     end
 
-    defp map_container_doc(list, name, opts, fun) do
-      open = color("%" <> name <> "{", :map, opts)
-      sep = color(",", :map, opts)
-      close = color("}", :map, opts)
-      container_doc(open, list, close, opts, fun, separator: sep, break: :strict)
+    defp cast_sub(map, key_format) when is_map(map) do
+      from_map(map, key_format)
+    end
+
+    defp cast_sub(list, key_format) when is_list(list) do
+      Enum.map(list, &cast_sub(&1, key_format))
+    end
+
+    defp cast_sub(tuple, _) when is_tuple(tuple) do
+      raise "we should not have tuples in JSON data"
+    end
+
+    defp cast_sub(sub, _) do
+      sub
+    end
+
+    defp order_of(key) do
+      case Map.fetch(@key_order, to_string(key)) do
+        {:ok, order} -> {0, order}
+        :error -> {1, key}
+      end
+    end
+
+    defimpl Inspect do
+      import Inspect.Algebra
+
+      def inspect(omap, opts) do
+        list = SchemaDumpWrapper.to_ordlist(omap)
+
+        fun =
+          if Inspect.List.keyword?(list) do
+            &Inspect.List.keyword/2
+          else
+            sep = color(" => ", :map, opts)
+            &to_assoc(&1, &2, sep)
+          end
+
+        known_keys = Map.keys(Map.from_struct(JSV.Schema.__struct__()))
+
+        struct_name =
+          with :atom <- omap.key_format,
+               false <- list |> Enum.map(&elem(&1, 0)) |> Enum.any?(&(&1 not in known_keys)) do
+            "JSV.Schema"
+          else
+            _ ->
+              ""
+          end
+
+        map_container_doc(list, struct_name, opts, fun)
+      end
+
+      defp to_assoc({key, value}, opts, sep) do
+        concat(concat(to_doc(key, opts), sep), to_doc(value, opts))
+      end
+
+      defp map_container_doc(list, name, opts, fun) do
+        open = color("%" <> name <> "{", :map, opts)
+        sep = color(",", :map, opts)
+        close = color("}", :map, opts)
+        container_doc(open, list, close, opts, fun, separator: sep, break: :strict)
+      end
     end
   end
-
-end
-
 end
