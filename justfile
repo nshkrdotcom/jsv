@@ -27,11 +27,14 @@ _mix_check:
 _git_status:
   git status
 
-readme:
+docs:
+  mix docs
   mix rdmx.update README.md
+  rg rdmx guides -l0 | xargs -0 -n 1 mix rdmx.update
+
 
 changelog:
   git cliff -o CHANGELOG.md
 
-check: deps _mix_format _mix_check readme _git_status
+check: deps _mix_format _mix_check docs _git_status
 

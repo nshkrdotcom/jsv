@@ -18,7 +18,7 @@ defmodule JSV.Resolver.HttpcTest do
     assert {:ok, %{"slideshow" => _}} =
              Httpc.resolve("https://httpbin.org/json",
                cache_dir: false,
-               allowed_prefixes: ["https://httpbin.org"]
+               allowed_prefixes: ["https://httpbin.org/"]
              )
   end
 
@@ -28,7 +28,7 @@ defmodule JSV.Resolver.HttpcTest do
     cached_schema = %{"id" => "jsv://test/#{unique_id}"}
 
     # Define a cache directory for the test that we will give to the resolver
-    cache_dir = Path.join(System.tmp_dir!(), "jsv-test-#{System.system_time(:microsecond)}")
+    cache_dir = Path.join(System.tmp_dir!(), "jsv-test-http-resolver-cache-#{System.system_time(:microsecond)}")
 
     # The Httpc module conveniently allows the test to know the cache path from
     # the URL in advance

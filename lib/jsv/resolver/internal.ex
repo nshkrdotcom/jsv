@@ -1,6 +1,5 @@
 defmodule JSV.Resolver.Internal do
   alias JSV.Helpers.StringExt
-  alias JSV.Schema
 
   @behaviour JSV.Resolver
 
@@ -26,7 +25,7 @@ defmodule JSV.Resolver.Internal do
 
   def resolve(@uri_prefix <> module_string, _) do
     case StringExt.safe_string_to_existing_module(module_string) do
-      {:ok, module} -> {:ok, Schema.normalize(module.schema())}
+      {:ok, module} -> {:ok, module.schema()}
       {:error, reason} -> {:error, reason}
     end
   rescue

@@ -25,11 +25,11 @@ defmodule JSV.Resolver.InternalTest do
     defmodule CorrectModule do
       @spec schema :: term
       def schema do
-        :not_actually_a_schema_but_still_deatomized
+        %{type: :integer}
       end
     end
 
     uri = Internal.module_to_uri(CorrectModule)
-    assert {:ok, "not_actually_a_schema_but_still_deatomized"} == Internal.resolve(uri, [])
+    assert {:ok, %{type: :integer}} == Internal.resolve(uri, [])
   end
 end

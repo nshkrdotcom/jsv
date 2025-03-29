@@ -1,3 +1,4 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.Resolver.LocalTest do
   alias JSV.Codec
 
@@ -167,6 +168,30 @@ defmodule JSV.Resolver.LocalTest do
 
       # Helper function/1
       assert {:ok, schema} == HelperSource.resolve("test://helper-test/")
+    end
+
+    test "the resolve/2 function is overrideable" do
+      defmodule OverrideSource do
+        use JSV.Resolver.Local, source: []
+
+        def resolve(_, _) do
+          {:error, :overriden_in_usermod}
+        end
+      end
+
+      assert {:error, :overriden_in_usermod} == OverrideSource.resolve("test://helper-test/", [])
+    end
+
+    test "the __mix_recompile__? function is overrideable" do
+      defmodule BadRecompileSource do
+        use JSV.Resolver.Local, source: []
+
+        def __mix_recompile__? do
+          :maybe
+        end
+      end
+
+      assert :maybe == BadRecompileSource.__mix_recompile__?()
     end
   end
 

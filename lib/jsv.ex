@@ -7,16 +7,47 @@ defmodule JSV do
   alias JSV.Validator
   alias JSV.Validator.ValidationContext
 
-  readme =
-    "README.md"
-    |> File.read!()
-    |> String.split("<!-- moduledoc-split -->")
-    |> tl()
-
   @moduledoc """
-  This is the main API for the JSV library.
+  JSV is a JSON Schema Validator.
 
-  #{readme}
+  This module is the main facade for the library.
+
+  To start validating schemas you will need to go through the following steps:
+
+  1. [Obtain a schema](guides/schemas/defining-schemas.md). Schemas can be
+     defined in Elixir code, read from files, fetched remotely, _etc_.
+  1. [Build a validation root](guides/build/build-basics.md) with `build/2` or
+     `build!/2`.
+  1. [Validate the data](guides/validation/validation-basics.md).
+
+  ## Example
+
+  Here is an example of the most simple way of using the library:
+
+  ```elixir
+  schema = %{
+    type: :object,
+    properties: %{
+      name: %{type: :string}
+    },
+    required: [:name]
+  }
+
+  root = JSV.build!(schema)
+
+  case JSV.validate(%{"name" => "Alice"}, root) do
+    {:ok, data} ->
+      {:ok, data}
+
+    # Errors can be casted as JSON compatible data structure to send them as an
+    # API response or for logging purposes.
+    {:error, validation_error} ->
+      {:error, JSON.encode!(JSV.normalize_error(validation_error))}
+  end
+  ```
+
+  If you want to explore the different capabilities of the library, please refer
+  to the guides provided in this documentation.
   """
 
   @type raw_schema :: map() | boolean() | module()
@@ -59,16 +90,17 @@ defmodule JSV do
                          * `[Module1, Module2,...]` – set those modules as validators. Disables the default format validator modules.
                             The default validators can be included back in the list manually, see `default_format_validator_modules/0`.
 
-                         > #### Formats are disabled by the default meta-schemas {: .warning}
+                         > #### Formats are disabled by the default meta-schema {: .warning}
                          >
                          > The default value for this option is `nil` to respect
-                         > the capability of enably validation with vocabularies.
+                         > the JSON Schema specification where format validation
+                         > is enabled via vocabularies.
                          >
-                         > But the default meta-schemas for the latest drafts (example: `#{@default_default_meta}`)
+                         > The default meta-schemas for the latest drafts (example: `#{@default_default_meta}`)
                          > do not enable format validation.
                          >
                          > You'll probably want this option to be set to `true`
-                         > or to provide your own modules.
+                         > or a list of your own modules.
                          """,
                          default: nil
                        ]
@@ -172,8 +204,6 @@ defmodule JSV do
     function will return `123` instead. This may return invalid data for floats
     with very large integer parts. As always when dealing with JSON and big
     decimal or extremely precise numbers, use strings.
-  * Future versions of the library will allow to cast raw data into Elixir
-    structs.
 
   ### Options
 

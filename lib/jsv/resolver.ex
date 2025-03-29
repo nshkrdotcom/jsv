@@ -6,49 +6,13 @@ defmodule JSV.Resolver do
   alias JSV.Vocabulary
 
   @moduledoc """
+  A behaviour describing the implementation of a [guides/build/custom resolver.
   Resolves remote resources when building a JSON schema.
-
-  A resolver implementation is needed for `JSV.build/2`.
-
-  There are no specific rules on how to build a proper resolver. Anything is
-  valid as long as it returns a JSON schema (or an error) for a given URI.
-
-  Custom resolvers are most often used for:
-
-  - Ability to resolve URLs such as `my-company://some-id/` where the
-    implementation knows a directory to retrieve that path from.
-  - Ability to resolve `https://` URLs with custom network setups involving
-    authentication, proxies, etc.
-  - Returning hardcoded schemas directly from the codebase, or files from the
-    codebase.
-  - Returning a different schema depending on the environment, whether this is a
-    good idea or not.
-
-  ### Internal resolution
-
-  The JSV library supports exporting schemas from Elixir modules. A valid module
-  for this feature is any module that exports a `schema/0` function:
-
-      defmodule MyApp.Schemas.MySchema do
-        def schema do
-          %{"type" => "integer"}
-        end
-      end
-
-  URI references to such modules are defined by the `jsv` scheme and a
-  `module:<module to string>` path:
-
-      %{
-        "$ref" => "jsv:module:Elixir.MyApp.Schemas.MySchema"
-      }
-
-  The internal resolver will automatically call the `schema/0` function from
-  modules referenced this way in order to resolve the referenced URI.
   """
 
   defmodule Resolved do
     @moduledoc """
-    Represents a cache entry for a resolved resource.
+    Metadata gathered from a remote schema or a sub-schema.
     """
 
     # TODO drop parent_ns once we do not support draft-7
@@ -72,10 +36,12 @@ defmodule JSV.Resolver do
 
   @doc """
   Receives an URI and the options passed in the resolver tuple to `JSV.build/2`
-  and returns a result tuple for a raw JSON schema, that is a map with binary
-  keys or a boolean.
+  and returns a result tuple for a raw JSON schema map.
+
+  Returning boolean schemas from resolvers is not supported. You may wrap the
+  boolean value in a `$defs` or any other pointer as a workaround.
   """
-  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, JSV.raw_schema()} | {:error, term}
+  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, map} | {:error, term}
 
   @draft_202012_vocabulary %{
     "https://json-schema.org/draft/2020-12/vocab/core" => Vocabulary.V202012.Core,
@@ -116,9 +82,9 @@ defmodule JSV.Resolver do
   @type resolvable :: Key.ns() | Key.pointer() | Ref.t()
 
   @doc """
-  Returns a new resolver, with the given `module` for behaviour implementation,
-  and a default meta-schema URL to use with schemas that do not declare a
-  `$schema` property.
+  Returns a new resolver, with the given behaviour implementations, and a
+  default meta-schema URL to use with schemas that do not declare a `$schema`
+  property.
   """
   @spec chain_of([{module, term}], binary) :: t
   def chain_of([_ | _] = resolvers, default_meta) do
@@ -146,8 +112,8 @@ defmodule JSV.Resolver do
   end
 
   @doc """
-  Returns the resolver with the remote resolvable resource fetched in the
-  internal cache of the resolver.
+  Fetches the remote resource into the internal resolver cache and returns a new
+  resolver with that updated cache.
   """
   @spec resolve(t, resolvable | {:prefetched, term, term}) :: {:ok, t} | {:error, term}
   def resolve(rsv, resolvable) do
@@ -507,13 +473,23 @@ defmodule JSV.Resolver do
 
   defp call_chain([{module, opts} | chain], url, err_acc) do
     case module.resolve(url, opts) do
-      {:ok, resolved} -> {:ok, url, resolved}
-      {:error, reason} -> call_chain(chain, url, [{module, reason} | err_acc])
+      {:ok, resolved} when is_map(resolved) ->
+        {:ok, url, normalize_resolved(resolved)}
+
+      {:error, reason} ->
+        call_chain(chain, url, [{module, reason} | err_acc])
+
+      other ->
+        raise "invalid return from #{inspect(module)}.resolve/2, expected {:ok, map} or {:error, reason}, got: #{inspect(other)}"
     end
   end
 
   defp call_chain([], _url, err_acc) do
     {:error, {:resolver_error, :lists.reverse(err_acc)}}
+  end
+
+  defp normalize_resolved(map) when is_map(map) do
+    JSV.Schema.normalize(map)
   end
 
   defp merge_id(nil, child) do
@@ -580,6 +556,8 @@ defmodule JSV.Resolver do
   Returns the raw schema identified by the given namespace if was previously
   resolved as a meta-schema.
   """
+  # TODO hide the Resolved module and Resolved.t() type, just directly expose a
+  # fetch_vocabularies function.
   @spec fetch_meta(t, binary) :: {:ok, Resolved.t()} | {:error, term}
   def fetch_meta(rsv, meta) do
     fetch_resolved(rsv, {:meta, meta})

@@ -133,7 +133,8 @@ defmodule JSV.Schema do
     :writeOnly,
 
     # Internal keys
-    :"jsv-struct"
+    :"jsv-struct",
+    :"jsv-source"
   ]
 
   @derive {Inspect, optional: @all_keys}
@@ -361,6 +362,22 @@ defmodule JSV.Schema do
   # Returns whether the given atom is a module exporting a schema EXCEPT that if
   # the module-as-string name starts with "Elixir." we assume that it should be
   # a schema module.
+  @common_atom_values [
+    :array,
+    :object,
+    :null,
+    :boolean,
+    :string,
+    :integer,
+    :number,
+    true,
+    false,
+    nil
+  ]
+  defp schema_module?(module, _) when module in @common_atom_values do
+    false
+  end
+
   defp schema_module?(_, "Elixir." <> _) do
     true
   end

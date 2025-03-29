@@ -2,11 +2,13 @@ defmodule JSV.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/lud/jsv"
+  @version "0.5.1"
+
   def project do
     [
       app: :jsv,
       description: "A JSON Schema Validator with complete support for the latest specifications.",
-      version: "0.5.1",
+      version: @version,
       elixir: "~> 1.15",
       # no protocol consolidation for the generation of the test suite
       consolidate_protocols: false,
@@ -56,7 +58,7 @@ defmodule JSV.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :test, runtime: false},
-      {:readmix, "~> 0.2.0", only: [:dev, :test], runtime: false},
+      {:readmix, "~> 0.3", only: [:dev, :test], runtime: false},
       {:modkit, "~> 0.6", only: [:dev, :test], runtime: false},
 
       # Test
@@ -74,7 +76,7 @@ defmodule JSV.MixProject do
   defp json_schema_test_suite do
     {:json_schema_test_suite,
      git: "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git",
-     ref: "82a077498cc761d69e8530c721702be980926c89",
+     ref: "83e866b46c9f9e7082fd51e83a61c5f2145a1ab7",
      only: [:dev, :test],
      compile: false,
      app: false}
@@ -83,33 +85,52 @@ defmodule JSV.MixProject do
   defp docs do
     [
       main: "JSV",
-      groups_for_modules: [
-        Resolvers: [
-          ~r/^JSV.Resolver/
-        ],
-        Build: [
-          JSV.Builder,
-          JSV.BuildError,
-          JSV.Codec,
-          JSV.Key,
-          JSV.RNS,
-          JSV.Ref,
-          JSV.Resolver.Resolved
-        ],
-        Validation: [
-          JSV.Validator,
-          JSV.ValidationError,
-          JSV.BooleanSchema,
-          JSV.Root,
-          JSV.Subschema,
-          JSV.ErrorFormatter,
-          JSV.Validator.Error,
-          JSV.Validator.ValidationContext
-        ],
-        "Format Validation": [~r/^JSV\.Format.*/],
-        Vocabulary: [~r/^JSV\.Vocabulary.*/],
-        Utilities: [JSV.StructSupport]
-      ]
+      extra_section: "GUIDES",
+      source_ref: "v#{@version}",
+      source_url: @source_url,
+      extras: doc_extras(),
+      groups_for_extras: groups_for_extras()
+    ]
+  end
+
+  def doc_extras do
+    existing_guides = Path.wildcard("guides/**/*.md")
+
+    defined_guides = [
+      "CHANGELOG.md",
+      "guides/schemas/defining-schemas.md",
+      #
+      "guides/build/build-basics.md",
+      "guides/build/resolvers.md",
+      "guides/build/vocabularies.md",
+      #
+      "guides/validation/validation-basics.md"
+    ]
+
+    case existing_guides -- defined_guides do
+      [] ->
+        :ok
+        defined_guides
+
+      missed ->
+        IO.warn("""
+
+        unreferenced guides
+
+        #{Enum.map(missed, &[inspect(&1), ",\n"])}
+
+
+        """)
+
+        defined_guides ++ missed
+    end
+  end
+
+  defp groups_for_extras do
+    [
+      Schemas: ~r/guides\/schemas\/.?/,
+      Build: ~r/guides\/build\/.?/,
+      Validation: ~r/guides\/validation\/.?/
     ]
   end
 

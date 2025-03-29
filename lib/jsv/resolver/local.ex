@@ -46,10 +46,10 @@ defmodule JSV.Resolver.Local do
     compilation. Defaults to `false`.
 
 
-  ### Examples
+  ### Example
 
-  For instance, if the `"priv/users/user-schema.schema.json"` file contains the
-  following JSON text:
+  The `"priv/schemas/user-schema.schema.json"` file contains the following JSON
+  text:
 
   ```json
   {
@@ -63,12 +63,21 @@ defmodule JSV.Resolver.Local do
   }
   ```
 
-  You can now build `JSV.Root` schemas by referencing this user schema in `$ref`
-  (or `$schema` if you need a custom meta-schema) and by providing your resolver
-  to the `JSV.build!/2` function:
+  Then this can be used as a source in your module.
+
+  ```elixir
+  defmodule MyApp.LocalResolver do
+    use JSV.Resolver.Local, source: "priv/schemas"
+  end
+  ```
+
+  You can now build validation roots (`JSV.Root`) by referencing this user
+  schema in `$ref` and by providing your resolver to the `JSV.build!/2`
+  function:
 
       iex> schema = %{"$ref" => "myapp:user-0.0.1"}
       iex> root   = JSV.build!(schema, resolver: MyApp.LocalResolver)
+      iex> # Here we pass an invalid username (an integer)
       iex> result = JSV.validate(%{"username" => 123}, root)
       iex> match?({:error, %JSV.ValidationError{}}, result)
       true
@@ -157,6 +166,9 @@ defmodule JSV.Resolver.Local do
       rescue
         _ -> true
       end
+
+      defoverridable JSV.Resolver
+      defoverridable __mix_recompile__?: 0
     end
   end
 

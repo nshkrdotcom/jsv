@@ -118,4 +118,62 @@ defmodule JSV.Generated.Draft7.AtomKeys.PropertyNamesTest do
       JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
     end
   end
+
+  describe "propertyNames with const" do
+    setup do
+      json_schema = %JSV.Schema{propertyNames: %{const: "foo"}}
+      schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "http://json-schema.org/draft-07/schema")
+      {:ok, json_schema: json_schema, schema: schema}
+    end
+
+    test "object with property foo is valid", x do
+      data = %{"foo" => 1}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "object with any other property is invalid", x do
+      data = %{"bar" => 1}
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "empty object is valid", x do
+      data = %{}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+  end
+
+  describe "propertyNames with enum" do
+    setup do
+      json_schema = %JSV.Schema{propertyNames: %JSV.Schema{enum: ["foo", "bar"]}}
+      schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "http://json-schema.org/draft-07/schema")
+      {:ok, json_schema: json_schema, schema: schema}
+    end
+
+    test "object with property foo is valid", x do
+      data = %{"foo" => 1}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "object with property foo and bar is valid", x do
+      data = %{"bar" => 1, "foo" => 1}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "object with any other property is invalid", x do
+      data = %{"baz" => 1}
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "empty object is valid", x do
+      data = %{}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+  end
 end

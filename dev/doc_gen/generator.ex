@@ -171,7 +171,7 @@ if Code.ensure_loaded?(Readmix.Generator) do
 
       _wrapped =
         """
-        #### #{format}
+        ### #{format}
 
         * **support**: #{support}
         * **input**: `#{inspect(input)}`

@@ -1,4 +1,5 @@
 defmodule JSV.Resolver.Httpc do
+  alias JSV.Resolver.Embedded
   require Logger
 
   @behaviour JSV.Resolver
@@ -7,8 +8,8 @@ defmodule JSV.Resolver.Httpc do
   A `JSV.Resolver` implementation that will fetch the schemas from the web with
   the help of the `:httpc` module.
 
-  This resolver needs an allowed URL prefixes for URLs to download from. It also
-  needs a proper JSON library to decode fetched schemas:
+  This resolver requires a list of allowed URL prefixes to download from. It
+  also needs a proper JSON library to decode fetched schemas:
 
   * From Elixir 1.18, the `JSON` module is automatically available in the
     standard library.
@@ -40,14 +41,6 @@ defmodule JSV.Resolver.Httpc do
       JSV.build(schema, resolver: {JSV.Resolver.BuiltIn, resolver_opts})
 
   """
-  alias JSV.Resolver.Embedded
-
-  @doc false
-  # Used in scripts for development and experiments
-  @spec as_default :: {module, keyword()}
-  def as_default do
-    {JSV.Resolver.BuiltIn, allowed_prefixes: ["https://json-schema.org/"]}
-  end
 
   @impl true
   def resolve(uri, opts) do

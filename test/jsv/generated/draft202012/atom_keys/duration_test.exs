@@ -74,6 +74,12 @@ defmodule JSV.Generated.Draft202012.AtomKeys.DurationTest do
         JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
       end
 
+      test "must start with P", x do
+        data = "4DT12H30M5S"
+        expected_valid = false
+        JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+      end
+
       test "no elements present", x do
         data = "P"
         expected_valid = false

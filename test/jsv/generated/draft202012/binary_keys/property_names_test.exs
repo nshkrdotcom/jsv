@@ -57,6 +57,36 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.PropertyNamesTest do
     end
   end
 
+  describe "propertyNames validation with pattern" do
+    setup do
+      json_schema = %{
+        "$schema" => "https://json-schema.org/draft/2020-12/schema",
+        "propertyNames" => %{"pattern" => "^a+$"}
+      }
+
+      schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
+      {:ok, json_schema: json_schema, schema: schema}
+    end
+
+    test "matching property names valid", x do
+      data = %{"a" => %{}, "aa" => %{}, "aaa" => %{}}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "non-matching property name is invalid", x do
+      data = %{"aaA" => %{}}
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "object without properties is valid", x do
+      data = %{}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+  end
+
   describe "propertyNames with boolean schema true" do
     setup do
       json_schema = %{
@@ -94,6 +124,72 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.PropertyNamesTest do
 
     test "object with any properties is invalid", x do
       data = %{"foo" => 1}
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "empty object is valid", x do
+      data = %{}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+  end
+
+  describe "propertyNames with const" do
+    setup do
+      json_schema = %{
+        "$schema" => "https://json-schema.org/draft/2020-12/schema",
+        "propertyNames" => %{"const" => "foo"}
+      }
+
+      schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
+      {:ok, json_schema: json_schema, schema: schema}
+    end
+
+    test "object with property foo is valid", x do
+      data = %{"foo" => 1}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "object with any other property is invalid", x do
+      data = %{"bar" => 1}
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "empty object is valid", x do
+      data = %{}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+  end
+
+  describe "propertyNames with enum" do
+    setup do
+      json_schema = %{
+        "$schema" => "https://json-schema.org/draft/2020-12/schema",
+        "propertyNames" => %{"enum" => ["foo", "bar"]}
+      }
+
+      schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
+      {:ok, json_schema: json_schema, schema: schema}
+    end
+
+    test "object with property foo is valid", x do
+      data = %{"foo" => 1}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "object with property foo and bar is valid", x do
+      data = %{"bar" => 1, "foo" => 1}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "object with any other property is invalid", x do
+      data = %{"baz" => 1}
       expected_valid = false
       JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
     end
