@@ -1,20 +1,19 @@
 # Defining Schemas
 
-This guide explains what are the different possible values to use as a schema
-with JSV.
+This guide explains the different possible values to use as a schema with JSV.
 
 
-## Schemas sources
+## Schema sources
 
 Schemas given as input to JSV can come from two sources:
 
-* Schemas given directly to the `JSV.build/2` function. Those are expected to be
+* Schemas given directly to the `JSV.build/2` function. These are expected to be
   maps or booleans. JSV will not parse JSON strings.
-* Schemas returned by resolvers. Those should be maps and booleans as well. The
-  built-in resolvers will handle JSON deserialization automatically.
+* Schemas returned by resolvers. These should also be maps (but not booleans).
+  The built-in resolvers will handle JSON deserialization automatically.
 
 JSV is designed to work with raw schemas. Any map or boolean is a valid schema.
-So for instance it is possible to directly use a schema from a file:
+For instance, it is possible to directly use a schema from a file:
 
 ```elixir
 root =
@@ -44,9 +43,9 @@ equivalent:
 This is because JSV will normalize the schemas before building a "root", the
 base data structure for data validation.
 
-Note that mixing keys is not recommended. With the following example, JSV will
-build a schema that will succesfuly validate integers with a minimum of zero.
-But the choice for the maximum value is not made by JSV.
+Note that mixing keys is not recommended. In the following example, JSV will
+build a schema that will successfully validate integers with a minimum of zero.
+However, the choice for the maximum value is not made by JSV.
 
 ```elixir
 %{:type => :integer, "minimum" => 0, "maximum" => 10, :maximum => 20}
@@ -90,7 +89,7 @@ iex> JSV.validate(data, root)
 {:ok, %MyApp.UserSchema{name: "Alice", age: 0}}
 ```
 
-Casting to struct can be disabled by passing `cast_structs: false` into the
+Casting to a struct can be disabled by passing `cast_structs: false` into the
 options of `JSV.validate/3`.
 
 ```elixir

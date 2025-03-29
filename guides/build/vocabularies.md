@@ -1,10 +1,10 @@
 # Vocabularies
 
-JSV follows the JSON Schema Draft 2020-12 specification that uses the vocabulary
-system to define capabilities of schemas.
+JSV follows the JSON Schema Draft 2020-12 specification, which uses the
+vocabulary system to define the capabilities of schemas.
 
-Future releases of JSV will allow to define custom vocabularies, but for now JSV
-is only using a fixed set of schema keywords implementations.
+Future releases of JSV will allow defining custom vocabularies, but for now, JSV
+only uses a fixed set of schema keyword implementations.
 
 
 ## Meta-schemas: Introduction to vocabularies
@@ -12,9 +12,10 @@ is only using a fixed set of schema keywords implementations.
 > ### Note {: .tip}
 >
 > You can skip this section if you are not interested in the inner workings of
-> the JSON schema specification.
+> the JSON Schema specification.
 
 Here is what happens when validating with the latest specification:
+
 
 ### The well-known and official schema
 
@@ -35,14 +36,14 @@ vocabulary:
 }
 ```
 
-The vocabulary is split in different parts, here one by object property. More
+The vocabulary is split into different parts, here one by object property. More
 information can be found on the [official
 website](https://json-schema.org/learn/glossary#vocabulary).
 
 
 ### $schema declaration
 
-The well-known schema can be used as a meta-schema. This is done by using it's
+The well-known schema can be used as a meta-schema. This is done by using its
 URI as the `$schema` property of the inheriting schema.
 
 We would like to use the `type` keyword to validate some data. To let the
@@ -58,16 +59,16 @@ library know what keywords should be handled, our schema declares the
 ```
 
 JSV will use `https://json-schema.org/draft/2020-12/schema` if the `$schema`
-property is not defined in you schemas.
+property is not defined in your schemas.
 
 Vocabularies have limitations:
 
 * If you declare both `$schema` and `$vocabulary` in your schema, another schema
   using yours as its meta-schema will only use your `$vocabulary`, and not the
   one of the referenced `$schema`.
-* You cannot declare a `$vocabulary` property in your schema and expect them to
-  be used and/or override those of the meta-schema. It will onl be used by
-  another schema referencing your own as its `$schema`.
+* You cannot declare a `$vocabulary` property in your schema and expect it to be
+  used and/or override those of the meta-schema. It will only be used by another
+  schema referencing your own as its `$schema`.
 
 
 ### Implementation in libraries and tools
@@ -83,8 +84,8 @@ For instance, in JSV, the
 `type` keyword is implemented with the `JSV.Vocabulary.V202012.Validation`
 Elixir module.
 
-As JSV is compliant, it will use this implementation validate data types.
+As JSV is compliant, it will use this implementation to validate data types.
 
-On the other hand, if that vocabulary is not declared in your meta schema, **the
-`type` keyword will not be used**, as any other keyword declared by the
+On the other hand, if that vocabulary is not declared in your meta-schema, **the
+`type` keyword will not be used**, as with any other keyword declared by the
 [validation vocabulary](https://json-schema.org/draft/2020-12/vocab/validation).

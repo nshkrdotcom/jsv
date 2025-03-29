@@ -1,11 +1,10 @@
 # Building Schemas
 
-
 To validate data with schemas, `JSV` turns the schemas into a custom data
 structure made specifically for validation.
 
-It does not validate data with raw schemas directly, that would be too slow and
-would not work properly with advanced features of Draft 2020-12 such as
+It does not validate data with raw schemas directly. That would be too slow and
+would not work properly with advanced features of Draft 2020-12, such as
 `$dynamicRef` and `$dynamicAnchor`.
 
 Instead, raw schemas are processed by a set of different "vocabulary" modules
@@ -19,23 +18,23 @@ serve your needs.
 ## The build functions
 
 The main build function is `JSV.build/2`. It accepts a raw schema and a set of
-options, and returns the root.
+options and returns the root.
 
-There are variations around that function, which is very classic in Elixir:
-`JSV.build/1` with default options, `JSV.build!/1` and `JSV.build!/2` with or
+There are variations around that function, which is very common in Elixir:
+`JSV.build/1` with default options, `JSV.build!/1`, and `JSV.build!/2` with or
 without default options that raise errors instead of returning an error tuple.
 
 
 ## Custom build modules
 
-The build functions are not using macros or process-based techniques. We
+The build functions do not use macros or process-based techniques. We
 encourage you to wrap them and define your options in a single place:
 
 ```elixir
 defmodule MyApp.SchemaBuilder do
 
   def build(raw_schema) do
-   JSV.build(raw_schema, build_opts())
+    JSV.build(raw_schema, build_opts())
   end
 
   def build!(raw_schema) do
@@ -51,10 +50,8 @@ end
 
 ## Compile-time builds
 
-
-Validation roots can be built at runtime, but it is recommended to rather build
-during compilation, if possible, to avoid repeating the build step for no good
-reason.
+Validation roots can be built at runtime, but it is recommended to build them
+during compilation, if possible, to avoid repeating the build step unnecessarily.
 
 Building at runtime should be done when the JSON schema is not available during
 compilation.
@@ -62,7 +59,7 @@ compilation.
 For instance, if we have this function that should validate external data:
 
 ```elixir
-# DO NOT DO THAT
+# DO NOT DO THIS
 
 defp order_schema do
   "priv/schemas/order.schema.json"
@@ -80,13 +77,12 @@ end
 ```
 
 The schema will be built each time the function is called. Building a schema is
-actually pretty fast but it is a waste of resources nevertheless. In this
-example it is obvious that you would not want to read from a file in every call
-of the ` validate_order`. But it will generally be wrapped in custom function,
-or a build module as suggested above.
+actually pretty fast, but it is a waste of resources nevertheless. In this
+example, it is obvious that you would not want to read from a file in every call
+to `validate_order`. But the schema fetching will generally be wrapped in a
+custom function or a build module as suggested above.
 
 Make sure those builds are called at compile-time:
-
 
 ```elixir
 # Do this instead
@@ -111,7 +107,7 @@ end
 
 > ### No format validation by default {: .warning}
 > By default, the `https://json-schema.org/draft/2020-12/schema` meta schema
-> **does not perform format validation**. This is very counter intuitive, but it
+> **does not perform format validation**. This is very counterintuitive, but it
 > basically means that the following code is correct:
 
 ```elixir
@@ -137,7 +133,7 @@ change whether it is performed once the root schema is built.
 ## Enable format validation using vocabularies
 
 You can also enable format validation by using the JSON Schema specification
-semantics, though **it is far simpler and less error prone to use the `:formats`
+semantics, though **it is far simpler and less error-prone to use the `:formats`
 option**.
 
 For format validation to be enabled, a schema should declare the
@@ -145,6 +141,7 @@ For format validation to be enabled, a schema should declare the
 instead of the `https://json-schema.org/draft/2020-12/vocab/format-annotation`
 one that is included by default in the
 `https://json-schema.org/draft/2020-12/schema` meta schema.
+
 
 ### 1. Use a new meta schema with format-assertion
 
@@ -159,7 +156,7 @@ one that is included by default in the
     "$dynamicAnchor": "meta",
     "allOf": [
         { "$ref": "https://json-schema.org/draft/2020-12/meta/core" },
-      { "$ref": "https://json-schema.org/draft/2020-12/meta/ format-assertion" }
+        { "$ref": "https://json-schema.org/draft/2020-12/meta/format-assertion" }
     ]
 }
 ```
@@ -167,7 +164,8 @@ one that is included by default in the
 This example is taken from the [JSON Schema Test
 Suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite) codebase and
 does not include all the vocabularies, only the assertion for the formats and
-the core vocabulary. It will not validate anything else than formats.
+the core vocabulary. It will not validate anything other than formats.
+
 
 ### 2. Declare a schema using that meta schema to perform validation.
 
@@ -187,19 +185,21 @@ schema =
 root = JSV.build!(schema, resolver: ...)
 ```
 
+
 ### 3. Validate
 
-Now it will work as expected, `JSV.validate/2` returns an error tuple without
+Now it will work as expected. `JSV.validate/2` returns an error tuple without
 needing the `formats: true`.
 
 ```elixir
 {:error, _} = JSV.validate("hello", root)
 ```
 
+
 ### Reverse use-case
 
-If one of your schemas is using such a meta-schema and you wnat to _disable_ the
-formats validation then the following will work:
+If one of your schemas is using such a meta schema and you want to _disable_ the
+formats validation, then the following will work:
 
 ```elixir
 JSV.build(raw_schema, formats: false)

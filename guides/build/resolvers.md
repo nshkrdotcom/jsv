@@ -1,10 +1,10 @@
 # Resolvers
 
 `JSV` may have to fetch other schemas when building a validation root. This
-happens with `$schema`, `$ref` or `$dynamicRef` properties pointing to an
-absolute [URI](https://fr.wikipedia.org/wiki/Uniform_Resource_Identifier).
+happens with `$schema`, `$ref`, or `$dynamicRef` properties pointing to an
+absolute [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier).
 
-A resolver is also used when a schema references a struct based schema:
+A resolver is also used when a schema references a struct-based schema:
 
 ```elixir
 %{
@@ -16,14 +16,14 @@ A resolver is also used when a schema references a struct based schema:
 ```
 
 In order to fetch those schemas, JSV requires a resolver. Resolvers are
-user-defined but JSV provides implementations for common use-cases:
+user-defined, but JSV provides implementations for common use cases:
 
 * `JSV.Resolver.Embedded` will resolve the most often used meta-schemas such as
   `https://json-schema.org/draft/2020-12/schema`.
-* `JSV.Resolver.Internal` will resolve struct schemas given as modules names as
+* `JSV.Resolver.Internal` will resolve struct schemas given as module names as
   in the example just above.
 * `JSV.Resolver.Httpc` will resolve schemas whose URI are `http` or `https`
-  URLs. It is using the built-in Erlang http client. While not packing so much
+  URLs. It uses the built-in Erlang HTTP client. While not packing many
   features, it does not enforce an HTTP client dependency in your application.
 
 
@@ -54,16 +54,17 @@ Users are encouraged to write their own resolver to support advanced use cases.
 
 Custom resolvers are most often used for:
 
-- Resolve URLs such as `my-company://some-id/` where the implementation knows a
-  directory to retrieve that path from.
-- Resolve `https://` URLs with custom network setups involving authentication,
-  proxies, etc, or to use your HTTP library of choice.
+- Resolving URLs such as `my-company://some-id/` where the implementation knows
+  a directory to retrieve that path from.
+- Resolving `https://` URLs with custom network setups involving authentication,
+  proxies, etc., or to use your HTTP library of choice.
 - Returning hardcoded schemas directly from the codebase.
 - Returning a schema dynamically, for instance depending on the `:prod` or
   `:test` environment.
 
 To write a custom resolver, define a module that implements the `JSV.Resolver`
 behaviour.
+
 
 ### A basic resolver implementation
 
@@ -81,7 +82,8 @@ defmodule MyApp.SchemaResolver do
 end
 ```
 
-### Resolve local files
+
+### Resolving local files
 
 The `JSV.Resolver.Local` helper can automatically load schemas from files and
 directories. Schemas will be resolvable by their `$id` property.

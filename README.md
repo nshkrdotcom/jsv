@@ -1,6 +1,5 @@
 # JSV
 
-
 <!-- rdmx :badges
     hexpm         : "jsv?color=4e2a8e"
     github_action : "lud/jsv/elixir.yaml?label=CI&branch=main"
@@ -11,16 +10,11 @@
 [![License](https://img.shields.io/hexpm/l/jsv.svg)](https://hex.pm/packages/jsv)
 <!-- rdmx /:badges -->
 
-A JSON Schema Validation library for Elixir with full support for the latest
-JSON Schema specification.
-
+JSV is a JSON Schema Validation library for Elixir with full support for the latest JSON Schema specification.
 
 ## Documentation
 
-The [API documentation is available on hexdocs.pm](https://hexdocs.pm/jsv/).
-
-This document describes general considerations and recipes to use the library.
-
+[API documentation is available on hexdocs.pm](https://hexdocs.pm/jsv/).
 
 ## Installation
 
@@ -39,17 +33,16 @@ Additional dependencies can be added to support more features:
 ```elixir
 def deps do
   [
-    # Optional libraries for better format validation support
+    # Optional libraries for enhanced format validation
 
     # Email validation
     {:mail_address, "~> 1.0"},
 
-    # URI, IRI, JSON-pointers validation
+    # URI, IRI, and JSON-pointer validation
     {:abnf_parsec, "~> 1.0"},
 
-
-    # Optional libraries to decode schemas resolved from http
-    # prior to Elixir 1.18
+    # Optional libraries for decoding schemas resolved via HTTP
+    # (required for Elixir versions prior to 1.18)
 
     {:jason, "~> 1.0"},
     # OR
@@ -58,9 +51,9 @@ def deps do
 end
 ```
 
-## Basic usage
+## Basic Usage
 
-The following snippet describes the general usage of the library in any context.
+Here is an example of how to use the library:
 
 ```elixir
 schema = %{
@@ -77,21 +70,20 @@ case JSV.validate(%{"name" => "Alice"}, root) do
   {:ok, data} ->
     {:ok, data}
 
-  # Errors can be casted as JSON compatible data structure to send them as an
-  # API response or for logging purposes.
+  # Errors can be converted into JSON-compatible structures for API responses
+  # or logging.
   {:error, validation_error} ->
     {:error, JSON.encode!(JSV.normalize_error(validation_error))}
 end
 ```
 
-JSV has many more useful features! Explore the documentation to find out more.
-
+JSV offers many additional features! Check the documentation for more details.
 
 ## Development
 
 ### Contributing
 
-Pull requests are welcome given appropriate tests and documentation.
+Pull requests are welcome, provided they include appropriate tests and documentation.
 
 ### Roadmap
 
