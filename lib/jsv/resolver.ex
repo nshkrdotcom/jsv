@@ -3,7 +3,6 @@ defmodule JSV.Resolver do
   alias JSV.Key
   alias JSV.Ref
   alias JSV.RNS
-  alias JSV.Vocabulary
 
   @moduledoc """
   A behaviour describing the implementation of a [guides/build/custom resolver.
@@ -42,32 +41,6 @@ defmodule JSV.Resolver do
   boolean value in a `$defs` or any other pointer as a workaround.
   """
   @callback resolve(uri :: String.t(), opts :: term) :: {:ok, map} | {:error, term}
-
-  @draft_202012_vocabulary %{
-    "https://json-schema.org/draft/2020-12/vocab/core" => Vocabulary.V202012.Core,
-    "https://json-schema.org/draft/2020-12/vocab/validation" => Vocabulary.V202012.Validation,
-    "https://json-schema.org/draft/2020-12/vocab/applicator" => Vocabulary.V202012.Applicator,
-    "https://json-schema.org/draft/2020-12/vocab/content" => Vocabulary.V202012.Content,
-    "https://json-schema.org/draft/2020-12/vocab/format-annotation" => Vocabulary.V202012.Format,
-    "https://json-schema.org/draft/2020-12/vocab/format-assertion" => {Vocabulary.V202012.Format, assert: true},
-    "https://json-schema.org/draft/2020-12/vocab/meta-data" => Vocabulary.V202012.MetaData,
-    "https://json-schema.org/draft/2020-12/vocab/unevaluated" => Vocabulary.V202012.Unevaluated
-  }
-
-  @draft7_vocabulary %{
-    "https://json-schema.org/draft-07/--fallback--vocab/core" => Vocabulary.V7.Core,
-    "https://json-schema.org/draft-07/--fallback--vocab/validation" => Vocabulary.V7.Validation,
-    "https://json-schema.org/draft-07/--fallback--vocab/applicator" => Vocabulary.V7.Applicator,
-    "https://json-schema.org/draft-07/--fallback--vocab/content" => Vocabulary.V7.Content,
-    "https://json-schema.org/draft-07/--fallback--vocab/format-annotation" => Vocabulary.V7.Format,
-    "https://json-schema.org/draft-07/--fallback--vocab/format-assertion" => {Vocabulary.V7.Format, assert: true},
-    "https://json-schema.org/draft-07/--fallback--vocab/meta-data" => Vocabulary.V7.MetaData
-  }
-
-  @draft7_normalized_identifier "http://json-schema.org/draft-07/schema"
-  @draft7_vocabulary_keyword_fallback Map.new(@draft7_vocabulary, fn {k, _mod} -> {k, true} end)
-
-  @vocabulary %{} |> Map.merge(@draft_202012_vocabulary) |> Map.merge(@draft7_vocabulary)
 
   @derive {Inspect, except: [:fetch_cache]}
   defstruct chain: [{UnknownResolver, []}],
@@ -132,6 +105,14 @@ defmodule JSV.Resolver do
     else
       {:error, _} = err -> err
     end
+  end
+
+  defp external_id({:prefetched, ext_id, _}) do
+    ext_id
+  end
+
+  defp external_id(%Ref{ns: ns}) do
+    ns
   end
 
   defp metas_of(cache_entries) do
@@ -220,7 +201,9 @@ defmodule JSV.Resolver do
     id_aliases = nss
     aliases = id_aliases ++ anchors ++ dynamic_anchors
 
-    # If no metaschema is defined we will use the default draft as a fallback
+    # If no metaschema is defined we will use the default draft as a fallback.
+    # We normalize it because many schemas use
+    # "http://json-schema.org/draft-07/schema#" with a trailing "#".
     meta = normalize_meta(Map.get(top_schema, "$schema", default_meta))
 
     top_descriptor = %Descriptor{
@@ -394,34 +377,52 @@ defmodule JSV.Resolver do
   end
 
   defp create_meta_entry(raw_schema, ext_id) when not is_struct(raw_schema) do
-    vocabulary = Map.get(raw_schema, "$vocabulary")
+    case fetch_vocabulary_from_raw(raw_schema, ext_id) do
+      {:ok, vocabulary} ->
+        # Meta entries are only identified by they external URL so the :ns and
+        # :raw value should not be used anywhere. We will just put :__meta__ in
+        # here so it's easier to debug.
+        resolved = %Resolved{
+          vocabularies: vocabulary,
+          meta: nil,
+          ns: :__meta__,
+          parent_ns: nil,
+          raw: :__meta__,
+          rev_path: [ext_id]
+        }
 
-    # Meta entries are only identified by they external URL so their :ns and
-    # :raw value should not be used anywhere.
+        {:ok, resolved}
 
-    case load_vocabularies(vocabulary, ext_id) do
-      {:ok, vocabularies} ->
-        {:ok,
-         %Resolved{
-           vocabularies: vocabularies,
-           meta: nil,
-           ns: :__meta__,
-           parent_ns: nil,
-           raw: :__meta__,
-           rev_path: [ext_id]
-         }}
-
-      {:error, _} = err ->
-        err
+      :error ->
+        {:error, {:undefined_vocabulary, ext_id}}
     end
   end
 
-  defp external_id({:prefetched, ext_id, _}) do
-    ext_id
+  defp fetch_vocabulary_from_raw(raw_schema, ext_id) do
+    case Map.fetch(raw_schema, "$vocabulary") do
+      {:ok, vocab} when is_map(vocab) -> {:ok, vocab}
+      :error -> vocabulary_fallback(ext_id)
+    end
   end
 
-  defp external_id(%Ref{ns: ns}) do
-    ns
+  defp vocabulary_fallback("http://json-schema.org/draft-07/schema") do
+    vocab = %{
+      "https://json-schema.org/draft-07/--fallback--vocab/core" => true,
+      "https://json-schema.org/draft-07/--fallback--vocab/validation" => true,
+      "https://json-schema.org/draft-07/--fallback--vocab/applicator" => true,
+      "https://json-schema.org/draft-07/--fallback--vocab/content" => true,
+      "https://json-schema.org/draft-07/--fallback--vocab/format-annotation" => true,
+      "https://json-schema.org/draft-07/--fallback--vocab/meta-data" => true
+
+      # We do not declare format assertion to have the same behaviour as 2020-12
+      # "https://json-schema.org/draft-07/--fallback--vocab/format-assertion" => true,
+    }
+
+    {:ok, vocab}
+  end
+
+  defp vocabulary_fallback(_) do
+    :error
   end
 
   defp ensure_fetched(rsv, {:prefetched, _, raw_schema}) do
@@ -512,55 +513,18 @@ defmodule JSV.Resolver do
     end
   end
 
-  defp load_vocabularies(map, meta_id) do
-    with {:ok, vocabs} <- do_load_vocabularies(map, meta_id) do
-      {:ok, sort_vocabularies([Vocabulary.Internal | vocabs])}
-    end
-  end
-
-  # This function is called for all schemas, but only metaschemas should define
-  # vocabulary, so nil is a valid vocabulary map. It will not be looked up for
-  # normal schemas, and old metaschemas without vocabulary should have a default
-  # vocabulary in the library.
-  defp do_load_vocabularies(nil, @draft7_normalized_identifier = id) do
-    load_vocabularies(@draft7_vocabulary_keyword_fallback, id)
-  end
-
-  defp do_load_vocabularies(nil, id) do
-    {:error, {:no_vocabulary, id}}
-  end
-
-  defp do_load_vocabularies(map, _) when is_map(map) do
-    known =
-      Enum.flat_map(map, fn {uri, required} ->
-        case Map.fetch(@vocabulary, uri) do
-          {:ok, module} -> [module]
-          :error when required -> throw({:unknown_vocabulary, uri})
-          :error -> []
-        end
-      end)
-
-    {:ok, known}
-  catch
-    {:unknown_vocabulary, uri} -> {:error, {:unknown_vocabulary, uri}}
-  end
-
-  defp sort_vocabularies(modules) do
-    Enum.sort_by(modules, fn
-      {module, _} -> module.priority()
-      module -> module.priority()
-    end)
-  end
-
   @doc """
-  Returns the raw schema identified by the given namespace if was previously
-  resolved as a meta-schema.
+  Returns the $vocabulary property of a schema identified by its namespace.
+
+  The schema must have been resolved previously as a meta-schema (_i.e._ found
+  in an $schema property of a resolved schema).
   """
-  # TODO hide the Resolved module and Resolved.t() type, just directly expose a
-  # fetch_vocabularies function.
-  @spec fetch_meta(t, binary) :: {:ok, Resolved.t()} | {:error, term}
-  def fetch_meta(rsv, meta) do
-    fetch_resolved(rsv, {:meta, meta})
+  @spec fetch_vocabulary(t, binary) :: {:ok, %{optional(binary) => boolean}} | {:error, term}
+  def fetch_vocabulary(rsv, meta) do
+    case fetch_resolved(rsv, {:meta, meta}) do
+      {:ok, %Resolved{vocabularies: vocabularies}} -> {:ok, vocabularies}
+      {:error, _} = err -> err
+    end
   end
 
   @doc """

@@ -103,6 +103,35 @@ defmodule JSV do
                          > or a list of your own modules.
                          """,
                          default: nil
+                       ],
+                       vocabularies: [
+                         type: {:map, :string, {:or, [:atom, :mod_arg]}},
+                         doc: """
+                         Allows to redefine modules implementing vocabularies.
+
+                         This option accepts a map with vocabulary URIs as keys and implementations as values.
+                         The URIs are not fetched by JSV and does not need to point to anything specific.
+                         In the standard Draft 2020-12 meta-schema, these URIs point to human-readable documentation.
+
+                         The given implementations will only be used if the meta-schema used to build a validation root
+                         actually declare those URIs in their `$vocabulary` keyword.
+
+                         For instance, to redefine how the `type` keyword and other validation keywords are handled,
+                         one should pass the following map:
+
+                             %{
+                               "https://json-schema.org/draft/2020-12/vocab/validation" => MyCustomModule
+                             }
+
+                         Modules must implement the `JSV.Vocabulary` behaviour.
+
+                         Implementations can also be passed options by wrapping them in a tuple:
+
+                             %{
+                               "https://json-schema.org/draft/2020-12/vocab/validation" => {MyCustomModule, opt: "hello"}
+                             }
+                         """,
+                         default: %{}
                        ]
                      )
 

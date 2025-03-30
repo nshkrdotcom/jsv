@@ -1,5 +1,6 @@
 defmodule JSV.Builder do
   alias JSV.BooleanSchema
+  alias JSV.Helpers.EnumExt
   alias JSV.Key
   alias JSV.Ref
   alias JSV.Resolver
@@ -8,6 +9,7 @@ defmodule JSV.Builder do
   alias JSV.Root
   alias JSV.Schema
   alias JSV.Validator
+  alias JSV.Vocabulary
 
   @moduledoc """
   Internal logic to build raw schemas into `JSV.Root` structs.
@@ -15,7 +17,16 @@ defmodule JSV.Builder do
 
   @derive {Inspect, except: []}
   @enforce_keys [:resolver]
-  defstruct [:resolver, staged: [], vocabularies: nil, ns: nil, parent_ns: nil, opts: [], current_rev_path: []]
+  defstruct [
+    :resolver,
+    staged: [],
+    vocabularies: nil,
+    vocabulary_impls: %{},
+    ns: nil,
+    parent_ns: nil,
+    opts: [],
+    current_rev_path: []
+  ]
 
   @type t :: %__MODULE__{resolver: term, staged: [term], vocabularies: term, ns: term, parent_ns: term, opts: term}
   @type resolvable :: Resolver.resolvable()
@@ -30,8 +41,16 @@ defmodule JSV.Builder do
   def new(opts) do
     {resolver_chain, opts} = Keyword.pop!(opts, :resolvers)
     {default_meta, opts} = Keyword.pop!(opts, :default_meta)
+
+    # beware, the :vocabularies option is not the final value of the
+    # :vocabularies key in the Builder struct. It's a configuration option to
+    # build the final value. This option is kept around in the :vocabulary_impls
+    # struct key after being merged on top of the default implementations.
+    {add_vocabulary_impls, opts} = Keyword.pop!(opts, :vocabularies)
+    vocabulary_impls = Map.merge(default_vocabulary_impls(), add_vocabulary_impls)
+
     resolver = Resolver.chain_of(resolver_chain, default_meta)
-    struct!(__MODULE__, resolver: resolver, opts: opts)
+    struct!(__MODULE__, resolver: resolver, opts: opts, vocabulary_impls: vocabulary_impls)
   end
 
   @doc """
@@ -235,21 +254,21 @@ defmodule JSV.Builder do
   defp build_resolved(builder, resolved) do
     %Resolved{meta: meta, ns: ns, parent_ns: parent_ns, rev_path: rev_path} = resolved
 
-    case fetch_vocabularies(builder, meta) do
-      {:ok, vocabularies} when is_list(vocabularies) ->
-        builder = %__MODULE__{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
-        # Directly call to `do_build_sub` instead of `build_sub` because in this
-        # case, if the sub schema has an $id we want to actually build it and
-        # not register an alias.
-        #
-        # We set the current_rev_path on the builder because if the vocabulary
-        # module recursively calls build_sub we will need the current path
-        # later.
+    with {:ok, raw_vocabularies} <- fetch_vocabulary(builder, meta),
+         {:ok, vocabularies} <- load_vocabularies(builder, raw_vocabularies) do
+      builder = %__MODULE__{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
+      # Here we call `do_build_sub` directly instead of `build_sub` because in
+      # this case, if the sub schema has an $id we want to actually build it
+      # and not register an alias.
+      #
+      # We set the current_rev_path on the builder because if the vocabulary
+      # module recursively calls build_sub we will need the current path
+      # later.
 
-        with_current_path(builder, rev_path, fn builder ->
-          do_build_sub(resolved.raw, rev_path, builder)
-        end)
-
+      with_current_path(builder, rev_path, fn builder ->
+        do_build_sub(resolved.raw, rev_path, builder)
+      end)
+    else
       {:error, _} = err ->
         err
     end
@@ -266,11 +285,8 @@ defmodule JSV.Builder do
     end
   end
 
-  defp fetch_vocabularies(builder, meta) do
-    case Resolver.fetch_meta(builder.resolver, meta) do
-      {:ok, %Resolved{vocabularies: vocabularies}} -> {:ok, vocabularies}
-      {:error, _} = err -> err
-    end
+  defp fetch_vocabulary(builder, meta) do
+    Resolver.fetch_vocabulary(builder.resolver, meta)
   end
 
   @doc """
@@ -358,6 +374,58 @@ defmodule JSV.Builder do
       ^vocab -> true
       {^vocab, _} -> true
       _ -> false
+    end)
+  end
+
+  @vocabulary_impls %{
+    # Draft 2020-12
+    "https://json-schema.org/draft/2020-12/vocab/core" => Vocabulary.V202012.Core,
+    "https://json-schema.org/draft/2020-12/vocab/validation" => Vocabulary.V202012.Validation,
+    "https://json-schema.org/draft/2020-12/vocab/applicator" => Vocabulary.V202012.Applicator,
+    "https://json-schema.org/draft/2020-12/vocab/content" => Vocabulary.V202012.Content,
+    "https://json-schema.org/draft/2020-12/vocab/format-annotation" => Vocabulary.V202012.Format,
+    "https://json-schema.org/draft/2020-12/vocab/format-assertion" => {Vocabulary.V202012.Format, assert: true},
+    "https://json-schema.org/draft/2020-12/vocab/meta-data" => Vocabulary.V202012.MetaData,
+    "https://json-schema.org/draft/2020-12/vocab/unevaluated" => Vocabulary.V202012.Unevaluated,
+
+    # Draft 7 does not define vocabularies. The $vocabulary content is made-up
+    # by the resolver so we can use the same architecture for keyword dispatch
+    # and allow user overrides.
+    "https://json-schema.org/draft-07/--fallback--vocab/core" => Vocabulary.V7.Core,
+    "https://json-schema.org/draft-07/--fallback--vocab/validation" => Vocabulary.V7.Validation,
+    "https://json-schema.org/draft-07/--fallback--vocab/applicator" => Vocabulary.V7.Applicator,
+    "https://json-schema.org/draft-07/--fallback--vocab/content" => Vocabulary.V7.Content,
+    "https://json-schema.org/draft-07/--fallback--vocab/format-annotation" => Vocabulary.V7.Format,
+    "https://json-schema.org/draft-07/--fallback--vocab/format-assertion" => {Vocabulary.V7.Format, assert: true},
+    "https://json-schema.org/draft-07/--fallback--vocab/meta-data" => Vocabulary.V7.MetaData
+  }
+
+  defp default_vocabulary_impls do
+    @vocabulary_impls
+  end
+
+  defp load_vocabularies(builder, map) do
+    with {:ok, vocabs} <- do_load_vocabularies(builder, map) do
+      {:ok, sort_vocabularies([Vocabulary.Internal | vocabs])}
+    end
+  end
+
+  defp do_load_vocabularies(builder, map) do
+    impls = builder.vocabulary_impls
+
+    EnumExt.reduce_ok(map, [], fn {uri, required?}, acc ->
+      case Map.fetch(impls, uri) do
+        {:ok, impl} -> {:ok, [impl | acc]}
+        :error when required? -> {:error, {:unknown_vocabulary, uri}}
+        :error -> {:ok, acc}
+      end
+    end)
+  end
+
+  defp sort_vocabularies(modules) do
+    Enum.sort_by(modules, fn
+      {module, _} -> module.priority()
+      module -> module.priority()
     end)
   end
 end

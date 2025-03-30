@@ -1,6 +1,5 @@
 defmodule JSV.Vocabulary.V202012.Unevaluated do
   alias JSV.Validator
-  alias JSV.Vocabulary
   use JSV.Vocabulary, priority: 800
 
   @moduledoc """
@@ -37,8 +36,7 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
     Validator.reduce(vds, data, vctx, &validate_keyword/3)
   end
 
-  @spec validate_keyword(Vocabulary.pair(), Vocabulary.data(), Validator.context()) :: Validator.result()
-  def validate_keyword({:unevaluatedProperties, subschema}, data, vctx) when is_map(data) do
+  defp validate_keyword({:unevaluatedProperties, subschema}, data, vctx) when is_map(data) do
     evaluated = Validator.list_evaluaded(vctx)
 
     data
@@ -51,9 +49,9 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
     end)
   end
 
-  pass validate_keyword({:unevaluatedProperties, _})
+  passp validate_keyword({:unevaluatedProperties, _})
 
-  def validate_keyword({:unevaluatedItems, subschema}, data, vctx) when is_list(data) do
+  defp validate_keyword({:unevaluatedItems, subschema}, data, vctx) when is_list(data) do
     evaluated = Validator.list_evaluaded(vctx)
 
     data
@@ -67,7 +65,7 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
     end)
   end
 
-  pass validate_keyword({:unevaluatedItems, _})
+  passp validate_keyword({:unevaluatedItems, _})
 
   # ---------------------------------------------------------------------------
 

@@ -384,7 +384,7 @@ defmodule JSV.Validator do
 
   @doc false
   @spec __with_error__(module, context, atom, term, term) :: context
-  def __with_error__(module, vctx, kind, data, args) do
+  def __with_error__(module, vctx, kind, data, args) when is_list(args) or is_map(args) do
     if [] == vctx.schema_path do
       raise "empty schema path"
     end

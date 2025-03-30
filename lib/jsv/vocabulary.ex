@@ -32,7 +32,7 @@ defmodule JSV.Vocabulary do
   """
   @type collection :: term
 
-  @type pair :: {binary | atom, term}
+  @type pair :: {binary, term}
   @type data :: %{optional(binary) => data} | [data] | binary | boolean | number | nil
   @callback init_validators(keyword) :: acc
   @callback handle_keyword(pair, acc, Builder.t(), raw_schema :: term) ::
