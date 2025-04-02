@@ -2,13 +2,7 @@ defmodule JSV.FormatValidator.Default do
   import JSV.FormatValidator.Default.Optional, only: [mod_exists?: 1, optional_support: 2]
   alias JSV.FormatValidator.Default.Optional
 
-  @moduledoc """
-  Default implementation of format validation.
-
-  Refer to the "Formats" section in the `JSV` documentation to know which
-  formats are supported. This can depend on the current Elixir version and
-  available optional libraries.
-  """
+  @moduledoc false
 
   @behaviour JSV.FormatValidator
 
@@ -47,9 +41,7 @@ defmodule JSV.FormatValidator.Default do
     @formats
   end
 
-  @doc """
-  Returns the regular expression used to validate hostnames.
-  """
+  @doc false
   @spec hostname_regex :: Regex.t()
   def hostname_regex do
     @re_hostname

@@ -2,7 +2,7 @@ defmodule JSV.Vocabulary.V202012.Content do
   use JSV.Vocabulary, priority: 300
 
   @moduledoc """
-  Invactive implementation for the
+  Placeholder implementation for the
   `https://json-schema.org/draft/2020-12/vocab/content` vocabulary. No
   validation is performed.
   """

@@ -1,12 +1,13 @@
 defmodule JSV.RNS do
   @moduledoc """
 
-  A "namespace" for a schema ID or reference. In the JSV library, a namespace
-  for a schema represents the document the schema belongs to. When it is an URL,
-  it is the scheme, host and path, ignoring the query string and the fragment.
+  A namespace for a schema ID or reference.
 
-  That is basically a URI but with extra support for URNs (`urn:isbn:1234` is
-  represented as `urn://isbn/1234`).
+  In the JSV library, each schema or subschema belongs to a namespace.
+  Sub-schemas with an `$id` property define a new namespace.
+
+  A namespace can be `:root` if there is no URI or `$id` to identify a schema or
+  an URI without a query string or fragment.
   """
 
   # TODO maybe do not use the URI module at all and implement a custom parser.

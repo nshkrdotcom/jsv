@@ -1,9 +1,7 @@
 defmodule JSV.StructSupport do
   alias JSV.Schema
 
-  @moduledoc """
-  Utilities to work with structs defined by schemas.
-  """
+  @moduledoc false
 
   @doc """
   Validates the given raw schema can be used to define a module struct or raises

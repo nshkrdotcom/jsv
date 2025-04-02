@@ -91,7 +91,9 @@ defmodule JSV.MixProject do
       source_url: @source_url,
       extras: doc_extras(),
       groups_for_extras: groups_for_extras(),
-      groups_for_docs: groups_for_docs()
+      groups_for_modules: groups_for_modules(),
+      groups_for_docs: groups_for_docs(),
+      nest_modules_by_prefix: [JSV.Vocabulary]
     ]
   end
 
@@ -133,6 +135,18 @@ defmodule JSV.MixProject do
       Schemas: ~r/guides\/schemas\/.?/,
       Build: ~r/guides\/build\/.?/,
       Validation: ~r/guides\/validation\/.?/
+    ]
+  end
+
+  defp groups_for_modules do
+    [
+      "Main API": [JSV],
+      "Schema Definition": [JSV.Schema],
+      Build: [JSV.FormatValidator, JSV.BuildError],
+      Validation: [JSV.Root, JSV.ValidationError],
+      Resolvers: [JSV.Resolver, JSV.Resolver.Httpc, JSV.Resolver.Embedded, JSV.Resolver.Internal, JSV.Resolver.Local],
+      Vocabulary: [JSV.Vocabulary, ~r/^JSV\.Vocabulary\./],
+      Internal: ~r/.*/
     ]
   end
 

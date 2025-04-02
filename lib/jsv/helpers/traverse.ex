@@ -1,7 +1,5 @@
 defmodule JSV.Helpers.Traverse do
-  @moduledoc """
-  Helper module to read and write to generic Elixir data structures.
-  """
+  @moduledoc false
 
   @type traverse_struct_cont :: (map, term -> {map, term})
   @type traverse_callback_elem :: {:key | term} | {:val, term} | {:struct, struct, traverse_struct_cont}

@@ -283,6 +283,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     end)
   end
 
+  @doc false
   @spec validate_keyword({atom | binary, term}, Vocabulary.data(), Validator.context()) :: Validator.result()
   def validate_keyword({:jsv@props, {props_schemas, patterns_schemas, additionals_schema}}, data, vctx)
       when is_map(data) do

@@ -9,12 +9,15 @@ defmodule JSV.Key do
   For instance:
 
   * We have a `{"$ref": "http://some-schema/#$defs/order"}` JSON schema.
+
   * The builder will build the `$ref` keyword as a key: `{:pointer,
     "http://some-schema/", ["$defs","order"]}`.
+
   * The builder, via the resolver, will fetch `http://some-schema/`, store it
     locally and build validators. Those validators will be stored under the same
     key (`{:pointer, "http://some-schema/", ["$defs","order"]}`) in the root
     schema.
+
   * When the validator will validate the reference, it will fetch that key from
     the root schema and apply the retrieved validators to the data.
   """

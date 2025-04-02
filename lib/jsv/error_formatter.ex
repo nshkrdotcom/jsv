@@ -6,11 +6,13 @@ defmodule JSV.ErrorFormatter do
   alias JSV.Validator.Error
 
   @moduledoc """
-  Error formatting loosely following the guidelines described at
-  https://json-schema.org/blog/posts/fixing-json-schema-output
+  Error formatting helpers.
 
-  Errors are grouped by similar instance location (the bit of data that was
-  invalidated) and schema location (the part of the schema that invalidated it).
+  Errors are grouped by:
+
+  * Instance location: the bit of data that was invalidated
+  * Schema location: the part of the schema that invalidated it
+  * Evaluation path: the path followed from the root to this schema location
   """
 
   @type annotation :: %{
