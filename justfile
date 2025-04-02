@@ -5,6 +5,16 @@ gen-test-suite:
   # mix format --check-formatted
   # git status --porcelain | rg "test/generated" --count && mix test || true
 
+update-test-suite: deps
+  #!/usr/bin/env bash
+  pushd deps/json_schema_test_suite
+  git checkout main
+  git pull
+  git rev-parse HEAD > ../../jsts_ref
+  popd
+  mix deps.get
+  just gen-test-suite
+
 deps:
   mix deps.get
 

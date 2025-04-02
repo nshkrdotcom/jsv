@@ -77,10 +77,16 @@ defmodule JSV.MixProject do
   defp json_schema_test_suite do
     {:json_schema_test_suite,
      git: "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git",
-     ref: "83e866b46c9f9e7082fd51e83a61c5f2145a1ab7",
+     ref: json_schema_test_suite_git_ref(),
      only: [:dev, :test],
      compile: false,
      app: false}
+  end
+
+  defp json_schema_test_suite_git_ref do
+    "jsts_ref"
+    |> File.read!()
+    |> String.trim()
   end
 
   defp docs do
