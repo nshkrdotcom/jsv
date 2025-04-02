@@ -47,7 +47,7 @@ defmodule JSV.Builder do
     # build the final value. This option is kept around in the :vocabulary_impls
     # struct key after being merged on top of the default implementations.
     {add_vocabulary_impls, opts} = Keyword.pop!(opts, :vocabularies)
-    vocabulary_impls = Map.merge(default_vocabulary_impls(), add_vocabulary_impls)
+    vocabulary_impls = build_vocabulary_impls(add_vocabulary_impls)
 
     resolver = Resolver.chain_of(resolver_chain, default_meta)
     struct!(__MODULE__, resolver: resolver, opts: opts, vocabulary_impls: vocabulary_impls)
@@ -402,6 +402,10 @@ defmodule JSV.Builder do
 
   defp default_vocabulary_impls do
     @vocabulary_impls
+  end
+
+  defp build_vocabulary_impls(user_mapped) do
+    Map.merge(default_vocabulary_impls(), user_mapped)
   end
 
   defp load_vocabularies(builder, map) do

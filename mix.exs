@@ -90,7 +90,8 @@ defmodule JSV.MixProject do
       source_ref: "v#{@version}",
       source_url: @source_url,
       extras: doc_extras(),
-      groups_for_extras: groups_for_extras()
+      groups_for_extras: groups_for_extras(),
+      groups_for_docs: groups_for_docs()
     ]
   end
 
@@ -132,6 +133,12 @@ defmodule JSV.MixProject do
       Schemas: ~r/guides\/schemas\/.?/,
       Build: ~r/guides\/build\/.?/,
       Validation: ~r/guides\/validation\/.?/
+    ]
+  end
+
+  defp groups_for_docs do
+    [
+      "Schema Definition Utilities": &(&1[:section] == :schema_utilities)
     ]
   end
 

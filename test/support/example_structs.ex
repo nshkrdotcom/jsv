@@ -49,3 +49,8 @@ defmodule MyApp.OrganizationSchema do
     }
   })
 end
+
+defmodule CustomSchemaStruct do
+  @moduledoc false
+  defstruct [:type, :description]
+end

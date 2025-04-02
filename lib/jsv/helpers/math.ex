@@ -4,7 +4,8 @@ defmodule JSV.Helpers.Math do
   # This will not work with large numbers
   @spec fractional_is_zero?(float) :: boolean
   def fractional_is_zero?(n) when is_float(n) do
-    n - Kernel.trunc(n) === 0.0
+    diff = n - Kernel.trunc(n)
+    diff === 0.0 || diff === -0.0
   end
 
   # This will not work with large numbers
