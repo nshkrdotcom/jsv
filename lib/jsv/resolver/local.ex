@@ -130,8 +130,13 @@ defmodule JSV.Resolver.Local do
 
       @behaviour JSV.Resolver
 
+      # Not part of the behaviour implementation. This is added as a convenience
+      # for the users. So there is no need to return {:normal, _}.
       def resolve(id) do
-        resolve(id, [])
+        case resolve(id, []) do
+          {:normal, schema} -> {:ok, schema}
+          {:error, _} = err -> err
+        end
       end
 
       @impl true
@@ -139,7 +144,7 @@ defmodule JSV.Resolver.Local do
 
       Enum.each(schemas_sources, fn {id, raw_schema} ->
         def resolve(unquote(id), _opts) do
-          {:ok, unquote(Macro.escape(raw_schema))}
+          {:normal, unquote(Macro.escape(raw_schema))}
         end
       end)
 

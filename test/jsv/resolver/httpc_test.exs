@@ -15,7 +15,7 @@ defmodule JSV.Resolver.HttpcTest do
   test "will download from a remote endpoint" do
     # :inets, :ssl and :crypto are started by the tests or a common library ... so this
     # will always work.
-    assert {:ok, %{"slideshow" => _}} =
+    assert {:normal, %{"slideshow" => _}} =
              Httpc.resolve("https://httpbin.org/json",
                cache_dir: false,
                allowed_prefixes: ["https://httpbin.org/"]
@@ -41,13 +41,13 @@ defmodule JSV.Resolver.HttpcTest do
     :ok = File.write!(cached_path, cached_json)
 
     # If the cache exists, it is returned
-    assert {:ok, ^cached_schema} = Httpc.resolve(url, allowed_prefixes: [url], cache_dir: cache_dir)
+    assert {:normal, ^cached_schema} = Httpc.resolve(url, allowed_prefixes: [url], cache_dir: cache_dir)
   end
 
   test "uses the embedded resolver for well known URIs resolver" do
-    patch(Embedded, :resolve, fn uri, opts -> {:ok, %{"uri_called" => uri, "opts_called" => opts}} end)
+    patch(Embedded, :resolve, fn uri, opts -> {:normal, %{"uri_called" => uri, "opts_called" => opts}} end)
 
-    assert {:ok,
+    assert {:normal,
             %{
               # The URL should be given to the Embedded resolver
               "uri_called" => "https://json-schema.org/draft/2020-12/schema",

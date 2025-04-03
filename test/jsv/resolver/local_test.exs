@@ -79,8 +79,8 @@ defmodule JSV.Resolver.LocalTest do
         use JSV.Resolver.Local, source: dir
       end
 
-      assert {:ok, schema_1} == DirSource.resolve("test://schema-1/", [])
-      assert {:ok, schema_2} == DirSource.resolve("test://schema-2/", [])
+      assert {:normal, schema_1} == DirSource.resolve("test://schema-1/", [])
+      assert {:normal, schema_2} == DirSource.resolve("test://schema-2/", [])
       assert {:error, _} = DirSource.resolve("test://schema-3/", [])
     end
 
@@ -100,8 +100,8 @@ defmodule JSV.Resolver.LocalTest do
         use JSV.Resolver.Local, source: source
       end
 
-      assert {:ok, schema_1} == TrailingSlashSource.resolve("test://schema-1/", [])
-      assert {:ok, schema_2} == TrailingSlashSource.resolve("test://schema-2/", [])
+      assert {:normal, schema_1} == TrailingSlashSource.resolve("test://schema-1/", [])
+      assert {:normal, schema_2} == TrailingSlashSource.resolve("test://schema-2/", [])
       assert {:error, _} = TrailingSlashSource.resolve("test://schema-3/", [])
     end
 
@@ -124,9 +124,9 @@ defmodule JSV.Resolver.LocalTest do
         use JSV.Resolver.Local, source: [[[[[dir], [[[[[file]]]]]]]]]
       end
 
-      assert {:ok, schema_1} == NestedListSource.resolve("test://schema-1/", [])
-      assert {:ok, schema_2} == NestedListSource.resolve("test://schema-2/", [])
-      assert {:ok, schema_3} == NestedListSource.resolve("test://schema-3/", [])
+      assert {:normal, schema_1} == NestedListSource.resolve("test://schema-1/", [])
+      assert {:normal, schema_2} == NestedListSource.resolve("test://schema-2/", [])
+      assert {:normal, schema_3} == NestedListSource.resolve("test://schema-3/", [])
     end
 
     test "using attribute or variables in macros" do
@@ -149,8 +149,8 @@ defmodule JSV.Resolver.LocalTest do
         use JSV.Resolver.Local, source: [@attr_source, var_source]
       end
 
-      assert {:ok, schema_1} == AttrSource.resolve("test://schema-1/", [])
-      assert {:ok, schema_2} == AttrSource.resolve("test://schema-2/", [])
+      assert {:normal, schema_1} == AttrSource.resolve("test://schema-1/", [])
+      assert {:normal, schema_2} == AttrSource.resolve("test://schema-2/", [])
       assert {:error, _} = AttrSource.resolve("test://schema-3/", [])
     end
 
@@ -164,7 +164,7 @@ defmodule JSV.Resolver.LocalTest do
       end
 
       # Default function/2
-      assert {:ok, schema} == HelperSource.resolve("test://helper-test/", [])
+      assert {:normal, schema} == HelperSource.resolve("test://helper-test/", [])
 
       # Helper function/1
       assert {:ok, schema} == HelperSource.resolve("test://helper-test/")
@@ -232,7 +232,7 @@ defmodule JSV.Resolver.LocalTest do
 
       alias __MODULE__.WithWarnings
 
-      assert {:ok, valid_schema} == WithWarnings.resolve("test://valid-schema/", [])
+      assert {:normal, valid_schema} == WithWarnings.resolve("test://valid-schema/", [])
     end
 
     test "file access error" do
@@ -293,7 +293,7 @@ defmodule JSV.Resolver.LocalTest do
       end
 
       assert ["test://schema-1/"] == DupIdsSameFileSource.resolvable_ids()
-      assert {:ok, schema} == DupIdsSameFileSource.resolve("test://schema-1/", [])
+      assert {:normal, schema} == DupIdsSameFileSource.resolve("test://schema-1/", [])
     end
 
     test "$id is not an URI" do
@@ -307,7 +307,7 @@ defmodule JSV.Resolver.LocalTest do
 
       # The $id is not checked at the resolver level
 
-      assert {:ok, schema} == BadIdSource.resolve("hello world", [])
+      assert {:normal, schema} == BadIdSource.resolve("hello world", [])
 
       # But we cannot build anything with that
 
@@ -362,7 +362,7 @@ defmodule JSV.Resolver.LocalTest do
         use JSV.Resolver.Local, source: file
       end
 
-      assert {:ok, _} = FileChanged.resolve("test://schema-1/", [])
+      assert {:normal, _} = FileChanged.resolve("test://schema-1/", [])
 
       # When the file has not changed, no recompilation should happen
       refute FileChanged.__mix_recompile__?()
@@ -381,7 +381,7 @@ defmodule JSV.Resolver.LocalTest do
         use JSV.Resolver.Local, source: file
       end
 
-      assert {:ok, _} = FileDeleted.resolve("test://schema-1/", [])
+      assert {:normal, _} = FileDeleted.resolve("test://schema-1/", [])
 
       # When the file has not changed, no recompilation should happen
       refute FileDeleted.__mix_recompile__?()
@@ -399,7 +399,7 @@ defmodule JSV.Resolver.LocalTest do
         use JSV.Resolver.Local, source: dir
       end
 
-      assert {:ok, schema_1} == FileAdded.resolve("test://schema-1/", [])
+      assert {:normal, schema_1} == FileAdded.resolve("test://schema-1/", [])
       refute FileAdded.__mix_recompile__?()
 
       # Add a new schema file to the directory

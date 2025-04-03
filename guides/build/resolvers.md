@@ -102,6 +102,32 @@ Make sure to check the documentation of `JSV.Resolver.Local` for more
 information.
 
 
+### Returning normalized schemas
+
+If your resolver returns JSON data that is in normal form like this:
+
+```elixir
+%{
+  "type" => "object",
+  "additionalProperties" => false
+}
+```
+
+Then the resolver implementation can return `{:normal, schema}` instead of
+`{:ok, schema}` to skip the normalization step operated by JSV when building a
+validation root.
+
+The following form is _not_ normal and requires normalization:
+
+```elixir
+%{
+  type: => :object,
+  additionalProperties: => false
+}
+```
+
+See `JSV.Normalizer.normalize/3` for more details.
+
 ## Resolvers form a chain
 
 As mentioned before, the `JSV.Resolver.Embedded` and `JSV.Resolver.Internal` are

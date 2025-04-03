@@ -53,7 +53,7 @@ defmodule JSV.Resolver.Httpc do
 
   defp try_embedded_or_fetch(url, opts) do
     case Embedded.resolve(url, []) do
-      {:ok, schema} -> {:ok, schema}
+      {:normal, schema} -> {:normal, schema}
       {:error, {:not_embedded, _}} -> allow_and_fetch(url, opts)
     end
   end
@@ -76,8 +76,9 @@ defmodule JSV.Resolver.Httpc do
   end
 
   defp disk_cached_http_get(url, disk_cache) do
-    with {:ok, json} <- fetch_disk_or_http(url, disk_cache) do
-      JSV.Codec.decode(json)
+    with {:ok, json} <- fetch_disk_or_http(url, disk_cache),
+         {:ok, schema} <- JSV.Codec.decode(json) do
+      {:normal, schema}
     end
   end
 

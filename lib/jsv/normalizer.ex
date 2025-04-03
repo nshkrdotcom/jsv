@@ -69,7 +69,7 @@ defmodule JSV.Normalizer do
   @doc """
   #{@doc_json_compat} Accepts and returns an accumulator.
 
-  ### What is _JSON-decoded_?
+  ### What is _JSON-decoded_ form?
 
   By that we mean that the returned data could have been returned by
   `JSON.decode!/1`:

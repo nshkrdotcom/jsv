@@ -34,13 +34,9 @@ defmodule JSV.Resolver.Embedded do
 
   Enum.each(mapping, fn {url, module} ->
     def resolve(unquote(url), _) do
-      {:ok, unquote(module).schema()}
+      {:normal, unquote(module).schema()}
     end
   end)
-
-  def resolve("jsv:" <> _ = uri, _opts) do
-    Internal.resolve(uri, [])
-  end
 
   def resolve(other, _) do
     {:error, {:not_embedded, other}}

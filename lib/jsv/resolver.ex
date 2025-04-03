@@ -39,8 +39,13 @@ defmodule JSV.Resolver do
 
   Returning boolean schemas from resolvers is not supported. You may wrap the
   boolean value in a `$defs` or any other pointer as a workaround.
+
+  Schemas will be normalized using `JSV.Schema.normalize/1`. If the resolver
+  returns schema that are already in JSON-decoded form (like a response body
+  from an HTTP call) without atoms, module names or structs, the resolver
+  implementation can return `{:normal, map}` instead to skip the normalization.
   """
-  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, map} | {:error, term}
+  @callback resolve(uri :: String.t(), opts :: term) :: {:ok, map} | {:normal, map} | {:error, term}
 
   @derive {Inspect, except: [:fetch_cache]}
   defstruct chain: [{UnknownResolver, []}],
@@ -476,6 +481,9 @@ defmodule JSV.Resolver do
     case module.resolve(url, opts) do
       {:ok, resolved} when is_map(resolved) ->
         {:ok, url, normalize_resolved(resolved)}
+
+      {:normal, resolved} when is_map(resolved) ->
+        {:ok, url, resolved}
 
       {:error, reason} ->
         call_chain(chain, url, [{module, reason} | err_acc])
