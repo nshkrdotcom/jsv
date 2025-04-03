@@ -1,6 +1,8 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
+# credo:disable-for-this-file Credo.Check.Readability.ModuleDoc
+
 defmodule MyApp.UserSchema do
   require JSV
-  @moduledoc false
 
   JSV.defschema(%{
     type: :object,
@@ -13,7 +15,6 @@ end
 
 defmodule MyApp.CompanySchema do
   require JSV
-  @moduledoc false
 
   JSV.defschema(%{
     type: :object,
@@ -27,19 +28,14 @@ end
 defmodule MyApp.LocalResolver do
   require JSV
   use JSV.Resolver.Local, source: __ENV__.file |> Path.dirname() |> Path.join("schemas")
-
-  @moduledoc false
 end
 
 defmodule MyApp.Organization do
-  @moduledoc false
   defstruct [:name, :id]
 end
 
 defmodule MyApp.OrganizationSchema do
   require JSV
-
-  @moduledoc false
 
   JSV.defschema_for(MyApp.Organization, %{
     type: :object,
@@ -51,6 +47,17 @@ defmodule MyApp.OrganizationSchema do
 end
 
 defmodule CustomSchemaStruct do
-  @moduledoc false
   defstruct [:type, :description]
+end
+
+defmodule Elixir.ASchemaExportingModule do
+  def schema do
+    %{}
+  end
+end
+
+defmodule AModuleWithoutExportedSchema do
+  def hello do
+    "world"
+  end
 end

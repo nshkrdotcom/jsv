@@ -152,6 +152,7 @@ defmodule JSV.MixProject do
       Validation: [JSV.Root, JSV.ValidationError],
       Resolvers: [JSV.Resolver, JSV.Resolver.Httpc, JSV.Resolver.Embedded, JSV.Resolver.Internal, JSV.Resolver.Local],
       Vocabulary: [JSV.Vocabulary, ~r/^JSV\.Vocabulary\./],
+      Utilities: [JSV.Normalizer, JSV.Normalizer.Normalize, JSV.Codec],
       Internal: ~r/.*/
     ]
   end

@@ -109,7 +109,6 @@ defmodule JSV.Schema.Defcompose do
 end
 
 defmodule JSV.Schema do
-  alias JSV.Helpers.Traverse
   alias JSV.Resolver.Internal
   import JSV.Schema.Defcompose
 
@@ -485,117 +484,54 @@ defmodule JSV.Schema do
   end
 
   @doc """
-  Returns the given term with all atoms converted to binaries except for special
-  cases.
+  Normalizes a JSON schema with the help of `JSV.Normalizer.normalize/3` with
+  the following customizations:
 
-  Note that this function accepts any data and not actually a `%JSV.Schema{}` or
-  a raw schema.
-
-  * `JSV.Schema` structs pairs where the value is `nil` will be completely
-    removed. `%JSV.Schema{type: :object}` becomes `%{"type" => "object"}`
-    whereas the struct contains many more keys.
-  * Structs will be simply converted to map with `Map.from_struct/1`, not JSON
-    encoder protocol will be used.
-  * `true`, `false` and `nil` will be kept as-is in all places except map keys.
-  * `true`, `false` and `nil` as map keys will be converted to string.
+  * `JSV.Schema` structs pairs where the value is `nil` will be removed.
+    `%JSV.Schema{type: :object, properties: nil, allOf: nil, ...}` becomes
+    `%{"type" => "object"}`.
+  * Modules names that export a schema will be converted to a raw schema with a
+    reference to that module that can be resolved automatically by
+    `JSV.Resolver.Internal`.
   * Other atoms will be checked to see if they correspond to a module name that
     exports a `schema/0` function.
 
-  In any case, the resulting function will alway contain no atom other than
-  `true`, `false` or `nil`.
-
   ### Examples
 
-      iex> JSV.Schema.normalize(%JSV.Schema{title: :"My Schema"})
-      %{"title" => "My Schema"}
+      defmodule Elixir.ASchemaExportingModule do
+        def schema, do: %{}
+      end
 
-      iex> JSV.Schema.normalize(%{name: :joe})
-      %{"name" => "joe"}
+      iex> JSV.Schema.normalize(ASchemaExportingModule)
+      %{"$ref" => "jsv:module:Elixir.ASchemaExportingModule"}
 
-      iex> JSV.Schema.normalize(%{"name" => :joe})
-      %{"name" => "joe"}
+      defmodule AModuleWithoutExportedSchema do
+        def hello, do: "world"
+      end
 
-      iex> JSV.Schema.normalize(%{"name" => "joe"})
-      %{"name" => "joe"}
-
-      iex> JSV.Schema.normalize(%{true: false})
-      %{"true" => false}
-
-      iex> JSV.Schema.normalize(%{specials: [true, false, nil]})
-      %{"specials" => [true, false, nil]}
-
-      iex> map_size(JSV.Schema.normalize(%JSV.Schema{}))
-      0
-
-      iex> JSV.Schema.normalize(1..10)
-      %{"first" => 1, "last" => 10, "step" => 1}
-
-      iex> defmodule :some_module_with_schema do
-      iex>   def schema, do: %{}
-      iex> end
-      iex> JSV.Schema.normalize(:some_module_with_schema)
-      %{"$ref" => "jsv:module:some_module_with_schema"}
-
-      iex> defmodule :some_module_without_schema do
-      iex>   def hello, do: "world"
-      iex> end
-      iex> JSV.Schema.normalize(:some_module_without_schema)
-      "some_module_without_schema"
+      iex> JSV.Schema.normalize(AModuleWithoutExportedSchema)
+      "Elixir.AModuleWithoutExportedSchema"
   """
   @spec normalize(term) :: %{optional(binary) => schema_data} | [schema_data] | number | binary | boolean | nil
   def normalize(term) do
-    Traverse.postwalk(term, fn
-      {:val, v} when is_binary(v) when is_list(v) when is_map(v) when is_number(v) ->
-        v
+    normalize_opts = [
+      on_general_atom: fn atom, acc ->
+        as_string = Atom.to_string(atom)
 
-      {:val, v} when v in [true, false, nil] ->
-        v
-
-      {:val, v} when is_atom(v) ->
-        as_string = Atom.to_string(v)
-
-        if schema_module?(v, as_string) do
-          %{"$ref" => Internal.module_to_uri(v)}
+        if schema_module?(atom, as_string) do
+          {%{"$ref" => Internal.module_to_uri(atom)}, [atom | acc]}
         else
-          as_string
+          {as_string, acc}
         end
+      end
+    ]
 
-      {:val, other} ->
-        raise ArgumentError, "invalid value in schema: #{inspect(other)}"
+    {normal, _acc} = JSV.Normalizer.normalize(term, normalize_opts, [])
 
-      {:key, k} when is_binary(k) ->
-        k
-
-      {:key, k} when is_atom(k) ->
-        Atom.to_string(k)
-
-      {:key, other} ->
-        raise ArgumentError, "invalid key in schema: #{inspect(other)}"
-
-      {:struct, %__MODULE__{} = schema, cont} ->
-        {normal_map, nil} = cont.(to_map(schema), nil)
-        normal_map
-
-      {:struct, other, cont} ->
-        {map, nil} = cont.(Map.from_struct(other), nil)
-        map
-    end)
+    normal
   end
 
-  # IO.warn("if the module to string is 'Elixir.... do not check if loaded, assume its always a ref")
-
-  # def deatomize(term) when is_atom(term) do
-  #   as_string = Atom.to_string(term)
-
-  #   case schema_module?(term) do
-  #     true -> %{"$ref" => "jsv:module:#{as_string}"}
-  #     false -> as_string
-  #   end
-  # end
-
-  # Returns whether the given atom is a module exporting a schema EXCEPT that if
-  # the module-as-string name starts with "Elixir." we assume that it should be
-  # a schema module.
+  # Returns whether the given atom is a module exporting a schema.
   @common_atom_values [
     :array,
     :object,
@@ -612,15 +548,8 @@ defmodule JSV.Schema do
     false
   end
 
-  defp schema_module?(_, "Elixir." <> _) do
-    true
-  end
-
   defp schema_module?(module, _as_string) do
-    case Code.ensure_loaded(module) do
-      {:module, ^module} -> function_exported?(module, :schema, 0)
-      _ -> false
-    end
+    Code.ensure_loaded?(module) && function_exported?(module, :schema, 0)
   end
 
   @doc """
@@ -632,5 +561,11 @@ defmodule JSV.Schema do
     schema
     |> Map.from_struct()
     |> Map.filter(fn {_, v} -> v != nil end)
+  end
+
+  defimpl JSV.Normalizer.Normalize do
+    def normalize(schema) do
+      JSV.Schema.to_map(schema)
+    end
   end
 end
