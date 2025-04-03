@@ -2,15 +2,17 @@
 
 if Code.ensure_loaded?(JSON) do
   defmodule JSV.Codec.NativeCodec do
-    @moduledoc false
+    @moduledoc """
+    A JSON encoder/decoder based on the `JSON` and `:json` modules.
+    """
 
     @supports_ordered_formatting Code.ensure_loaded?(:json) && function_exported?(:json, :format, 3)
-    def supports_ordered_formatting do
+    def supports_ordered_formatting? do
       @supports_ordered_formatting
     end
 
     @supports_formatting Code.ensure_loaded?(:json) && function_exported?(:json, :format, 1)
-    def supports_formatting do
+    def supports_formatting? do
       @supports_formatting
     end
 
@@ -40,6 +42,12 @@ if Code.ensure_loaded?(JSON) do
       true ->
         # Formatting will not be supported
         def format_to_iodata!(data) do
+          IO.warn("""
+          Formatting JSON is not supported by your current Elixir and OTP versions.
+
+          Include the :jason library
+          """)
+
           encode_to_iodata!(data)
         end
     end

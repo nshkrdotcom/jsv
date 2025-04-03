@@ -57,13 +57,18 @@ defmodule JSV.Codec do
     @codec.encode_to_iodata!(term)
   end
 
-  @doc "Equivalent to `JSON.encode_to_iodata!/1`."
+  @doc "Equivalent to `JSON.encode_to_iodata!/1` with human readable indentation."
   @spec format_to_iodata!(term) :: binary
   def format_to_iodata!(term) do
-    IO.iodata_to_binary(@codec.format_to_iodata!(term))
+    @codec.format_to_iodata!(term)
   end
 
-  @doc "Equivalent to `JSON.encode_to_iodata!/1`."
+  @doc """
+  Equivalent to `JSON.encode!/1` with human readable indentation.
+
+  Requires `Jason` or `Poison` for Elixir versions before 1.18 and OTP before
+  27.0.
+  """
   @spec format!(term) :: binary
   def format!(term) do
     IO.iodata_to_binary(@codec.format_to_iodata!(term))
@@ -77,14 +82,18 @@ defmodule JSV.Codec do
   return `true` if the first argument precedes or is in the same place as the
   second one.
 
-  Does not currently support structs and requires `Jason`.
+  Requires `Jason` for Elixir versions before 1.18 and OTP before 27.1.
+
+  Data must be normalized before ordered encoding. Passing structs will result
+  in an error. Use `JSV.Normalizer.normalize/1` to normalize data in a
+  compatible form.
   """
   @spec format_ordered!(term, key_sorter) :: binary
   def format_ordered!(term, key_sorter) do
     IO.iodata_to_binary(format_ordered_to_iodata!(term, key_sorter))
   end
 
-  @doc "Like `format_ordered!/1`"
+  @doc "Like `format_ordered!/2` but returns iodata instead of strings."
   @spec format_ordered_to_iodata!(term, key_sorter) :: iodata
   def format_ordered_to_iodata!(term, key_sorter) do
     format_ordered_to_iodata!(@codec, term, key_sorter)
