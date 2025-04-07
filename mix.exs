@@ -84,7 +84,9 @@ defmodule JSV.MixProject do
   end
 
   defp json_schema_test_suite_git_ref do
-    "jsts_ref"
+    __ENV__.file
+    |> Path.dirname()
+    |> Path.join("jsts_ref")
     |> File.read!()
     |> String.trim()
   end
