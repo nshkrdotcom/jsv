@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2] - 2025-04-13
+
+### 🚀 Features
+
+- Added Jason/Poison/JSON encoder implementations for JSV.NValidationError
+
+## [0.6.1] - 2025-04-13
+
+### ⚙️ Miscellaneous Tasks
+
+- Use mix_version for release process
+
 ## [0.6.0] - 2025-04-13
 
 ### 🚀 Features
