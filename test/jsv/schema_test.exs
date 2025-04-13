@@ -159,6 +159,26 @@ defmodule JSV.SchemaTest do
         ],
         valids: [1, 3, 5, 10, 15],
         invalids: [6, 7, 8, 9, "string", true, nil]
+      },
+      #
+      # Casting cases
+      string_to_integer: %{
+        valids: ["1", "42", "-10", "0"],
+        invalids: ["1.5", "one", "abc", "1a", "1e5", "", nil, 123]
+      },
+      string_to_float: %{
+        valids: ["1.5", "42.0", "-10.3", "0.0", "1e5", "1.0e-3"],
+        invalids: ["one", "abc", "1a", "", nil, 1.5]
+      },
+      string_to_existing_atom: %{
+        _existing_atoms: [:some_existing_atom, :abcabcabcabc],
+        valids: ["true", "false", "nil", "some_existing_atom", "abcabcabcabc"],
+        invalids: ["some_atom_that_does_not_exist", 123, true, false, :some_existing_atom, nil]
+      },
+      string_to_atom_enum: %{
+        args: [_enum = [:aaa, :bbb, :ccc, nil]],
+        valids: ["aaa", "bbb", "ccc", "nil"],
+        invalids: ["ddd", 123, true, false, :some_existing_atom, nil, "null", :aaa, :bbb, :ccc]
       }
     ]
 

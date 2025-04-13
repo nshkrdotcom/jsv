@@ -28,6 +28,9 @@ defmodule JSV.Schema.Defcompose do
         {bind, typespec} = extract_typespec(value)
         {:var, prop, bind, typespec, expr}
 
+      {{:., _, _}, _, _} = remote_call ->
+        {:call, prop, remote_call}
+
       value ->
         {bind, typespec} = extract_typespec(value)
         {:var, prop, bind, typespec, bind}
@@ -50,24 +53,21 @@ defmodule JSV.Schema.Defcompose do
       Enum.map(args, fn
         {:const, prop, const} -> {prop, const}
         {:var, prop, _bind, _typespec, expr} -> {prop, expr}
+        {:call, prop, call} -> {prop, call}
       end)
 
     bindings =
       Enum.flat_map(args, fn
         {:const, _prop, _const} -> []
         {:var, _prop, bind, _typespec, _expr} -> [bind]
+        {:call, _, _} -> []
       end)
 
     typespecs =
       Enum.flat_map(args, fn
         {:const, _prop, _const} -> []
         {:var, _prop, _bind, typespec, _expr} -> [typespec]
-      end)
-
-    args_doc =
-      Enum.map(args, fn
-        {:const, prop, const} -> {prop, {:const, const}}
-        {:var, prop, bind, _typespec, _expr} -> {prop, {:var, elem(bind, 0)}}
+        {:call, _, _} -> []
       end)
 
     # Start of quote
@@ -80,10 +80,16 @@ defmodule JSV.Schema.Defcompose do
         end
 
       doc_schema_props =
-        unquote(args_doc)
+        unquote(
+          Enum.map(args, fn
+            {:const, prop, const} -> {prop, const}
+            {:var, prop, bind, _typespec, _expr} -> {:var, {prop, Macro.to_string(bind)}}
+            {:call, prop, call} -> {prop, call}
+          end)
+        )
         |> Enum.map(fn
-          {prop, {:const, const}} -> "`#{prop}: #{inspect(const)}`"
-          {prop, {:var, var}} -> "`#{prop}: #{var}`"
+          {:var, {prop, varname}} -> "`#{prop}: #{varname}`"
+          {prop, value} -> "`#{prop}: #{inspect(value)}`"
         end)
         |> :lists.reverse()
         |> case do
@@ -255,8 +261,7 @@ defmodule JSV.Schema do
     :writeOnly,
 
     # Internal keys
-    :"jsv-struct",
-    :"jsv-source"
+    :"jsv-cast"
   ]
 
   @derive {Inspect, optional: @all_keys}
@@ -441,6 +446,78 @@ defmodule JSV.Schema do
   defcompose :all_of, [allOf: schemas :: [schema]] when is_list(schemas)
   defcompose :any_of, [anyOf: schemas :: [schema]] when is_list(schemas)
   defcompose :one_of, [oneOf: schemas :: [schema]] when is_list(schemas)
+
+  @doc """
+  Includes the cast function in a schema. The cast function must be given as a
+  2-item list with:
+
+  * A module, as atom or string
+  * A tag, as atom, string or integer.
+
+  Atom arguments will be converted to string.
+
+  ### Examples
+
+      iex> JSV.Schema.cast([MyApp.Cast, :a_cast_function])
+      %JSV.Schema{"jsv-cast": ["Elixir.MyApp.Cast", "a_cast_function"]}
+
+      iex> JSV.Schema.cast([MyApp.Cast, 1234])
+      %JSV.Schema{"jsv-cast": ["Elixir.MyApp.Cast", 1234]}
+
+      iex> JSV.Schema.cast(["some_erlang_module", "custom_tag"])
+      %JSV.Schema{"jsv-cast": ["some_erlang_module", "custom_tag"]}
+  """
+  @doc sub_section: :schema_casters
+  @spec cast(base, [atom | binary | integer, ...]) :: schema()
+  def cast(base \\ nil, [mod, tag] = _mod_tag)
+      when (is_atom(mod) or is_binary(mod)) and (is_atom(tag) or is_binary(tag) or is_integer(tag)) do
+    override(base, "jsv-cast": [to_string_if_atom(mod), to_string_if_atom(tag)])
+  end
+
+  defp to_string_if_atom(value) when is_atom(value) do
+    Atom.to_string(value)
+  end
+
+  defp to_string_if_atom(value) do
+    value
+  end
+
+  @doc sub_section: :schema_casters
+  defcompose :string_to_integer, type: :string, "jsv-cast": JSV.Cast.string_to_integer()
+
+  @doc sub_section: :schema_casters
+  defcompose :string_to_float, type: :string, "jsv-cast": JSV.Cast.string_to_float()
+
+  @doc sub_section: :schema_casters
+  defcompose :string_to_existing_atom, type: :string, "jsv-cast": JSV.Cast.string_to_existing_atom()
+
+  @doc """
+  Accepts a list of atoms and validates that a given value is a string
+  representation of one of the given atoms.
+
+  On validation, a cast will be made to return the original atom value.
+
+  This is useful when dealing with enums that are represented as atoms in the
+  codebase, such as Oban job statuses or other Ecto enum types.
+
+      iex> schema = JSV.Schema.props(status: JSV.Schema.string_to_atom_enum([:executing, :pending]))
+      iex> root = JSV.build!(schema)
+      iex> JSV.validate(%{"status" => "pending"}, root)
+      {:ok, %{"status" => :pending}}
+
+  > #### Does not support `nil` {: .warning}
+  >
+  > This function sets the `string` type on the schema. If `nil` is given in the
+  > enum, the corresponding valid JSON value will be `"nil"` and not `null`.
+  """
+  @doc sub_section: :schema_casters
+  defcompose :string_to_atom_enum,
+             [
+               type: :string,
+               enum: Enum.map(enum, &Atom.to_string/1) <- enum :: [atom],
+               "jsv-cast": JSV.Cast.string_to_existing_atom()
+             ]
+             when is_list(enum)
 
   @doc """
   Overrides the [base schema](JSV.Schema.html#override/2) with `required: keys`

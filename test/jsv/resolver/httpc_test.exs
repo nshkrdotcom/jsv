@@ -24,11 +24,11 @@ defmodule JSV.Resolver.HttpcTest do
 
   test "will use a directory cache" do
     url = "http://some-host/some/path"
-    unique_id = :erlang.unique_integer([:positive])
+    unique_id = System.system_time(:microsecond)
     cached_schema = %{"id" => "jsv://test/#{unique_id}"}
 
     # Define a cache directory for the test that we will give to the resolver
-    cache_dir = Path.join(System.tmp_dir!(), "jsv-test-http-resolver-cache-#{System.system_time(:microsecond)}")
+    cache_dir = Briefly.create!(directory: true, prefix: "jsv")
 
     # The Httpc module conveniently allows the test to know the cache path from
     # the URL in advance

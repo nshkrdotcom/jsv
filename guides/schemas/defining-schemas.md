@@ -89,13 +89,13 @@ iex> JSV.validate(data, root)
 {:ok, %MyApp.UserSchema{name: "Alice", age: 0}}
 ```
 
-Casting to a struct can be disabled by passing `cast_structs: false` into the
+Casting to a struct can be disabled by passing `cast: false` into the
 options of `JSV.validate/3`.
 
 ```elixir
 iex> {:ok, root} = JSV.build(MyApp.UserSchema)
 iex> data = %{"name" => "Alice", "extra" => "hello!"}
-iex> JSV.validate(data, root, cast_structs: false)
+iex> JSV.validate(data, root, cast: false)
 {:ok, %{"name" => "Alice", "extra" => "hello!"}}
 ```
 
@@ -110,3 +110,6 @@ The module can also be used in other schemas:
   }
 }
 ```
+
+Struct defining schemas are a special case of the generic cast mechanism built
+in JSV. Make sure to check that guide out as well.

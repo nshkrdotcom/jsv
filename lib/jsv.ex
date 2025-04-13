@@ -39,7 +39,7 @@ defmodule JSV do
     {:ok, data} ->
       {:ok, data}
 
-    # Errors can be casted as JSON compatible data structure to send them as an
+    # Errors can be turned into JSON compatible data structure to send them as an
     # API response or for logging purposes.
     {:error, validation_error} ->
       {:error, JSON.encode!(JSV.normalize_error(validation_error))}
@@ -202,21 +202,28 @@ defmodule JSV do
   end
 
   @validate_opts_schema NimbleOptions.new!(
+                          cast: [
+                            type: :boolean,
+                            default: true,
+                            doc: """
+                            Enables calling generic cast functions on validation.
+
+                            This is based on the `jsv-cast` JSON Schema custom keyword
+                            and is typically used by `defschema/1`.
+
+                            While it is on by default, some specific casting features are enabled
+                            separately, see option `:cast_formats`.
+                            """
+                          ],
                           cast_formats: [
                             type: :boolean,
                             default: false,
-                            doc:
-                              "When enabled, format validators will return casted values, " <>
-                                "for instance a `Date` struct instead of the date as string. " <>
-                                "It has no effect when the schema was not built with formats enabled."
-                          ],
-                          cast_structs: [
-                            type: :boolean,
-                            default: true,
-                            doc:
-                              "When enabled, schemas defining the jsv-struct keyword " <>
-                                "will be casted to the corresponding module. " <>
-                                "This keyword is automatically set by schemas used in `JSV.defschema/1`."
+                            doc: """
+                            When enabled, format validators will return casted values,
+                            for instance a `Date` struct instead of the date as string.
+
+                            It has no effect when the schema was not built with formats enabled.
+                            """
                           ]
                         )
 
@@ -224,15 +231,16 @@ defmodule JSV do
   Validates and casts the data with the given schema. The schema must be a
   `JSV.Root` struct generated with `build/2`.
 
-  **Important**: this function returns casted data:
-
-  * If the `:cast_formats` option is enabled, string values may be transformed
-    in other data structures. Refer to the "Formats" section of the `JSV`
-    documentation for more information.
-  * The JSON Schema specification states that `123.0` is a valid integer. This
-    function will return `123` instead. This may return invalid data for floats
-    with very large integer parts. As always when dealing with JSON and big
-    decimal or extremely precise numbers, use strings.
+  > #### This function returns cast data {: .info}
+  >
+  >
+  > * If the `:cast_formats` option is enabled, string values may be transformed
+  >   in other data structures. Refer to the "Formats" section of the
+  >   [Validation guide](validation-basics.html#formats) for more information.
+  > * The JSON Schema specification states that `123.0` is a valid integer. This
+  >   function will return `123` instead. This may return invalid data for
+  >   floats with very large integer parts. As always when dealing with JSON and
+  >   big decimal or extremely precise numbers, use strings.
 
   ### Options
 
@@ -311,8 +319,8 @@ defmodule JSV do
   will accept a map with additional properties, but the keys will not be added
   to the resulting struct as it would be invalid.
 
-  If the `cast_structs: false` option is given to `JSV.validate/3`, the
-  additional properties will be kept.
+  If the `cast: false` option is given to `JSV.validate/3`, the additional
+  properties will be kept.
 
   ### Example
 
@@ -353,7 +361,7 @@ defmodule JSV do
 
       iex> {:ok, root} = JSV.build(MyApp.UserSchema)
       iex> data = %{"name" => "Alice", "extra" => "hello!"}
-      iex> JSV.validate(data, root, cast_structs: false)
+      iex> JSV.validate(data, root, cast: false)
       {:ok, %{"name" => "Alice", "extra" => "hello!"}}
 
   A module can reference another module:
@@ -378,17 +386,14 @@ defmodule JSV do
   defmacro defschema(schema) do
     quote bind_quoted: binding() do
       :ok = JSV.StructSupport.validate!(schema)
-      keycast_pairs = JSV.StructSupport.keycast_pairs(schema)
+      @keycast JSV.StructSupport.keycast_pairs(schema)
       {keys_no_defaults, default_pairs} = JSV.StructSupport.data_pairs_partition(schema)
       required = JSV.StructSupport.list_required(schema)
 
-      # It is important to set the jsv-struct as a binary, otherwise it would be
-      # turned into a $ref when the schema will be denormalized by the resolver.
-      #
-      # Also we set those keys as atoms because the rest of the schema has to be
-      # defined with atoms and we do not want to mix key types at this point.
+      @jsv_tag -1
+
       @jsv_schema schema
-                  |> Map.put(:"jsv-struct", Atom.to_string(__MODULE__))
+                  |> Map.put(:"jsv-cast", [Atom.to_string(__MODULE__), @jsv_tag])
                   |> Map.put_new(:"$id", Internal.module_to_uri(__MODULE__))
 
       @enforce_keys required
@@ -399,16 +404,9 @@ defmodule JSV do
       end
 
       @doc false
-      def __jsv__(arg)
-
-      def __jsv__(:keycast) do
-        unquote(keycast_pairs)
-      end
-
-      def __jsv__(:defaults_override) do
-        # No need to return defaults as defaults values are handled by the
-        # __struct__ functions. So we can return an empty list of pairs.
-        []
+      def __jsv__(@jsv_tag, data) do
+        pairs = JSV.StructSupport.take_keycast(data, @keycast)
+        {:ok, struct!(__MODULE__, pairs)}
       end
     end
   end
@@ -418,15 +416,15 @@ defmodule JSV do
   defmacro defschema_for(target, schema) do
     quote bind_quoted: binding() do
       :ok = JSV.StructSupport.validate!(schema)
-      keycast_pairs = JSV.StructSupport.keycast_pairs(schema, target)
+      @target target
+      @keycast JSV.StructSupport.keycast_pairs(schema, target)
       {_keys_no_defaults, default_pairs} = JSV.StructSupport.data_pairs_partition(schema)
+      @default_pairs default_pairs
 
-      # When defining a schema for another struct we will add two internal
-      # keywords. The $id is still derived from the schema module as we may want
-      # to define multiple schemas targetting a common struct.
+      @jsv_tag -2
+
       @jsv_schema schema
-                  |> Map.put(:"jsv-source", Atom.to_string(__MODULE__))
-                  |> Map.put(:"jsv-struct", Atom.to_string(target))
+                  |> Map.put(:"jsv-cast", [Atom.to_string(__MODULE__), @jsv_tag])
                   |> Map.put_new(:"$id", Internal.module_to_uri(__MODULE__))
 
       def schema do
@@ -434,16 +432,262 @@ defmodule JSV do
       end
 
       @doc false
-      def __jsv__(arg)
+      def __jsv__(@jsv_tag, data) do
+        pairs = JSV.StructSupport.take_keycast(data, @keycast)
+        pairs = Keyword.merge(@default_pairs, pairs)
 
-      def __jsv__(:keycast) do
-        unquote(keycast_pairs)
-      end
-
-      def __jsv__(:defaults_override) do
-        unquote(default_pairs)
+        {:ok, struct!(@target, pairs)}
       end
     end
+  end
+
+  @doc false
+  defguard is_valid_tag(tag) when (is_integer(tag) and tag >= 0) or is_binary(tag)
+
+  @doc """
+  Enables a casting function in the current module, identified by its function
+  name.
+
+  ### Example
+
+  ```elixir
+  defmodule MyApp.Cast do
+    import JSV
+
+    defcast :to_integer
+
+    defp to_integer(data) when is_binary(data) do
+      case Integer.parse(data) do
+        {int, ""} -> {:ok, int}
+        _ -> {:error, "invalid"}
+      end
+    end
+
+    defp to_integer(_) do
+      {:error, "invalid"}
+    end
+  end
+  ```
+
+      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(["Elixir.MyApp.Cast", "to_integer"])
+      iex> root = JSV.build!(schema)
+      iex> JSV.validate("1234", root)
+      {:ok, 1234}
+
+  See `defcast/3` for more information.
+  """
+  defmacro defcast(local_fun) when is_atom(local_fun) do
+    defcast_local(__CALLER__, Atom.to_string(local_fun), local_fun)
+  end
+
+  defmacro defcast(_) do
+    bad_cast()
+  end
+
+  @doc """
+  Enables a casting function in the current module, identified by a custom tag.
+
+  ### Example
+
+  ```elixir
+  defmodule MyApp.Cast do
+    import JSV
+
+    defcast "to_integer_if_string", :to_integer
+
+    defp to_integer(data) when is_binary(data) do
+      case Integer.parse(data) do
+        {int, ""} -> {:ok, int}
+        _ -> {:error, "invalid"}
+      end
+    end
+
+    defp to_integer(_) do
+      {:error, "invalid"}
+    end
+  end
+  ```
+
+      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(["Elixir.MyApp.Cast", "to_integer_if_string"])
+      iex> root = JSV.build!(schema)
+      iex> JSV.validate("1234", root)
+      {:ok, 1234}
+
+  See `defcast/3` for more information.
+  """
+  defmacro defcast(tag, local_fun) when is_atom(local_fun) and is_valid_tag(tag) do
+    defcast_local(__CALLER__, tag, local_fun)
+  end
+
+  defmacro defcast({_, _, _} = call, [{:do, _} | _] = blocks) do
+    {fun, _} = Macro.decompose_call(call)
+    tag = Atom.to_string(fun)
+    defcast_block(__CALLER__, tag, call, blocks)
+  end
+
+  defmacro defcast(_, _) do
+    bad_cast()
+  end
+
+  @doc """
+  Defines a casting function in the calling module, and enables it for casting
+  data during validation.
+
+  See the [custom cast functions guide](cast-functions.html) to learn more about
+  defining your own cast functions.
+
+  This documentation assumes the following module is defined. Note that
+  `JSV.Schema` provides several [predefined cast
+  functions](JSV.Schema.html#schema-casters), including an [existing atom
+  cast](JSV.Schema.html#string_to_existing_atom/0).
+
+  ```elixir
+  defmodule MyApp.Cast do
+    import JSV
+
+    defcast to_existing_atom(data) do
+      {:ok, String.to_existing_atom(data)}
+    rescue
+      ArgumentError -> {:error, "bad atom"}
+    end
+
+    def accepts_anything(data) do
+      {:ok, data}
+    end
+  end
+  ```
+
+  This macro will define the `to_existing_atom/1` function in the calling
+  module, and enable it to be referenced in the `jsv-cast` schema custom
+  keyword.
+
+      iex> MyApp.Cast.to_existing_atom("erlang")
+      {:ok, :erlang}
+
+      iex> MyApp.Cast.to_existing_atom("not an existing atom")
+      {:error, "bad atom"}
+
+  It will also define a zero arity function to get the cast information ready to
+  be included in a schema:
+
+      iex> MyApp.Cast.to_existing_atom()
+      ["Elixir.MyApp.Cast", "to_existing_atom"]
+
+  This is accepted by `JSV.Schema.cast/2`:
+
+      iex> JSV.Schema.cast(MyApp.Cast.to_existing_atom())
+      %JSV.Schema{"jsv-cast": ["Elixir.MyApp.Cast", "to_existing_atom"]}
+
+  With a`jsv-cast` property defined in a schema, data will be cast when the
+  schema is validated:
+
+      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Cast.to_existing_atom())
+      iex> root = JSV.build!(schema)
+      iex> JSV.validate("noreply", root)
+      {:ok, :noreply}
+
+      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Cast.to_existing_atom())
+      iex> root = JSV.build!(schema)
+      iex> {:error, %JSV.ValidationError{}} = JSV.validate(["Elixir.NonExisting"], root)
+
+  It is not mandatory to use the schema definition helpers. Raw schemas can
+  contain cast pointers too:
+
+      iex> schema = %{
+      ...>   "type" => "string",
+      ...>   "jsv-cast" => ["Elixir.MyApp.Cast", "to_existing_atom"]
+      ...> }
+      iex> root = JSV.build!(schema)
+      iex> JSV.validate("noreply", root)
+      {:ok, :noreply}
+
+  Note that for security reasons the cast pointer does not allow to call any
+  function from the schema definition. A cast function MUST be enabled by
+  `defcast/1`, `defcast/2` or `defcast/3`.
+
+  The `MyApp.Cast` example module above defines a `accepts_anything/1` function,
+  but the following schema will fail:
+
+      iex> schema = %{
+      ...>   "type" => "string",
+      ...>   "jsv-cast" => ["Elixir.MyApp.Cast", "accepts_anything"]
+      ...> }
+      iex> root = JSV.build!(schema)
+      iex> {:error, %JSV.ValidationError{errors: [%JSV.Validator.Error{kind: :"bad-cast"}]}} = JSV.validate("anything", root)
+
+  Finally, you can customize the name present in the `jsv-cast` property by
+  using a custom tag:
+
+  ```elixir
+  defcast "my_custom_tag", a_function_name(data) do
+    # ...
+  end
+  ```
+
+  Make sure to read the [custom cast functions guide](cast-functions.html)!
+  """
+  defmacro defcast(tag, fun, block)
+
+  defmacro defcast(tag, {_, _, _} = call, blocks) when is_valid_tag(tag) do
+    defcast_block(__CALLER__, tag, call, blocks)
+  end
+
+  defmacro defcast(_, _, _) do
+    bad_cast()
+  end
+
+  defp defcast_block(env, tag, call, [{:do, _} | _] = blocks) do
+    {fun, arg} =
+      case Macro.decompose_call(call) do
+        {:when, [{err_tag, _, _} | _]} ->
+          raise ArgumentError, """
+          defcast does not support guards
+
+          You may delegate to a local function like so:
+
+            defcast #{inspect(Atom.to_string(err_tag))} :my_custom_cast_fun
+
+            defp #{Macro.to_string(call)} do
+              # ...
+            end
+          """
+
+        {fun, [arg]} ->
+          {fun, arg}
+
+        _ ->
+          raise ArgumentError, "invalid defcast signature: #{Macro.to_string(call)}"
+      end
+
+    mod_str = Atom.to_string(env.module)
+
+    quote do
+      def unquote(fun)() do
+        [unquote(mod_str), unquote(tag)]
+      end
+
+      @doc false
+      def __jsv__(unquote(tag), xdata) do
+        unquote(fun)(xdata)
+      end
+
+      @doc false
+      def(unquote(fun)(unquote(arg)), unquote(blocks))
+    end
+  end
+
+  defp defcast_local(_env, tag, local_fun) do
+    quote do
+      @doc false
+      def __jsv__(unquote(tag), xdata) do
+        unquote(local_fun)(xdata)
+      end
+    end
+  end
+
+  @spec bad_cast :: no_return()
+  defp bad_cast do
+    raise ArgumentError, "invalid defcast arguments"
   end
 
   # From https://github.com/fishcakez/dialyze/blob/6698ae582c77940ee10b4babe4adeff22f1b7779/lib/mix/tasks/dialyze.ex#L168
@@ -454,8 +698,9 @@ defmodule JSV do
     vsn_file = Path.join([:code.root_dir(), "releases", major, "OTP_VERSION"])
 
     try do
-      {:ok, contents} = File.read(vsn_file)
-      String.split(contents, "\n", trim: true)
+      vsn_file
+      |> File.read!()
+      |> String.split("\n", trim: true)
     else
       [full] -> full
       _ -> major

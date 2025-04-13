@@ -111,6 +111,7 @@ defmodule JSV.MixProject do
     defined_guides = [
       "CHANGELOG.md",
       "guides/schemas/defining-schemas.md",
+      "guides/schemas/cast-functions.md",
       #
       "guides/build/build-basics.md",
       "guides/build/resolvers.md",
@@ -161,7 +162,8 @@ defmodule JSV.MixProject do
 
   defp groups_for_docs do
     [
-      "Schema Definition Utilities": &(&1[:section] == :schema_utilities)
+      "Schema Definition Utilities": &(&1[:section] == :schema_utilities && &1[:sub_section] != :schema_casters),
+      "Schema Casters": &(&1[:sub_section] == :schema_casters)
     ]
   end
 
