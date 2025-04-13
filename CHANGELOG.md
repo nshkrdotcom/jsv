@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2025-04-13
+
+### 🚀 Features
+
+- Resolvers do not need to normalize schemas anymore
+- Added support to override existing vocabularies
+- Schema definition helpers do not enforce a Schema struct anymore
+- Provide a generic JSON normalizer for data and schemas
+- Allow resolvers to mark schemas as normalized
+- [**breaking**] Use jsv-cast keyword in schemas for struct and cast functions
+
+### 🐛 Bug Fixes
+
+- Removed conversion to string in codec format_to_iodata
+
+### 📚 Documentation
+
+- Fix documentation grammar and typos
+- Organize docs sidebar in categories
+
+### ⚙️ Miscellaneous Tasks
+
+- Update Elixir Github workflow (#17)
+- Use absolute path for JSTS ref file
+
+## [0.5.1] - 2025-03-28
+
+### 🐛 Bug Fixes
+
+- Fixed compilation with Mix.install
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.5.1
+
 ## [0.5.0] - 2025-03-25
 
 ### 🚀 Features
