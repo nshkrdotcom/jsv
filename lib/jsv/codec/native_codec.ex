@@ -97,4 +97,12 @@ if Code.ensure_loaded?(JSON) do
       end
     end
   end
+
+  defimpl JSON.Encoder, for: JSV.ValidationError do
+    def encode(err, opts) do
+      err
+      |> JSV.normalize_error()
+      |> JSON.Encoder.Map.encode(opts)
+    end
+  end
 end

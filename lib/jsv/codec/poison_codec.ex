@@ -25,4 +25,12 @@ if Code.ensure_loaded?(Poison) do
       raise "ordered JSON encoding requires Jason"
     end
   end
+
+  defimpl Poison.Encoder, for: JSV.ValidationError do
+    def encode(err, opts) do
+      err
+      |> JSV.normalize_error()
+      |> Poison.Encoder.Map.encode(opts)
+    end
+  end
 end

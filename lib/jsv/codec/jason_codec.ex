@@ -41,4 +41,12 @@ if Code.ensure_loaded?(Jason) do
       end)
     end
   end
+
+  defimpl Jason.Encoder, for: JSV.ValidationError do
+    def encode(err, opts) do
+      err
+      |> JSV.normalize_error()
+      |> Jason.Encoder.Map.encode(opts)
+    end
+  end
 end

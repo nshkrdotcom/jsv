@@ -87,4 +87,63 @@ defmodule JSV.CodecTest do
         IO.puts("no native JSON codec test")
     end
   end
+
+  describe "JSON protocol implementation" do
+    setup do
+      schema = %{
+        "$schema" => "https://json-schema.org/draft/2020-12/schema",
+        "$id" => "https://test.json-schema.org/dynamicRef-dynamicAnchor-same-schema/root",
+        "$defs" => %{"foo" => %{"$dynamicAnchor" => "items", "type" => "string"}},
+        "type" => "array",
+        "items" => %{"$dynamicRef" => "#items"}
+      }
+
+      invalid_data = ["foo", 42]
+
+      root = JSV.build!(schema)
+      assert {:error, jsv_err} = JSV.validate(invalid_data, root)
+
+      %{sample_error: jsv_err}
+    end
+
+    test "Jason", ctx do
+      actual = ctx.sample_error |> Jason.encode!() |> Jason.decode!()
+
+      expected_decoded =
+        ctx.sample_error
+        |> JSV.normalize_error()
+        |> Jason.encode!()
+        |> Jason.decode!()
+
+      assert expected_decoded == actual
+    end
+
+    test "Poison", ctx do
+      actual = ctx.sample_error |> Poison.encode!() |> Poison.decode!()
+
+      expected_decoded =
+        ctx.sample_error
+        |> JSV.normalize_error()
+        |> Poison.encode!()
+        |> Poison.decode!()
+
+      assert expected_decoded == actual
+    end
+
+    if Code.ensure_loaded?(JSV.Codec.NativeCodec) do
+      test "Native", ctx do
+        actual = ctx.sample_error |> JSON.encode!() |> JSON.decode!()
+
+        expected_decoded =
+          ctx.sample_error
+          |> JSV.normalize_error()
+          |> JSON.encode!()
+          |> JSON.decode!()
+
+        assert expected_decoded == actual
+      end
+    else
+      IO.puts("no native JSON protocol test")
+    end
+  end
 end
