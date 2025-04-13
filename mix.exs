@@ -2,7 +2,7 @@ defmodule JSV.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/lud/jsv"
-  @version "0.6.0"
+  @version "0.6.1"
 
   def project do
     [
@@ -19,7 +19,8 @@ defmodule JSV.MixProject do
       docs: docs(),
       package: package(),
       modkit: modkit(),
-      dialyzer: dialyzer()
+      dialyzer: dialyzer(),
+      versioning: versioning()
     ]
   end
 
@@ -60,6 +61,7 @@ defmodule JSV.MixProject do
       {:dialyxir, "~> 1.4", only: :test, runtime: false},
       {:readmix, "~> 0.3", only: [:dev, :test], runtime: false},
       {:modkit, "~> 0.6", only: [:dev, :test], runtime: false},
+      {:mix_version, "~> 2.4", only: [:dev, :test], runtime: false},
 
       # Test
       {:excoveralls, "~> 0.18", only: :test},
@@ -203,5 +205,29 @@ defmodule JSV.MixProject do
         {JSV.DocGen, "dev/doc_gen"}
       ]
     ]
+  end
+
+  defp versioning do
+    [
+      annotate: true,
+      before_commit: [
+        &update_readme/1,
+        {:add, "README.md"},
+        &gen_changelog/1,
+        {:add, "CHANGELOG.md"}
+      ]
+    ]
+  end
+
+  def update_readme(vsn) do
+    :ok = Readmix.update_file(Readmix.new(vars: %{app_vsn: vsn}), "README.md")
+    :ok
+  end
+
+  defp gen_changelog(vsn) do
+    case System.cmd("git", ["cliff", "--tag", vsn, "-o", "CHANGELOG.md"], stderr_to_stdout: true) do
+      {_, 0} -> IO.puts("Updated CHANGELOG.md with #{vsn}")
+      {out, _} -> {:error, "Could not update CHANGELOG.md:\n\n #{out}"}
+    end
   end
 end

@@ -58,11 +58,8 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- Update library configuration (#10)
-- Update Elixir workflow (#13)
 - Refactored schema normalization
 - Removed unused alias
-- Update Elixir workflow (#15)
 - Use readmix to generate formats docs
 
 ## [0.4.0] - 2025-02-08
