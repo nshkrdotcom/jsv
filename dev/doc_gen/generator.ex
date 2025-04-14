@@ -49,7 +49,8 @@ if Code.ensure_loaded?(Readmix.Generator) do
         native: Regex,
         notes: [
           "Accepts numerical TLDs and single letter TLDs.",
-          ~s[Uses this regular expression: `#{Regex.source(Default.hostname_regex())}` (<a href="https://regexper.com/##{URI.encode(Regex.source(Default.hostname_regex()))}">Regexper</a>).]
+          ~s[Uses this regular expression: `#{Regex.source(Default.hostname_regex())}` (<a href="https://regexper.com/##{URI.encode(Regex.source(Default.hostname_regex()))}">Regexper</a>).],
+          "Length of components is not checked. Some hostnames could exceed the allowed length."
         ]
       },
       "ipv4" => %{

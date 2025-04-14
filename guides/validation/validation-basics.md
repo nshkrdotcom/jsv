@@ -110,6 +110,7 @@ end
 * The format is implemented with the native `Regex` module.
 * Accepts numerical TLDs and single letter TLDs.
 * Uses this regular expression: `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$` (<a href="https://regexper.com/#%5E(([a-zA-Z0-9]%7C[a-zA-Z0-9][a-zA-Z0-9%5C-]*[a-zA-Z0-9])%5C.)*([A-Za-z0-9]%7C[A-Za-z0-9][A-Za-z0-9%5C-]*[A-Za-z0-9])$">Regexper</a>).
+* Length of components is not checked. Some hostnames could exceed the allowed length.
 
 ### ipv4
 

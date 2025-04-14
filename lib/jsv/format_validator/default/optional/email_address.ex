@@ -10,7 +10,7 @@ if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
       ignore: []
 
     @doc false
-    @spec parse_email_address(String.t()) :: {:ok, String.t()} | {:error, term}
+    @spec parse_email_address(binary) :: {:ok, URI.t()} | {:error, term}
     def parse_email_address(data) do
       case email_address(data) do
         {:ok, _, "", _, _, _} -> {:ok, data}

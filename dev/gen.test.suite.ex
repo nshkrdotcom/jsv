@@ -103,7 +103,13 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
 
     "optional/format/date.json" => [schema_build_opts: [formats: true]],
     "optional/format/email.json" => [schema_build_opts: [formats: true]],
-    "optional/format/hostname.json" => :unsupported,
+    "optional/format/hostname.json" => [
+      schema_build_opts: [formats: true],
+      ignore: [
+        "exceeds maximum label length",
+        "a host name with a component too long"
+      ]
+    ],
     "optional/format/idn-email.json" => :unsupported,
     "optional/format/idn-hostname.json" => :unsupported,
     "optional/format/ipv4.json" => [schema_build_opts: [formats: true]],
