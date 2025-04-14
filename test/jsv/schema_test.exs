@@ -128,7 +128,7 @@ defmodule JSV.SchemaTest do
       },
       uuid: %{
         valids: ["550e8400-e29b-41d4-a716-446655440000", "123e4567-e89b-12d3-a456-426614174000"],
-        invalids: ["not-a-uuid", "123", "550e8400e29b41d4a716446655440000", 123, true, nil]
+        invalids: ["not-a-uuid", "123", "123e4567e89b12d3a456426614174000", 123, true, nil]
       },
       all_of: %{
         args: [

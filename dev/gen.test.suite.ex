@@ -37,7 +37,7 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
       ignore: ["weeks cannot be combined with other units"],
       elixir: "~> 1.17"
     ],
-    "optional/format/uuid.json" => :unsupported,
+    "optional/format/uuid.json" => [schema_build_opts: [formats: true]],
     "optional/format/ecmascript-regex.json" => :unsupported
   }
 

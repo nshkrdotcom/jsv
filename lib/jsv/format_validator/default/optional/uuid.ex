@@ -45,6 +45,7 @@ defmodule JSV.FormatValidator.Default.Optional.UUID do
     {:ok, data}
   end
 
+  #
   def parse_uuid(_) do
     {:error, :invalid_uuid_format}
   end
