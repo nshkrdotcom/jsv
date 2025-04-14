@@ -102,7 +102,7 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     # Formats
 
     "optional/format/date.json" => [schema_build_opts: [formats: true]],
-    "optional/format/email.json" => :unsupported,
+    "optional/format/email.json" => [schema_build_opts: [formats: true]],
     "optional/format/hostname.json" => :unsupported,
     "optional/format/idn-email.json" => :unsupported,
     "optional/format/idn-hostname.json" => :unsupported,

@@ -38,7 +38,7 @@ if Code.ensure_loaded?(Readmix.Generator) do
       },
       "email" => %{
         input: "hello@json-schema.org",
-        support: {:mail_address, "~> 1.0"},
+        support: abnf_req,
         notes: [
           "Support is limited by the implementation of that library.",
           "The `idn-email` format is not supported out-of-the-box."

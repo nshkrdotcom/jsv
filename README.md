@@ -33,12 +33,8 @@ Additional dependencies can be added to support more features:
 ```elixir
 def deps do
   [
-    # Optional libraries for enhanced format validation
+    # Optional libraries for enhanced format validation like URI, IRI, email address, JSON-pointer, etc.
 
-    # Email validation
-    {:mail_address, "~> 1.0"},
-
-    # URI, IRI, and JSON-pointer validation
     {:abnf_parsec, "~> 1.0"},
 
     # Optional libraries for decoding schemas resolved via HTTP

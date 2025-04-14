@@ -7,7 +7,7 @@ defmodule JSV.FormatValidator.Default do
   @behaviour JSV.FormatValidator
 
   @supports_duration mod_exists?(Duration)
-  @supports_email mod_exists?(MailAddress.Parser)
+  @supports_email mod_exists?(AbnfParsec)
   @supports_iri mod_exists?(AbnfParsec)
   @supports_uri_template mod_exists?(AbnfParsec)
   @supports_json_pointer mod_exists?(AbnfParsec)
@@ -107,11 +107,7 @@ defmodule JSV.FormatValidator.Default do
 
   if @supports_email do
     def validate_cast("email", data) do
-      if MailAddress.Parser.valid?(data) do
-        {:ok, data}
-      else
-        {:error, :invalid_email}
-      end
+      Optional.EmailAddress.parse_email_address(data)
     end
   end
 

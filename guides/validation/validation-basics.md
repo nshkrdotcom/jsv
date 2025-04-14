@@ -53,15 +53,13 @@ values by passing the `cast_formats: true` option to `JSV.validate/3`.
 The listing below describe values returned when that option is enabled.
 
 **Important**: Many formats require the `abnf_parsec` library to be available.
-The `email` format can be enabled with the `:mail_address` library.
 
-You may add one or both as dependencies in your application and they will be
-used automatically.
+You may add this dependency in your application and it will be used
+automatically.
 
 ```elixir
 def deps do
   [
-    {:mail_address, "~> 1.0"},
     {:abnf_parsec, "~> 2.0"},
   ]
 end
@@ -98,7 +96,7 @@ end
 
 ### email
 
-* **support**: Requires `{:mail_address, "~> 1.0"}`.
+* **support**: Requires `{:abnf_parsec, "~> 2.0"}`.
 * **input**: `"hello@json-schema.org"`
 * **output**: Input value.
 * Support is limited by the implementation of that library.

@@ -52,7 +52,6 @@ defmodule JSV.MixProject do
       {:poison, "~> 6.0 or ~> 5.0", optional: true},
 
       # Optional Formats
-      {:mail_address, "~> 1.0", optional: true},
       {:abnf_parsec, "~> 2.0", optional: true},
 
       # Dev
