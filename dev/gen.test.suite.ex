@@ -114,15 +114,21 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     "optional/format/idn-hostname.json" => :unsupported,
     "optional/format/ipv4.json" => [schema_build_opts: [formats: true]],
     "optional/format/ipv6.json" => [schema_build_opts: [formats: true]],
-    "optional/format/iri-reference.json" => :unsupported,
-    "optional/format/iri.json" => :unsupported,
-    "optional/format/json-pointer.json" => :unsupported,
+    "optional/format/iri-reference.json" => [schema_build_opts: [formats: true]],
+    "optional/format/iri.json" => [schema_build_opts: [formats: true]],
+    "optional/format/json-pointer.json" => [schema_build_opts: [formats: true]],
     "optional/format/regex.json" => [schema_build_opts: [formats: true]],
-    "optional/format/relative-json-pointer.json" => :unsupported,
+    "optional/format/relative-json-pointer.json" => [schema_build_opts: [formats: true]],
     "optional/format/unknown.json" => [schema_build_opts: [formats: true]],
-    "optional/format/uri-reference.json" => :unsupported,
-    "optional/format/uri-template.json" => :unsupported,
-    "optional/format/uri.json" => :unsupported,
+    "optional/format/uri-reference.json" => [schema_build_opts: [formats: true]],
+    "optional/format/uri-template.json" => [schema_build_opts: [formats: true]],
+    "optional/format/uri.json" => [
+      schema_build_opts: [formats: true],
+      ignore: [
+        # invalid ipv6 according to official grammar. Trailing space in test name
+        "a valid URL "
+      ]
+    ],
     "optional/format/time.json" => [
       schema_build_opts: [formats: true],
       ignore: [
