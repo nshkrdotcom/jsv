@@ -38,6 +38,9 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
       elixir: "~> 1.17"
     ],
     "optional/format/uuid.json" => [schema_build_opts: [formats: true]],
+
+    # Unsupported
+
     "optional/format/ecmascript-regex.json" => :unsupported
   }
 
@@ -45,7 +48,9 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     "additionalItems.json" => [],
     "definitions.json" => [],
     "dependencies.json" => [],
-    # Optional
+
+    # Unsupported
+
     "optional/content.json" => :unsupported
   }
 
@@ -94,10 +99,7 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     # Optional
 
     "optional/bignum.json" => [],
-    "optional/ecmascript-regex.json" => :unsupported,
-    "optional/float-overflow.json" => :unsupported,
     "optional/id.json" => [],
-    "optional/non-bmp-regex.json" => :unsupported,
 
     # Formats
 
@@ -110,8 +112,6 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
         "a host name with a component too long"
       ]
     ],
-    "optional/format/idn-email.json" => :unsupported,
-    "optional/format/idn-hostname.json" => :unsupported,
     "optional/format/ipv4.json" => [schema_build_opts: [formats: true]],
     "optional/format/ipv6.json" => [schema_build_opts: [formats: true]],
     "optional/format/iri-reference.json" => [schema_build_opts: [formats: true]],
@@ -172,7 +172,15 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     # schema and tag the "real" schemas we find, and then when a path points to
     # a definition with "$id" inside we check if the tag is present, or we
     # disregard that "$id".
-    "optional/unknownKeyword.json" => :unsupported
+    "optional/unknownKeyword.json" => :unsupported,
+
+    # Unsupported
+
+    "optional/format/idn-email.json" => :unsupported,
+    "optional/format/idn-hostname.json" => :unsupported,
+    "optional/ecmascript-regex.json" => :unsupported,
+    "optional/float-overflow.json" => :unsupported,
+    "optional/non-bmp-regex.json" => :unsupported
   }
 
   raise_same_key = fn k, v1, v2 ->
