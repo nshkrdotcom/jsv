@@ -336,7 +336,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
         [{data_item, index}, {kind, schema}] -> {kind, index, data_item, schema}
       end)
 
-    {validated_items, vctx} = validate_items(zipped, vctx)
+    {validated_items, vctx} = validate_items(zipped, data, vctx)
     Validator.return(validated_items, vctx)
   end
 
@@ -545,8 +545,8 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   #
   # Validate all items in a stream of {kind, index, item_data, subschema}.
   # The subschema can be nil which makes the item automatically valid.
-  @spec validate_items(Enumerable.t(), Validator.context(), module) :: {Enumerable.t(), Validator.context()}
-  def validate_items(stream, vctx, error_formatter \\ __MODULE__) do
+  @spec validate_items(Enumerable.t(), list, Validator.context(), module) :: {Enumerable.t(), Validator.context()}
+  def validate_items(stream, data, vctx, error_formatter \\ __MODULE__) do
     {rev_items, vctx} =
       Enum.reduce(stream, {[], vctx}, fn
         {_kind, _index, data_item, nil = _subschema}, {casted, vctx} ->
@@ -561,7 +561,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
               {[casted_item | casted], vctx}
 
             {:error, vctx} ->
-              {[data_item | casted], JSV.Validator.__with_error__(error_formatter, vctx, kind, data_item, index: index)}
+              {[data_item | casted], JSV.Validator.__with_error__(error_formatter, vctx, kind, data, index: index)}
           end
       end)
 

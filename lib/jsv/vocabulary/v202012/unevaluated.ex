@@ -36,6 +36,12 @@ defmodule JSV.Vocabulary.V202012.Unevaluated do
     Validator.reduce(vds, data, vctx, &validate_keyword/3)
   end
 
+  with_decimal do
+    defp validate_keyword({:unevaluatedProperties, _}, %Decimal{} = data, vctx) do
+      {:ok, data, vctx}
+    end
+  end
+
   defp validate_keyword({:unevaluatedProperties, subschema}, data, vctx) when is_map(data) do
     evaluated = Validator.list_evaluaded(vctx)
 

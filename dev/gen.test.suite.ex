@@ -1,7 +1,10 @@
+# credo:disable-for-this-file Credo.Check.Readability.Specs
+# credo:disable-for-this-file Credo.Check.Readability.ModuleDoc
 defmodule Mix.Tasks.Jsv.GenTestSuite do
-  use Mix.Task
   alias CliMate.CLI
+  alias JSV.Helpers.Traverse
   require EEx
+  use Mix.Task
 
   @shortdoc "Regenerate the JSON Schema Test Suite"
 
@@ -57,7 +60,8 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
   @enabled_common %{
     "additionalProperties.json" => [
       atom_ignore: [
-        # those tests use regexes in pattern properties.
+        # Those tests use regexes in pattern properties. We do not want to
+        # render those as atoms as it will be confusing.
         "additionalProperties being false does not allow other properties",
         "non-ASCII pattern with additionalProperties"
       ]
@@ -65,10 +69,10 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     "allOf.json" => [],
     "anyOf.json" => [],
     "boolean_schema.json" => [],
-    "const.json" => [],
+    "const.json" => [decimal_ignore: true],
     "contains.json" => [],
     "default.json" => [],
-    "enum.json" => [],
+    "enum.json" => [decimal_ignore: true],
     "exclusiveMaximum.json" => [],
     "exclusiveMinimum.json" => [],
     "format.json" => [],
@@ -94,7 +98,7 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     "refRemote.json" => [],
     "required.json" => [],
     "type.json" => [],
-    "uniqueItems.json" => [],
+    "uniqueItems.json" => [decimal_ignore: true],
 
     # Optional
 
@@ -196,7 +200,7 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     """
   end
 
-  @enabled %{
+  @test_suites %{
     "draft2020-12" => Map.merge(@enabled_common, @enabled_specific_202012, raise_same_key),
     "draft7" => Map.merge(@enabled_common, @enabled_specific_7, raise_same_key)
   }
@@ -240,7 +244,7 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
         describe <%= inspect(tcase.description) %> do
 
           setup do
-            json_schema = <%= render_ordered_schema(tcase.schema, @keys_format) %>
+            json_schema = <%= render_ordered_schema(tcase.schema, @suite_flavor) %>
             schema = JsonSchemaSuite.build_schema(json_schema, <%= inspect(@schema_build_opts, limit: :infinity, pretty: true) %>)
             {:ok, json_schema: json_schema, schema: schema}
           end
@@ -249,7 +253,7 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
 
             <%= if not ttest.skip? do %>
             test <%= inspect(ttest.description) %>, x do
-              data = <%= inspect(ttest.data, limit: :infinity, pretty: true) %>
+              data = <%= render_test_data(ttest.data, @suite_flavor) %>
               expected_valid = <%= inspect(ttest.valid?) %>
               JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
             end
@@ -274,67 +278,50 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
   def run(argv) do
     %{options: _options, arguments: %{suite: suite}} = CLI.parse_or_halt!(argv, @command)
 
-    do_run(suite, :binary)
-    do_run(suite, :atom)
+    # Generate default JSON schemas
+    do_run(suite, :default)
+
+    # Generate tests using %JSV.Schema{} structs for any compatible map.
+    do_run(suite, :jsv_schema_structs)
+
+    # Generate tests where data can contain Decimal structs (but not schemas)
+    do_run(suite, :decimal_test_data)
+
     Mix.start()
     Mix.Task.run("format", ["--migrate"])
   end
 
   # Format can be :binary or :atom, it changes the way the schemas will be
   # represented in the tests
-  defp do_run(suite_name, format, max_tests \\ :infinity) do
+  defp do_run(suite_name, suite_flavor, max_tests \\ :infinity) do
     subnamespace =
-      case format do
-        :binary -> "BinaryKeys"
-        :atom -> "AtomKeys"
+      case suite_flavor do
+        :default -> "BinaryKeys"
+        :jsv_schema_structs -> "AtomKeys"
+        :decimal_test_data -> "DecimalValues"
       end
 
     suite_ns = String.replace(suite_name, "-", "")
     namespace = Module.concat([JSV, Generated, Macro.camelize(suite_ns), subnamespace])
-    test_directory = preferred_path(namespace) |> String.replace(~r/\.ex$/, "")
+    test_directory = namespace |> preferred_path() |> String.replace(~r/\.ex$/, "")
 
     CLI.warn("Deleting current test files directory #{test_directory}")
     _ = File.rm_rf!(test_directory)
 
-    enabled =
-      case Map.fetch(@enabled, suite_name) do
-        {:ok, false} -> Map.new([])
+    test_suite =
+      case Map.fetch(@test_suites, suite_name) do
         {:ok, map} when is_map(map) -> map
         :error -> raise ArgumentError, "No suite configuration for #{inspect(suite_name)}"
       end
 
-    enabled = maybe_add_atom_ignored(enabled, format)
-
     schema_options = [default_meta: default_meta(suite_name)]
 
-    suite_name
-    |> stream_cases(enabled)
+    test_suite
+    |> stream_cases(suite_name, suite_flavor)
     |> take_max_tests(max_tests)
-    |> Stream.map(&gen_test_mod(&1, namespace, format, schema_options))
+    |> Stream.map(&gen_test_mod(&1, namespace, suite_flavor, schema_options))
     |> Enum.count()
     |> then(&IO.puts("Wrote #{&1} files"))
-  end
-
-  defp maybe_add_atom_ignored(enabled, :atom) do
-    add_atom_ignored(enabled)
-  end
-
-  defp maybe_add_atom_ignored(enabled, _) do
-    enabled
-  end
-
-  defp add_atom_ignored(enabled) do
-    Map.new(enabled, fn {jsonpath, opts} ->
-      opts =
-        if is_list(opts) do
-          add_ignored = Keyword.get(opts, :atom_ignore, [])
-          Keyword.update(opts, :ignore, add_ignored, &(add_ignored ++ &1))
-        else
-          opts
-        end
-
-      {jsonpath, opts}
-    end)
   end
 
   defp take_max_tests(stream, :infinity) do
@@ -353,15 +340,15 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     "https://json-schema.org/draft/2020-12/schema"
   end
 
-  def stream_cases(suite, all_enabled) do
-    suite_dir = suite_dir!(suite)
+  def stream_cases(enabled_cases, suite_name, suite_flavor) do
+    suite_dir = suite_dir!(suite_name)
 
     suite_dir
     |> Path.join("**/**.json")
     |> Path.wildcard()
     |> Enum.sort()
     |> Stream.transform(
-      fn -> {_discarded = [], all_enabled} end,
+      fn -> {_discarded = [], enabled_cases} end,
       fn path, {discarded, enabled} ->
         rel_path = Path.relative_to(path, suite_dir)
 
@@ -376,34 +363,64 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
         end
       end,
       fn {discarded, rest_enabled} ->
-        # Cases found in the JSON files that were not configured in
-        # `all_enabled`, and so not returned in the stream
-        print_unchecked(suite, discarded)
+        # Cases found in the JSON files that were not declared, and so not
+        # returned in the stream
+        print_unchecked(suite_name, discarded)
 
         # Cases configured in `all_enabled` that were not found as JSON files.
-        print_unexpected(suite, rest_enabled)
+        print_unexpected(suite_name, rest_enabled)
       end
     )
-    |> Stream.map(fn item ->
+    |> Stream.flat_map(fn item ->
       %{path: path, opts: opts} = item
-      Map.put(item, :test_cases, marshall_file(path, opts))
+
+      case marshall_file(path, suite_flavor, opts) do
+        [] -> []
+        test_cases -> [Map.put(item, :test_cases, test_cases)]
+      end
     end)
   end
 
-  defp marshall_file(source_path, opts) do
+  defp marshall_file(source_path, suite_flavor, opts) do
     ignore = Keyword.get(opts, :ignore, [])
-    elixir = Keyword.get(opts, :elixir, nil)
 
+    ignore =
+      if suite_flavor == :jsv_schema_structs do
+        Keyword.get(opts, :atom_ignore, []) ++ ignore
+      else
+        ignore
+      end
+
+    {ignore, ignore_all?} =
+      if suite_flavor == :decimal_test_data do
+        case Keyword.get(opts, :decimal_ignore) do
+          nil -> {ignore, false}
+          true -> {ignore, true}
+        end
+      else
+        {ignore, false}
+      end
+
+    if ignore_all? do
+      []
+    else
+      elixir = Keyword.get(opts, :elixir, nil)
+      do_marshall_file(source_path, suite_flavor, ignore, elixir)
+    end
+  end
+
+  defp do_marshall_file(source_path, suite_flavor, ignore, elixir) do
     source_path
     |> File.read!()
-    |> Jason.decode!()
-    |> Stream.flat_map(fn tcase ->
+    |> Jason.decode!(floats: :decimals)
+    |> Enum.flat_map(fn tcase ->
       %{"description" => tc_descr, "schema" => schema, "tests" => tests} = tcase
       tcase_ignored = tc_descr in ignore
 
       tests =
         Enum.map(tests, fn ttest ->
           %{"description" => tt_descr, "data" => data, "valid" => valid} = ttest
+
           ttest_ignored = tt_descr in ignore
 
           %{
@@ -415,6 +432,15 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
           }
         end)
 
+      # For the :decimal_test_data flavor we will only generate tests that do
+      # have a Decimal struct in the test data
+      tests =
+        if suite_flavor == :decimal_test_data do
+          mark_skip_tests_without_decimal_test_data(tests)
+        else
+          tests
+        end
+
       all_ignored? = Enum.all?(tests, & &1.skip?)
 
       if all_ignored? do
@@ -423,6 +449,34 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
         [%{description: tc_descr, schema: schema, tests: tests, elixir_version_check: elixir}]
       end
     end)
+  end
+
+  defp mark_skip_tests_without_decimal_test_data(tests) do
+    Enum.map(
+      tests,
+      fn
+        %{skip?: true} = already_skipped ->
+          already_skipped
+
+        test ->
+          if contains_decimal_struct?(test) do
+            test
+          else
+            %{test | skip?: true}
+          end
+      end
+    )
+  end
+
+  defp contains_decimal_struct?(data) do
+    Traverse.postwalk(data, fn
+      {:struct, %Decimal{}, _} -> throw(:contains_decimal)
+      other -> elem(other, 1)
+    end)
+
+    false
+  catch
+    :contains_decimal -> true
   end
 
   def suite_dir!(suite) do
@@ -453,12 +507,14 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
       |> Enum.take(maxprint)
       |> Enum.map_intersperse(?\n, fn filename -> "{#{inspect(filename)}, []}," end)
 
-    """
-    Unchecked test cases in #{suite}:
-    #{print_list}
-    #{(more? && "... (#{total - maxprint} more)") || ""}
-    """
-    |> IO.warn([])
+    IO.warn(
+      """
+      Unchecked test cases in #{suite}:
+      #{print_list}
+      #{(more? && "... (#{total - maxprint} more)") || ""}
+      """,
+      []
+    )
   end
 
   defp print_unexpected(_suite, map) when map_size(map) == 0 do
@@ -466,21 +522,23 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
   end
 
   defp print_unexpected(suite, map) do
-    """
-    Unexpected test cases in #{suite}:
-    #{map |> Map.to_list() |> Enum.map_join("\n", &inspect/1)}
-    """
-    |> IO.warn([])
+    IO.warn(
+      """
+      Unexpected test cases in #{suite}:
+      #{map |> Map.to_list() |> Enum.map_join("\n", &inspect/1)}
+      """,
+      []
+    )
   end
 
-  defp gen_test_mod(mod_info, namespace, format, schema_options) do
+  defp gen_test_mod(mod_info, namespace, suite_flavor, schema_options) do
     module_name = module_name(mod_info, namespace)
 
     case_build_opts = get_in(mod_info, [:opts, :schema_build_opts]) || []
     schema_build_opts = Keyword.merge(schema_options, case_build_opts)
 
     assigns =
-      Map.merge(mod_info, %{module_name: module_name, schema_build_opts: schema_build_opts, keys_format: format})
+      Map.merge(mod_info, %{module_name: module_name, schema_build_opts: schema_build_opts, suite_flavor: suite_flavor})
 
     module_contents = module_template(assigns)
     module_path = module_path(module_name)
@@ -523,22 +581,55 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     end
   end
 
-  defp render_ordered_schema(schema, key_format) when is_map(schema) do
-    schema =
-      case key_format do
-        :binary -> schema
-        :atom -> schema |> Jason.encode!() |> Jason.decode!(keys: :atoms)
-      end
+  defp render_ordered_schema(schema, suite_flavor) when is_map(schema) do
+    # For all flavors the wrapper will render the keys in a preferred order.
 
-    ordered_map = __MODULE__.SchemaDumpWrapper.from_map(schema, key_format)
-    inspect(ordered_map, pretty: true, limit: :infinity, printable_limit: :infinity)
+    # TODO for now we support Decimal in data but not in the schema, so here
+    # it is always a float.
+
+    schema =
+      Traverse.postwalk(schema, fn
+        {:struct, %Decimal{} = d, _} -> Decimal.to_float(d)
+        {:val, value} when is_map(value) -> __MODULE__.ValueDumper.wrap(value, suite_flavor)
+        {_, x} -> x
+      end)
+
+    inspect(schema, pretty: true, limit: :infinity, printable_limit: :infinity)
   end
 
   defp render_ordered_schema(schema, _) when is_boolean(schema) do
     inspect(schema, pretty: true, limit: :infinity, printable_limit: :infinity)
   end
 
-  defmodule SchemaDumpWrapper do
+  defp render_test_data(data, suite_flavor) do
+    # Using the inspect protocol, depending on the flavor we will render the
+    # data differently.
+    #
+    # The data parsed from the test suite already contains Decimal structs
+    # instead of floats
+    #
+    # * For :decimal_test_data we will inspect the Decimal struct as-is, which
+    #   outputs a `Decimal.new("...")` call
+    # * For other flavors we will render the data as a a float.
+
+    data =
+      case suite_flavor do
+        :decimal_test_data ->
+          data
+
+        _ ->
+          Traverse.postwalk(data, fn
+            {:struct, %Decimal{} = d, _} -> __MODULE__.ValueDumper.wrap(d, suite_flavor)
+            {_, x} -> x
+          end)
+      end
+
+    inspect(data, pretty: true, limit: :infinity, printable_limit: :infinity)
+  end
+
+  defmodule ValueDumper do
+    import Inspect.Algebra
+
     @key_order [
                  # metada of the schema
                  "$schema",
@@ -573,80 +664,97 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
                |> Enum.with_index()
                |> Map.new()
 
-    defstruct wrapped_map: [], key_format: nil
+    @schema_struct_keys Map.keys(Map.from_struct(JSV.Schema.__struct__()))
 
-    def from_map(map, key_format) do
-      %__MODULE__{wrapped_map: map, key_format: key_format}
+    defstruct value: [], suite_flavor: nil
+
+    def wrap(value, suite_flavor) do
+      %__MODULE__{value: value, suite_flavor: suite_flavor}
     end
 
-    def to_ordlist(ordmap) do
-      ordmap.wrapped_map
+    def render(%{value: %Decimal{}, suite_flavor: :decimal_test_data}, _) do
+      # For :decimal_test_data flavor the Decimal structs in the test data are
+      # not wrapped.
+      raise "should not happen"
+    end
+
+    # Render normal floats
+    def render(%{value: %Decimal{} = d}, _) do
+      # We return the decimal as a string, but as we are implementing the
+      # inspect protocol this will be a float in the generated test module.
+      Decimal.to_string(d)
+    end
+
+    # Render JSV.Schema structs or maps with atom keys
+    def render(%{value: map, suite_flavor: :jsv_schema_structs}, inspect_opts)
+        when is_map(map) and not is_struct(map) do
+      # Map keys in schemas are always binaries
+
+      # Turn the map into a list ordered by key_order
+      list = to_ordlist(map)
+
+      # Force cast all keys as atoms
+      list = Enum.map(list, fn {k, v} -> {String.to_atom(k), v} end)
+
+      # Inner map is a keyword
+      fun = &Inspect.List.keyword/2
+
+      schema_struct_compatible? = Enum.all?(list, fn {k, _} -> k in @schema_struct_keys end)
+
+      struct_name =
+        if schema_struct_compatible? do
+          "JSV.Schema"
+        else
+          ""
+        end
+
+      map_container_doc(list, struct_name, inspect_opts, fun)
+    end
+
+    # # Render maps with binary keys
+    def render(%{value: map, suite_flavor: _other_flavors}, inspect_opts)
+        when is_map(map) and not is_struct(map) do
+      # Map keys in schemas are always binaries
+
+      # Turn the map into a list ordered by key_order
+      list = to_ordlist(map)
+
+      # Inner map render
+      fun = &to_assoc(&1, &2, " => ")
+
+      struct_name = ""
+
+      map_container_doc(list, struct_name, inspect_opts, fun)
+    end
+
+    defp to_assoc({key, value}, opts, sep) do
+      concat(concat(to_doc(key, opts), sep), to_doc(value, opts))
+    end
+
+    defp map_container_doc(list, name, opts, fun) do
+      open = "%" <> name <> "{"
+      sep = ","
+      close = "}"
+      container_doc(open, list, close, opts, fun, separator: sep, break: :strict)
+    end
+
+    def to_ordlist(map) do
+      map
       |> Map.to_list()
       |> Enum.sort_by(fn {k, _} -> order_of(k) end)
-      |> Enum.map(fn {k, v} -> {k, cast_sub(v, ordmap.key_format)} end)
     end
 
-    defp cast_sub(map, key_format) when is_map(map) do
-      from_map(map, key_format)
-    end
-
-    defp cast_sub(list, key_format) when is_list(list) do
-      Enum.map(list, &cast_sub(&1, key_format))
-    end
-
-    defp cast_sub(tuple, _) when is_tuple(tuple) do
-      raise "we should not have tuples in JSON data"
-    end
-
-    defp cast_sub(sub, _) do
-      sub
-    end
-
-    defp order_of(key) do
-      case Map.fetch(@key_order, to_string(key)) do
+    defp order_of(key) when is_binary(key) do
+      case Map.fetch(@key_order, key) do
         {:ok, order} -> {0, order}
         :error -> {1, key}
       end
     end
+  end
+end
 
-    defimpl Inspect do
-      import Inspect.Algebra
-
-      def inspect(omap, opts) do
-        list = SchemaDumpWrapper.to_ordlist(omap)
-
-        fun =
-          if Inspect.List.keyword?(list) do
-            &Inspect.List.keyword/2
-          else
-            sep = color(" => ", :map, opts)
-            &to_assoc(&1, &2, sep)
-          end
-
-        known_keys = Map.keys(Map.from_struct(JSV.Schema.__struct__()))
-
-        struct_name =
-          with :atom <- omap.key_format,
-               false <- list |> Enum.map(&elem(&1, 0)) |> Enum.any?(&(&1 not in known_keys)) do
-            "JSV.Schema"
-          else
-            _ ->
-              ""
-          end
-
-        map_container_doc(list, struct_name, opts, fun)
-      end
-
-      defp to_assoc({key, value}, opts, sep) do
-        concat(concat(to_doc(key, opts), sep), to_doc(value, opts))
-      end
-
-      defp map_container_doc(list, name, opts, fun) do
-        open = color("%" <> name <> "{", :map, opts)
-        sep = color(",", :map, opts)
-        close = color("}", :map, opts)
-        container_doc(open, list, close, opts, fun, separator: sep, break: :strict)
-      end
-    end
+defimpl Inspect, for: Mix.Tasks.Jsv.GenTestSuite.ValueDumper do
+  def inspect(dumper, opts) do
+    Mix.Tasks.Jsv.GenTestSuite.ValueDumper.render(dumper, opts)
   end
 end

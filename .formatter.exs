@@ -14,6 +14,7 @@
     defcompose: 2,
     defcast: 1,
     defcast: 2,
-    defcast: 3
+    defcast: 3,
+    with_decimal: 1
   ]
 ]

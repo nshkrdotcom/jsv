@@ -12,9 +12,11 @@
 
 JSV is a JSON Schema Validation library for Elixir with full support for the latest JSON Schema specification.
 
+
 ## Documentation
 
 [API documentation is available on hexdocs.pm](https://hexdocs.pm/jsv/).
+
 
 ## Installation
 
@@ -33,19 +35,22 @@ Additional dependencies can be added to support more features:
 ```elixir
 def deps do
   [
-    # Optional libraries for enhanced format validation like URI, IRI, email address, JSON-pointer, etc.
-
+    # Optional libraries for enhanced format validation like URI, IRI, email
+    # address, JSON-pointer, etc.
     {:abnf_parsec, "~> 1.0"},
+
+    # JSV Supports Decimal and will validate Decimal structs as numbers.
+    {:decimal, "~> 2.0"},
 
     # Optional libraries for decoding schemas resolved via HTTP
     # (required for Elixir versions prior to 1.18)
-
     {:jason, "~> 1.0"},
     # OR
     {:poison, "~> 6.0 or ~> 5.0"},
   ]
 end
 ```
+
 
 ## Basic Usage
 
@@ -75,15 +80,7 @@ end
 
 JSV offers many additional features! Check the documentation for more details.
 
-## Development
 
-### Contributing
+## Contributing
 
 Pull requests are welcome, provided they include appropriate tests and documentation.
-
-### Roadmap
-
-- Clean builder API so builder is always the first argument.
-- Support for custom vocabularies.
-- Generic module based schema instead of `defschema_for` to cast with a custom
-  function or an Ecto changeset.

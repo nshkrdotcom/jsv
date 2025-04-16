@@ -265,6 +265,32 @@ defmodule JSV.Vocabulary do
     end
   end
 
+  defmacro with_decimal([{:do, _} | _] = blocks) do
+    quote do
+      if Code.ensure_loaded?(Decimal), unquote(blocks)
+    end
+  end
+
+  @doc """
+  Casts the given integer to a %Decimal{} struct using `Decimal.from_float/1`
+  for floats.
+  """
+  if Code.ensure_loaded?(Decimal) do
+    @spec to_decimal(integer | binary) :: Decimal.t()
+    def to_decimal(n) when is_integer(n) do
+      Decimal.new(n)
+    end
+
+    def to_decimal(n) when is_float(n) do
+      Decimal.from_float(n)
+    end
+  else
+    @spec to_decimal(term) :: no_return()
+    def to_decimal(n) do
+      raise "Decimal dependency missing"
+    end
+  end
+
   @doc """
   Gives the sub raw schema to the builder and adds the build result in the list
   accumulator as a 2-tuple with the given `key`.

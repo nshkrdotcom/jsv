@@ -46,7 +46,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
     {:ok, [{:required, required} | acc], builder}
   end
 
-  take_keyword :multipleOf, zero when zero in [0, 0.0], _acc, _builder, _ do
+  take_keyword :multipleOf, zero when zero in [0, 0.0, -0.0], _acc, _builder, _ do
     {:error, "mutipleOf zero is not allowed"}
   end
 
@@ -184,12 +184,30 @@ defmodule JSV.Vocabulary.V202012.Validation do
     end
   end
 
+  with_decimal do
+    def validate_keyword({:maximum, n}, %Decimal{} = data, vctx) do
+      case Decimal.lte?(data, to_decimal(n)) do
+        true -> {:ok, data, vctx}
+        false -> {:error, Validator.with_error(vctx, :maximum, data, n: n)}
+      end
+    end
+  end
+
   pass validate_keyword({:maximum, _})
 
   def validate_keyword({:exclusiveMaximum, n}, data, vctx) when is_number(data) do
     case data < n do
       true -> {:ok, data, vctx}
       false -> {:error, Validator.with_error(vctx, :exclusiveMaximum, data, n: n)}
+    end
+  end
+
+  with_decimal do
+    def validate_keyword({:exclusiveMaximum, n}, %Decimal{} = data, vctx) do
+      case Decimal.lt?(data, to_decimal(n)) do
+        true -> {:ok, data, vctx}
+        false -> {:error, Validator.with_error(vctx, :exclusiveMaximum, data, n: n)}
+      end
     end
   end
 
@@ -202,12 +220,30 @@ defmodule JSV.Vocabulary.V202012.Validation do
     end
   end
 
+  with_decimal do
+    def validate_keyword({:minimum, n}, %Decimal{} = data, vctx) do
+      case Decimal.gte?(data, to_decimal(n)) do
+        true -> {:ok, data, vctx}
+        false -> {:error, Validator.with_error(vctx, :minimum, data, n: n)}
+      end
+    end
+  end
+
   pass validate_keyword({:minimum, _})
 
   def validate_keyword({:exclusiveMinimum, n}, data, vctx) when is_number(data) do
     case data > n do
       true -> {:ok, data, vctx}
       false -> {:error, Validator.with_error(vctx, :exclusiveMinimum, data, n: n)}
+    end
+  end
+
+  with_decimal do
+    def validate_keyword({:exclusiveMinimum, n}, %Decimal{} = data, vctx) do
+      case Decimal.gt?(data, to_decimal(n)) do
+        true -> {:ok, data, vctx}
+        false -> {:error, Validator.with_error(vctx, :exclusiveMinimum, data, n: n)}
+      end
     end
   end
 
@@ -246,6 +282,18 @@ defmodule JSV.Vocabulary.V202012.Validation do
     # Rescue infinite division (huge numbers divided by float, too large invalid
     # floats)
     _ in ArithmeticError -> {:error, Validator.with_error(vctx, :arithmetic_error, data, context: "multipleOf")}
+  end
+
+  with_decimal do
+    def validate_keyword({:multipleOf, n}, %Decimal{} = data, vctx) do
+      data
+      |> Decimal.div(to_decimal(n))
+      |> Decimal.integer?()
+      |> case do
+        true -> {:ok, data, vctx}
+        false -> {:error, Validator.with_error(vctx, :multipleOf, data, multipleOf: n)}
+      end
+    end
   end
 
   pass validate_keyword({:multipleOf, _})
@@ -381,6 +429,12 @@ defmodule JSV.Vocabulary.V202012.Validation do
     is_list(data)
   end
 
+  with_decimal do
+    defp validate_type(%Decimal{}, :object) do
+      false
+    end
+  end
+
   defp validate_type(data, :object) do
     is_map(data)
   end
@@ -401,12 +455,30 @@ defmodule JSV.Vocabulary.V202012.Validation do
     Math.fractional_is_zero?(data) && {:swap, trunc(data)}
   end
 
-  defp validate_type(data, :integer) do
-    is_integer(data)
+  defp validate_type(data, :integer) when is_integer(data) do
+    true
   end
 
-  defp validate_type(data, :number) do
-    is_number(data)
+  defp validate_type(data, :number) when is_number(data) do
+    true
+  end
+
+  with_decimal do
+    defp validate_type(%Decimal{} = data, :integer) do
+      if Decimal.integer?(data) do
+        {:swap, Decimal.to_integer(data)}
+      else
+        false
+      end
+    end
+
+    defp validate_type(%Decimal{}, :number) do
+      true
+    end
+  end
+
+  defp validate_type(_, t) when t in [:number, :integer] do
+    false
   end
 
   # ---------------------------------------------------------------------------

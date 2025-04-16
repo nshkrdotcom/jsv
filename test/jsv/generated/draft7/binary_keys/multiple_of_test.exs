@@ -89,7 +89,7 @@ defmodule JSV.Generated.Draft7.BinaryKeys.MultipleOfTest do
     end
 
     test "always invalid, but naive implementations may raise an overflow error", x do
-      data = 1.0e308
+      data = 1.0e+308
       expected_valid = false
       JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
     end

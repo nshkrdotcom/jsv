@@ -84,7 +84,7 @@ defmodule JSV.Vocabulary.V7.Applicator do
         [{data_item, index}, {kind, schema}] -> {kind, index, data_item, schema}
       end)
 
-    {validated_items, vctx} = Fallback.validate_items(zipped, vctx, __MODULE__)
+    {validated_items, vctx} = Fallback.validate_items(zipped, data, vctx, __MODULE__)
     Validator.return(validated_items, vctx)
   end
 
@@ -100,7 +100,7 @@ defmodule JSV.Vocabulary.V7.Applicator do
         [{data_item, index}, {kind, schema}] -> {kind, index, data_item, schema}
       end)
 
-    {validated_items, vctx} = Fallback.validate_items(zipped, vctx, __MODULE__)
+    {validated_items, vctx} = Fallback.validate_items(zipped, data, vctx, __MODULE__)
     Validator.return(validated_items, vctx)
   end
 

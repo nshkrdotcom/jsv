@@ -99,5 +99,17 @@ defmodule JSV.Helpers.TraverseTest do
                  {:val, %{{1, 2} => "position-1"}} -> %{{1, 2} => "position-2"}
                end)
     end
+
+    test "catchall clause can just return the second tuple element" do
+      original_data = %{
+        :a => [~c"hello", {1, 3}],
+        :x => %Inspect.Opts{},
+        %{x: :y, z: %{z: 1}} => %{nested: [a: 1, b: {:c}] ++ [{}, self()]}
+      }
+
+      traversed_data = Traverse.postwalk(original_data, &elem(&1, 1))
+
+      assert original_data == traversed_data
+    end
   end
 end

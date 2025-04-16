@@ -50,6 +50,7 @@ defmodule JSV.MixProject do
       # Optional JSON support
       {:jason, "~> 1.0", optional: true},
       {:poison, "~> 6.0 or ~> 5.0", optional: true},
+      {:decimal, "~> 2.0", optional: true},
 
       # Optional Formats
       {:abnf_parsec, "~> 2.0", optional: true},
@@ -88,8 +89,11 @@ defmodule JSV.MixProject do
     __ENV__.file
     |> Path.dirname()
     |> Path.join("jsts_ref")
-    |> File.read!()
-    |> String.trim()
+    |> File.read()
+    |> case do
+      {:ok, vsn} -> String.trim(vsn)
+      {:error, _} -> "main"
+    end
   end
 
   defp docs do
@@ -111,14 +115,16 @@ defmodule JSV.MixProject do
 
     defined_guides = [
       "CHANGELOG.md",
+      # Schemas
       "guides/schemas/defining-schemas.md",
       "guides/schemas/cast-functions.md",
-      #
+      # Build
       "guides/build/build-basics.md",
       "guides/build/resolvers.md",
       "guides/build/vocabularies.md",
-      #
-      "guides/validation/validation-basics.md"
+      # Validation
+      "guides/validation/validation-basics.md",
+      "guides/validation/decimal-support.md"
     ]
 
     case existing_guides -- defined_guides do

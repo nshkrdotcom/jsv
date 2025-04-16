@@ -11,13 +11,13 @@ defmodule JSV.Test.JsonSchemaSuite do
 
   @moduledoc false
 
+  Code.ensure_loaded!(Decimal)
+
   def run_test(json_schema, schema, data, expected_valid, opts \\ []) do
     {valid?, %ValidationContext{} = validator} =
       case JSV.validation_entrypoint(schema, data, []) do
         {:ok, casted, vctx} ->
-          # This can fail if we have casting during the validation. It should
-          # not happen for the generated suite.
-          assert data == casted
+          assert_correct_cast(json_schema, data, casted)
           {true, vctx}
 
         {:error, validator} ->
@@ -53,6 +53,34 @@ defmodule JSV.Test.JsonSchemaSuite do
 
         ERRORS
         #{inspect(validator.errors, pretty: true)}
+        """)
+    end
+  end
+
+  defp assert_correct_cast(json_schema, data, casted) do
+    case casted do
+      ^data ->
+        :ok
+
+      int when is_integer(int) and is_float(data) and int == data ->
+        :ok
+
+      _ when is_struct(data, Decimal) ->
+        assert Decimal.to_integer(data) == casted
+
+      _ ->
+        flunk("""
+        Expected no cast
+
+        JSON SCHEMA
+        #{inspect(json_schema)}
+
+        VALUE
+        #{inspect(data)}
+
+        CASTED
+        #{inspect(casted)}
+
         """)
     end
   end
