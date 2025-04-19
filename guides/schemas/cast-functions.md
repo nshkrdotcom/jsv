@@ -210,6 +210,7 @@ validated data.
 
 This will be called when JSV errors are normalized to be JSON-encodable.
 
+<!-- rdmx :section name:example_error -->
 ```elixir
 defmodule MyApp.Schemas.Cast do
   import JSV
@@ -226,29 +227,33 @@ defmodule MyApp.Schemas.Cast do
 end
 
 schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Schemas.Cast.safe_to_atom())
-# => %JSV.Schema{
-#      type: :string,
-#      "jsv-cast": ["Elixir.MyApp.Schemas.Cast", "safe_to_atom"]
-#    }
 
 root = JSV.build!(schema)
 {:error, err} = JSV.validate("some string", root)
 JSV.normalize_error(err)
-# => %{
-#      valid: false,
-#      details: [
-#        %{
-#          errors: [
-#            %{
-#              message: "could not cast to existing atom: \"some string\"",
-#              kind: :cast
-#            }
-#          ],
-#          valid: false,
-#          instanceLocation: "#",
-#          evaluationPath: "#",
-#          schemaLocation: "#"
-#        }
-#      ]
-#    }
 ```
+<!-- rdmx /:section -->
+
+The code above gies the following normalized error:
+
+<!-- rdmx :eval section:example_error  -->
+```elixir
+%{
+  details: [
+    %{
+      errors: [
+        %{
+          kind: :cast,
+          message: "could not cast to existing atom: \"some string\""
+        }
+      ],
+      evaluationPath: "#",
+      instanceLocation: "#",
+      schemaLocation: "#",
+      valid: false
+    }
+  ],
+  valid: false
+}
+```
+<!-- rdmx /:eval -->

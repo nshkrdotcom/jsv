@@ -32,6 +32,7 @@ The following validations work when the data is a `Decimal` struct:
 
 When validating integers, decimal values are replaced with integers.
 
+<!-- rdmx :section name:example_integer -->
 ```elixir
 schema = %{
   type: :array,
@@ -40,16 +41,19 @@ schema = %{
 
 root = JSV.build!(schema)
 
-JSV.validate([1, Decimal.new("2.0")], root)
-# => {:ok, [1, 2]}
-
 # 4.00001 is not an integer
-JSV.validate([3, Decimal.new("4.00001")], root)
-# => {:error,  %JSV.ValidationError{}}
+{:error, _} = JSV.validate([3, Decimal.new("4.00001")], root)
+JSV.validate([1, Decimal.new("2.0")], root)
 ```
+<!-- rdmx /:section -->
+<!-- rdmx :eval section:example_integer -->
+```elixir
+{:ok, [1, 2]}
+```
+<!-- rdmx /:eval -->
 
 When validating numbers, decimal values with zero decimal part are preserved.
-
+<!-- rdmx :section name:example_number -->
 ```elixir
 schema = %{
   type: :array,
@@ -67,8 +71,13 @@ data =
   )
 
 JSV.validate(data, root)
-# => {:ok, [1, Decimal.new("2.0"), 3, Decimal.new("4.00001")]}
 ```
+<!-- rdmx /:section -->
+<!-- rdmx :eval section:example_number -->
+```elixir
+{:ok, [1, Decimal.new("2.0"), 3, Decimal.new("4.00001")]}
+```
+<!-- rdmx /:eval -->
 
 
 ## Limitations
