@@ -65,11 +65,10 @@ defmodule JSV.MixProject do
       {:mix_version, "~> 2.4", only: [:dev, :test], runtime: false},
 
       # Test
-      {:excoveralls, "~> 0.18", only: :test},
       {:briefly, "~> 0.5.1", only: :test},
       {:patch, "~> 0.15.0", only: :test},
       {:ex_check, "~> 0.16.0", only: [:dev, :test], runtime: false},
-      {:mix_audit, "~> 2.1", only: [:dev, :test]},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:mox, "~> 1.2", only: :test},
 
       # JSON Schema Test Suite
@@ -188,7 +187,6 @@ defmodule JSV.MixProject do
   def cli do
     [
       preferred_envs: [
-        "coveralls.html": :test,
         dialyzer: :test
       ]
     ]
@@ -199,7 +197,7 @@ defmodule JSV.MixProject do
       flags: [:unmatched_returns, :error_handling, :unknown, :extra_return],
       list_unused_filters: true,
       plt_add_deps: :app_tree,
-      plt_add_apps: [:ex_unit, :mix, :readmix],
+      plt_add_apps: [:ex_unit, :inets],
       plt_local_path: "_build/plts"
     ]
   end

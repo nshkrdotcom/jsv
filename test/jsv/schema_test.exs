@@ -195,9 +195,8 @@ defmodule JSV.SchemaTest do
         %{valids: valids, invalids: invalids} = spec
         args = Map.get(spec, :args, [])
 
-        # For coverage, if no base is set, we do not call the function with
-        # base==nil, we expect the helper function to call its arity-2 version
-        # with nil automatically.
+        # If no overrideable base schema is set we call the arity-1 function
+        # version to ensure that the override is properly handled.
         schema =
           case Map.get(spec, :base, nil) do
             nil -> apply(Schema, fun, args)
