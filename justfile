@@ -6,12 +6,7 @@ gen-test-suite:
   # git status --porcelain | rg "test/generated" --count && mix test || true
 
 update-test-suite: deps
-  #!/usr/bin/env bash
-  pushd deps/json_schema_test_suite
-  git checkout main
-  git pull
-  git rev-parse HEAD > ../../jsts_ref
-  popd
+  mix jsv.update_jsts_ref
   mix deps.get
   just gen-test-suite
   just _git_status
@@ -42,7 +37,6 @@ docs:
   mix docs
   mix rdmx.update README.md
   rg rdmx guides -l0 | xargs -0 -n 1 mix rdmx.update
-
 
 changelog:
   git cliff -o CHANGELOG.md
