@@ -5,7 +5,7 @@ if Code.ensure_loaded?(Readmix.Generator) do
 
     @moduledoc false
 
-    action(:formats, params: [])
+    action :formats, params: []
 
     abnf_req = {:abnf_parsec, "~> 2.0"}
 

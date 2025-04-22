@@ -68,7 +68,7 @@ defmodule JSV.MixProject do
       {:excoveralls, "~> 0.18", only: :test},
       {:briefly, "~> 0.5.1", only: :test},
       {:patch, "~> 0.15.0", only: :test},
-      {:ex_check, "~> 0.16.0", only: [:dev, :test]},
+      {:ex_check, "~> 0.16.0", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
 
