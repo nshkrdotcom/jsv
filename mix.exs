@@ -169,19 +169,8 @@ defmodule JSV.MixProject do
       links: %{
         "Github" => @source_url,
         "Changelog" => "https://github.com/lud/jsv/blob/main/CHANGELOG.md"
-      },
-      files: package_files()
+      }
     ]
-  end
-
-  defp package_files do
-    # Defaults from hex that matches files locally
-    defaults = ["lib", "priv", ".formatter.exs", "mix.exs", "README*", "LICENSE*", "CHANGELOG*"]
-
-    # Need to add local files as they are used in mix.exs/deps()
-    custom = ["jsts_ref"]
-
-    custom ++ defaults
   end
 
   def cli do
