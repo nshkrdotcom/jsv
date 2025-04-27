@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2025-04-27
+
+### 🚀 Features
+
+- Mail_address dependency is no longer used
+- Validation support for Decimal
+
+### 📚 Documentation
+
+- Updated doc examples with generated code
+
+### 🧪 Testing
+
+- Enable tests for the 'uuid' format
+- Enable tests for the 'hostname' format
+- Enable tests for all uri/iri/pointer formats
+
+### ⚙️ Miscellaneous Tasks
+
+- Changed JSON schema test suite updater
+
 ## [0.6.3] - 2025-04-13
 
 ### ⚙️ Miscellaneous Tasks
