@@ -13,7 +13,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "unevaluatedProperties" => true
       }
 
@@ -38,7 +37,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "unevaluatedProperties" => %{"type" => "string", "minLength" => 3}
       }
 
@@ -69,7 +67,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "unevaluatedProperties" => false
       }
 
@@ -94,7 +91,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "unevaluatedProperties" => false
       }
@@ -120,7 +116,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "patternProperties" => %{"^foo" => %{"type" => "string"}},
         "unevaluatedProperties" => false
       }
@@ -142,12 +137,10 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     end
   end
 
-  describe "unevaluatedProperties with adjacent additionalProperties" do
+  describe "unevaluatedProperties with adjacent bool additionalProperties" do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
-        "properties" => %{"foo" => %{"type" => "string"}},
         "additionalProperties" => true,
         "unevaluatedProperties" => false
       }
@@ -169,11 +162,35 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     end
   end
 
+  describe "unevaluatedProperties with adjacent non-bool additionalProperties" do
+    setup do
+      json_schema = %{
+        "$schema" => "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties" => %{"type" => "string"},
+        "unevaluatedProperties" => false
+      }
+
+      schema = JsonSchemaSuite.build_schema(json_schema, default_meta: "https://json-schema.org/draft/2020-12/schema")
+      {:ok, json_schema: json_schema, schema: schema}
+    end
+
+    test "with only valid additional properties", x do
+      data = %{"foo" => "foo"}
+      expected_valid = true
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "with invalid additional properties", x do
+      data = %{"bar" => 1, "foo" => "foo"}
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+  end
+
   describe "unevaluatedProperties with nested properties" do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "allOf" => [%{"properties" => %{"bar" => %{"type" => "string"}}}],
         "unevaluatedProperties" => false
@@ -200,7 +217,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "allOf" => [%{"patternProperties" => %{"^bar" => %{"type" => "string"}}}],
         "unevaluatedProperties" => false
@@ -227,7 +243,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "allOf" => [%{"additionalProperties" => true}],
         "unevaluatedProperties" => false
@@ -254,7 +269,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "allOf" => [%{"unevaluatedProperties" => true}],
         "unevaluatedProperties" => %{"type" => "string", "maxLength" => 2}
@@ -281,7 +295,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "anyOf" => [
           %{"properties" => %{"bar" => %{"const" => "bar"}}, "required" => ["bar"]},
@@ -324,7 +337,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "oneOf" => [
           %{"properties" => %{"bar" => %{"const" => "bar"}}, "required" => ["bar"]},
@@ -354,7 +366,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "not" => %{
           "not" => %{
@@ -380,7 +391,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "else" => %{
           "properties" => %{"baz" => %{"type" => "string"}},
           "required" => ["baz"]
@@ -429,7 +439,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "else" => %{
           "properties" => %{"baz" => %{"type" => "string"}},
           "required" => ["baz"]
@@ -474,7 +483,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "if" => %{
           "properties" => %{"foo" => %{"const" => "then"}},
           "required" => ["foo"]
@@ -519,7 +527,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "dependentSchemas" => %{
           "foo" => %{
@@ -551,7 +558,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "allOf" => [true],
         "unevaluatedProperties" => false
@@ -580,7 +586,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$defs" => %{"bar" => %{"properties" => %{"bar" => %{"type" => "string"}}}},
         "$ref" => "#/$defs/bar",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "unevaluatedProperties" => false
       }
@@ -608,7 +613,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
         "$defs" => %{"bar" => %{"properties" => %{"bar" => %{"type" => "string"}}}},
         "$ref" => "#/$defs/bar",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "unevaluatedProperties" => false
       }
@@ -645,7 +649,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
               }
             },
             "$dynamicRef" => "#addons",
-            "type" => "object",
             "properties" => %{"foo" => %{"type" => "string"}},
             "$comment" =>
               "unevaluatedProperties comes first so it's more likely to catch bugs with implementations that are sensitive to keyword ordering",
@@ -722,7 +725,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "allOf" => [%{"unevaluatedProperties" => true}],
         "unevaluatedProperties" => false
@@ -749,7 +751,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "allOf" => [
           %{
             "properties" => %{"foo" => %{"type" => "string"}},
@@ -780,7 +781,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"foo" => %{"type" => "string"}},
         "allOf" => [%{"unevaluatedProperties" => false}],
         "unevaluatedProperties" => true
@@ -807,7 +807,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "allOf" => [
           %{
             "properties" => %{"foo" => %{"type" => "string"}},
@@ -838,7 +837,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "allOf" => [
           %{
             "properties" => %{"foo" => %{"type" => "string"}},
@@ -869,7 +867,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "allOf" => [
           %{"unevaluatedProperties" => true},
           %{
@@ -900,10 +897,8 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{
           "foo" => %{
-            "type" => "object",
             "properties" => %{"bar" => %{"type" => "string"}},
             "unevaluatedProperties" => false
           }
@@ -938,7 +933,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "allOf" => [
           %{"properties" => %{"foo" => true}, "unevaluatedProperties" => false}
         ],
@@ -972,7 +966,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "allOf" => [%{"properties" => %{"foo" => true}}],
         "anyOf" => [
           %{"properties" => %{"bar" => true}, "unevaluatedProperties" => false}
@@ -1006,7 +999,6 @@ defmodule JSV.Generated.Draft202012.BinaryKeys.UnevaluatedPropertiesTest do
     setup do
       json_schema = %{
         "$schema" => "https://json-schema.org/draft/2020-12/schema",
-        "type" => "object",
         "properties" => %{"x" => %{"$ref" => "#"}},
         "unevaluatedProperties" => false
       }

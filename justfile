@@ -6,9 +6,11 @@ gen-test-suite:
   # git status --porcelain | rg "test/generated" --count && mix test || true
 
 update-test-suite: deps
+  mix deps.get
   mix jsv.update_jsts_ref
   mix deps.get
   just gen-test-suite
+  mix test
   just _git_status
 
 deps:
