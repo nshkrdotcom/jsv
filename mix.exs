@@ -62,7 +62,6 @@ defmodule JSV.MixProject do
       {:dialyxir, "~> 1.4", only: :test, runtime: false},
       {:readmix, "~> 0.3", only: [:dev, :test], runtime: false},
       {:modkit, "~> 0.6", only: [:dev, :test], runtime: false},
-      {:mix_version, "~> 2.4", only: [:dev, :test], runtime: false},
 
       # Test
       {:briefly, "~> 0.5.1", only: :test},

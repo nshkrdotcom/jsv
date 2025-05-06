@@ -286,7 +286,7 @@ defmodule JSV.Vocabulary do
     end
   else
     @spec to_decimal(term) :: no_return()
-    def to_decimal(n) do
+    def to_decimal(_) do
       raise "Decimal dependency missing"
     end
   end
