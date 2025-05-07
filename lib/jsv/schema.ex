@@ -397,6 +397,7 @@ defmodule JSV.Schema do
   defcompose :uri, type: :string, format: :uri
   defcompose :uuid, type: :string, format: :uuid
   defcompose :email, type: :string, format: :email
+  defcompose :non_empty_string, type: :string, minLength: 1
 
   @doc """
   Does **not** set the `type: :string` on the schema. Use `string_of/2` for a

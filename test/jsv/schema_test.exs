@@ -134,6 +134,10 @@ defmodule JSV.SchemaTest do
         valids: ["a@[IPv6:::1]", "te~st@example.com", "~test@example.com", "test~@example.com", "te.s.t@example.com"],
         invalids: ["bad email", "2962", ".test@example.com", "test.@example.com", "te..st@example.com", 123, true, nil]
       },
+      non_empty_string: %{
+        valids: ["a", "hello", " "],
+        invalids: ["", true, false, 1, %{}, nil]
+      },
       all_of: %{
         args: [
           [
