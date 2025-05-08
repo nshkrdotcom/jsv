@@ -24,6 +24,18 @@ defmodule JSV.Codec do
                       ~S|{:poison, "~> 6.0"}.|
           end)
 
+  @supports_formatting @codec.supports_formatting?()
+  @spec supports_formatting? :: boolean
+  def supports_formatting? do
+    @supports_formatting
+  end
+
+  @supports_ordered_formatting @codec.supports_ordered_formatting?()
+  @spec supports_ordered_formatting? :: boolean
+  def supports_ordered_formatting? do
+    @supports_ordered_formatting
+  end
+
   @type key :: binary | atom
   @type(key_sorter :: (key, key -> boolean), key: binary | atom)
 

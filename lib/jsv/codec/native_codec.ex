@@ -2,9 +2,7 @@
 
 if Code.ensure_loaded?(JSON) do
   defmodule JSV.Codec.NativeCodec do
-    @moduledoc """
-    A JSON encoder/decoder based on the `JSON` and `:json` modules.
-    """
+    @moduledoc false
 
     @supports_ordered_formatting Code.ensure_loaded?(:json) && function_exported?(:json, :format, 3)
     def supports_ordered_formatting? do

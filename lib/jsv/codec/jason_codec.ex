@@ -6,6 +6,14 @@ if Code.ensure_loaded?(Jason) do
 
     @moduledoc false
 
+    def supports_formatting? do
+      true
+    end
+
+    def supports_ordered_formatting? do
+      true
+    end
+
     def decode!(json) do
       Jason.decode!(json)
     end

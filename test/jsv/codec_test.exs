@@ -1,5 +1,8 @@
 defmodule JSV.CodecTest do
   alias JSV.Codec
+  alias JSV.Codec.JasonCodec
+  alias JSV.Codec.NativeCodec
+  alias JSV.Codec.PoisonCodec
 
   use ExUnit.Case, async: true
 
@@ -85,6 +88,20 @@ defmodule JSV.CodecTest do
 
       :otherwise ->
         IO.puts("no native JSON codec test")
+    end
+
+    test "all codecs declare formatting support" do
+      # Jason
+      assert is_boolean(JasonCodec.supports_ordered_formatting?())
+      assert is_boolean(JasonCodec.supports_formatting?())
+
+      # Poison
+      assert is_boolean(PoisonCodec.supports_ordered_formatting?())
+      assert is_boolean(PoisonCodec.supports_formatting?())
+
+      # Native
+      assert is_boolean(NativeCodec.supports_ordered_formatting?())
+      assert is_boolean(NativeCodec.supports_formatting?())
     end
   end
 

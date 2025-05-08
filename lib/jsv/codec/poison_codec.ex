@@ -4,6 +4,14 @@ if Code.ensure_loaded?(Poison) do
   defmodule JSV.Codec.PoisonCodec do
     @moduledoc false
 
+    def supports_formatting? do
+      true
+    end
+
+    def supports_ordered_formatting? do
+      false
+    end
+
     def decode!(json) do
       Poison.decode!(json)
     end
