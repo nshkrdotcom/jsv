@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.2] - 2025-05-08
+
+### 🚀 Features
+
+- Added the non_empty_string schema helper
+- Atom enums will use string_to_atom to support compile-time builds
+
+### ⚙️ Miscellaneous Tasks
+
+- Updated JSON Schema Test Suite
+- Enhanced JSTS updater
+- Fixed warning on code when Decimal is missing
+
 ## [0.7.1] - 2025-04-27
 
 ### 🐛 Bug Fixes
