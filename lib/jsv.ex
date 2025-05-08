@@ -667,8 +667,8 @@ defmodule JSV do
       end
 
       @doc false
-      def __jsv__(unquote(tag), xdata) do
-        unquote(fun)(xdata)
+      def __jsv__(unquote(tag), data) do
+        unquote(fun)(data)
       end
 
       @doc false
