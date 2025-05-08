@@ -183,6 +183,10 @@ defmodule JSV.SchemaTest do
         valids: ["true", "false", "nil", "some_existing_atom", "abcabcabcabc"],
         invalids: ["some_atom_that_does_not_exist", 123, true, false, :some_existing_atom, nil]
       },
+      string_to_atom: %{
+        valids: ["true", "false", "nil", "any_string", "hello world"],
+        invalids: [123, true, false, :any_string, nil]
+      },
       string_to_atom_enum: %{
         args: [_enum = [:aaa, :bbb, :ccc, nil]],
         valids: ["aaa", "bbb", "ccc", "nil"],
@@ -234,7 +238,9 @@ defmodule JSV.SchemaTest do
               #{inspect(schema, pretty: true)}
               """)
 
-            {:error, _} ->
+            {:error, validation_error} ->
+              # no error on normalization
+              _ = JSV.normalize_error(validation_error)
               :ok
           end
         end)

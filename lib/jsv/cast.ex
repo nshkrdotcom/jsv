@@ -26,4 +26,18 @@ defmodule JSV.Cast do
   rescue
     ArgumentError -> {:error, "not an existing atom representation"}
   end
+
+  defcast string_to_atom(data) do
+    if is_binary(data) do
+      {:ok, String.to_atom(data)}
+    else
+      {:error, "not an atom representation"}
+    end
+  end
+
+  @doc false
+  @spec format_error(term, term, term) :: binary
+  def format_error(_, message, _) do
+    message
+  end
 end

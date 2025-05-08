@@ -493,6 +493,9 @@ defmodule JSV.Schema do
   @doc sub_section: :schema_casters
   defcompose :string_to_existing_atom, type: :string, "jsv-cast": JSV.Cast.string_to_existing_atom()
 
+  @doc sub_section: :schema_casters
+  defcompose :string_to_atom, type: :string, "jsv-cast": JSV.Cast.string_to_atom()
+
   @doc """
   Accepts a list of atoms and validates that a given value is a string
   representation of one of the given atoms.
@@ -510,14 +513,15 @@ defmodule JSV.Schema do
   > #### Does not support `nil` {: .warning}
   >
   > This function sets the `string` type on the schema. If `nil` is given in the
-  > enum, the corresponding valid JSON value will be `"nil"` and not `null`.
+  > enum, the corresponding valid JSON value will be the `"nil"` string rather
+  > than `null`.
   """
   @doc sub_section: :schema_casters
   defcompose :string_to_atom_enum,
              [
                type: :string,
                enum: Enum.map(enum, &Atom.to_string/1) <- enum :: [atom],
-               "jsv-cast": JSV.Cast.string_to_existing_atom()
+               "jsv-cast": JSV.Cast.string_to_atom()
              ]
              when is_list(enum)
 
