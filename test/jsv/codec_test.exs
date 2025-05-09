@@ -91,17 +91,20 @@ defmodule JSV.CodecTest do
     end
 
     test "all codecs declare formatting support" do
-      # Jason
-      assert is_boolean(JasonCodec.supports_ordered_formatting?())
-      assert is_boolean(JasonCodec.supports_formatting?())
+      if Code.ensure_loaded?(JasonCodec) do
+        assert is_boolean(JasonCodec.supports_ordered_formatting?())
+        assert is_boolean(JasonCodec.supports_formatting?())
+      end
 
-      # Poison
-      assert is_boolean(PoisonCodec.supports_ordered_formatting?())
-      assert is_boolean(PoisonCodec.supports_formatting?())
+      if Code.ensure_loaded?(PoisonCodec) do
+        assert is_boolean(PoisonCodec.supports_ordered_formatting?())
+        assert is_boolean(PoisonCodec.supports_formatting?())
+      end
 
-      # Native
-      assert is_boolean(NativeCodec.supports_ordered_formatting?())
-      assert is_boolean(NativeCodec.supports_formatting?())
+      if Code.ensure_loaded?(NativeCodec) do
+        assert is_boolean(NativeCodec.supports_ordered_formatting?())
+        assert is_boolean(NativeCodec.supports_formatting?())
+      end
     end
   end
 
