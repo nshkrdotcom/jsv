@@ -601,7 +601,7 @@ defmodule JSV.Schema do
       on_general_atom: fn atom, acc ->
         as_string = Atom.to_string(atom)
 
-        if schema_module?(atom, as_string) do
+        if schema_module?(atom) do
           {%{"$ref" => Internal.module_to_uri(atom)}, [atom | acc]}
         else
           {as_string, acc}
@@ -614,24 +614,31 @@ defmodule JSV.Schema do
     normal
   end
 
-  # Returns whether the given atom is a module exporting a schema.
   @common_atom_values [
-    :array,
-    :object,
-    :null,
-    :boolean,
-    :string,
-    :integer,
-    :number,
     true,
     false,
-    nil
+    nil,
+    #
+    :array,
+    :boolean,
+    :enum,
+    :integer,
+    :null,
+    :number,
+    :object,
+    :string
   ]
-  defp schema_module?(module, _) when module in @common_atom_values do
+
+  @doc """
+  Returns whether the given atom is a module with a `schema/0` exported
+  function.
+  """
+  @spec schema_module?(atom) :: boolean
+  def schema_module?(module) when module in @common_atom_values do
     false
   end
 
-  defp schema_module?(module, _as_string) do
+  def schema_module?(module) do
     Code.ensure_loaded?(module) && function_exported?(module, :schema, 0)
   end
 

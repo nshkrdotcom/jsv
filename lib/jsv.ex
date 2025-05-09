@@ -262,6 +262,14 @@ defmodule JSV do
     end
   end
 
+  @spec validate!(term, JSV.Root.t(), keyword) :: term
+  def validate!(data, root, opts \\ []) do
+    case validate(data, root, opts) do
+      {:ok, term} -> term
+      {:error, e} -> raise e
+    end
+  end
+
   @spec normalize_error(ValidationError.t() | Validator.context() | [Validator.Error.t()]) :: map()
   def normalize_error(%ValidationError{} = error) do
     ErrorFormatter.normalize_error(error)
