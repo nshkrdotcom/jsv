@@ -42,9 +42,20 @@ defmodule JSV.StructSupport do
 
   defp validate_properties_presence!(schema) do
     case schema do
-      %{"properties" => properties} when is_map(properties) -> :ok
-      %{properties: properties} when is_map(properties) -> :ok
-      _ -> raise ArgumentError, errmsg("properties must be a map")
+      %{"properties" => properties} when is_map(properties) ->
+        :ok
+
+      %{properties: properties} when is_map(properties) ->
+        :ok
+
+      %{"properties" => other} ->
+        raise ArgumentError, errmsg("must defined properties as a map, got: #{inspect(other)}")
+
+      %{properties: other} ->
+        raise ArgumentError, errmsg("must defined properties as a map, got: #{inspect(other)}")
+
+      _ ->
+        raise ArgumentError, errmsg("must include a properties key")
     end
   end
 
