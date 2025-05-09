@@ -165,16 +165,60 @@ defmodule JSV do
 
   defp build_resolvers(opts) do
     {resolvers, opts} = Keyword.pop!(opts, :resolver)
-    resolvers = List.wrap(resolvers)
-    extra = [JSV.Resolver.Internal, JSV.Resolver.Embedded] -- resolvers
 
-    resolvers =
-      Enum.map(resolvers ++ extra, fn
-        {module, res_opts} -> {module, res_opts}
-        module -> {module, []}
-      end)
+    Keyword.put(opts, :resolvers, resolver_chain(resolvers))
+  end
 
-    Keyword.put(opts, :resolvers, resolvers)
+  @doc """
+  Normalizes a resolver implementation to a list of `{module, options}` and
+  appends the default resolvers if they are not already present in the list.
+
+  ### Examples
+
+      iex> JSV.resolver_chain(MyModule)
+      [{MyModule, []}, {JSV.Resolver.Embedded, []}, {JSV.Resolver.Internal, []}]
+
+      iex> JSV.resolver_chain([JSV.Resolver.Embedded, MyModule])
+      [{JSV.Resolver.Embedded, []}, {MyModule, []}, {JSV.Resolver.Internal, []}]
+
+      iex> JSV.resolver_chain([{JSV.Resolver.Embedded, []}, {MyModule, %{foo: :bar}}])
+      [{JSV.Resolver.Embedded, []}, {MyModule, %{foo: :bar}}, {JSV.Resolver.Internal, []}]
+  """
+  @spec resolver_chain(resolvers :: module | {module, term} | list({module, term})) :: [{module, term}]
+  def resolver_chain(resolver) do
+    resolvers = List.wrap(resolver)
+
+    do_resolver_chain(resolvers, [], %{add_embedded: true, add_internal: true})
+  end
+
+  defp do_resolver_chain([impl | rest], acc, flags) do
+    {module, _} =
+      impl =
+      case impl do
+        {module, opts} when is_atom(module) -> {module, opts}
+        module when is_atom(module) -> {module, []}
+      end
+
+    flags =
+      case module do
+        JSV.Resolver.Embedded -> %{flags | add_embedded: false}
+        JSV.Resolver.Internal -> %{flags | add_internal: false}
+        _ -> flags
+      end
+
+    do_resolver_chain(rest, [impl | acc], flags)
+  end
+
+  defp do_resolver_chain([], acc, flags) do
+    tail =
+      case flags do
+        %{add_embedded: true, add_internal: true} -> [{JSV.Resolver.Embedded, []}, {JSV.Resolver.Internal, []}]
+        %{add_embedded: false, add_internal: true} -> [{JSV.Resolver.Internal, []}]
+        %{add_embedded: true, add_internal: false} -> [{JSV.Resolver.Embedded, []}]
+        _ -> []
+      end
+
+    :lists.reverse(acc, tail)
   end
 
   @doc """
@@ -270,6 +314,9 @@ defmodule JSV do
     end
   end
 
+  @doc """
+  Returns a JSON compatible represenation of a `JSV.ValidationError` struct.
+  """
   @spec normalize_error(ValidationError.t() | Validator.context() | [Validator.Error.t()]) :: map()
   def normalize_error(%ValidationError{} = error) do
     ErrorFormatter.normalize_error(error)

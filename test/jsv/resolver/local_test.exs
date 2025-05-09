@@ -339,8 +339,8 @@ defmodule JSV.Resolver.LocalTest do
                    :resolver_error,
                    [
                      "Elixir.JSV.Resolver.LocalTest.BadIdSource": {:unknown_id, "myapp://base/hello world"},
-                     "Elixir.JSV.Resolver.Internal": {:unsupported, "myapp://base/hello world"},
-                     "Elixir.JSV.Resolver.Embedded": {:not_embedded, "myapp://base/hello world"}
+                     "Elixir.JSV.Resolver.Embedded": {:not_embedded, "myapp://base/hello world"},
+                     "Elixir.JSV.Resolver.Internal": {:unsupported, "myapp://base/hello world"}
                    ]
                  }
                }
