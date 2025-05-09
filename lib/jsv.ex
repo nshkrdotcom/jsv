@@ -447,9 +447,7 @@ defmodule JSV do
 
       @jsv_tag -1
 
-      @jsv_schema schema
-                  |> Map.put(:"jsv-cast", [Atom.to_string(__MODULE__), @jsv_tag])
-                  |> Map.put_new(:"$id", Internal.module_to_uri(__MODULE__))
+      @jsv_schema Map.put(schema, :"jsv-cast", [Atom.to_string(__MODULE__), @jsv_tag])
 
       @enforce_keys required
       defstruct keys_no_defaults ++ default_pairs
