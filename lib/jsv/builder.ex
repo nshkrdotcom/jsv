@@ -308,6 +308,11 @@ defmodule JSV.Builder do
     end)
   end
 
+  def build_sub(other, add_rev_path, builder) do
+    raise ArgumentError,
+          "invalid sub schema: #{inspect(other)} in #{JSV.ErrorFormatter.format_eval_path(add_rev_path ++ builder.current_rev_path)}"
+  end
+
   defp do_build_sub(raw_schema, rev_path, builder) when is_map(raw_schema) do
     {_leftovers, schema_validators, builder} =
       Enum.reduce(builder.vocabularies, {raw_schema, [], builder}, fn module_or_tuple,

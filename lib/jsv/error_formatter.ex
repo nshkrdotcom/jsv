@@ -129,11 +129,13 @@ defmodule JSV.ErrorFormatter do
     IO.iodata_to_binary(["#" | iodata])
   end
 
-  defp format_eval_path([]) do
+  @doc false
+  @spec format_eval_path(list) :: binary
+  def format_eval_path([]) do
     "#"
   end
 
-  defp format_eval_path(rev_eval_path) do
+  def format_eval_path(rev_eval_path) do
     # map to string but also reverse the path
     iodata = List.foldl(rev_eval_path, [], fn segment, acc -> [?/, format_eval_path_segment(segment) | acc] end)
     IO.iodata_to_binary(["#" | iodata])

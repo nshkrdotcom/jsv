@@ -17,7 +17,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     []
   end
 
-  take_keyword :properties, properties, acc, builder, _ do
+  take_keyword :properties, properties when is_map(properties) or is_boolean(properties), acc, builder, _ do
     properties
     |> EnumExt.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
       # Support properties as atoms for atom schemas
