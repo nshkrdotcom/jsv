@@ -599,12 +599,10 @@ defmodule JSV.Schema do
   def normalize(term) do
     normalize_opts = [
       on_general_atom: fn atom, acc ->
-        as_string = Atom.to_string(atom)
-
         if schema_module?(atom) do
           {%{"$ref" => Internal.module_to_uri(atom)}, [atom | acc]}
         else
-          {as_string, acc}
+          {Atom.to_string(atom), acc}
         end
       end
     ]
