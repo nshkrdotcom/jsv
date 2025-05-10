@@ -103,12 +103,13 @@ defmodule JSV.Schema.Defcompose do
         end
 
       @doc """
-      Overrides the [base schema](JSV.Schema.html#override/2) with #{doc_schema_props}.#{doc_custom}
+      Defines or [merges](JSV.Schema.html#/2) into a JSON Schema with
+      #{doc_schema_props}.#{doc_custom}.
       """
       @doc section: :schema_utilities
       @spec unquote(fun)(base, unquote_splicing(typespecs)) :: schema
       def unquote(fun)(base \\ nil, unquote_splicing(bindings)) when unquote(guard) do
-        override(base, unquote(schema_props))
+        merge(base, unquote(schema_props))
       end
     end
   end
@@ -118,6 +119,8 @@ defmodule JSV.Schema do
   alias JSV.Resolver.Internal
   import JSV.Schema.Defcompose
 
+  @t_doc "`%#{inspect(__MODULE__)}{}` struct"
+
   @moduledoc """
   This module defines a struct where all the supported keywords of the JSON
   schema specification are defined as keys. Text editors that can predict the
@@ -125,7 +128,7 @@ defmodule JSV.Schema do
 
   ### Using in build
 
-  The `#{inspect(__MODULE__)}` struct can be given to `JSV.build/2`:
+  The #{@t_doc} can be given to `JSV.build/2`:
 
       schema = %JSV.Schema{type: :integer}
       JSV.build(schema, options())
@@ -144,18 +147,19 @@ defmodule JSV.Schema do
         # etc...
       }
 
-  For that reason, when giving a `#{inspect(__MODULE__)}` struct to
-  `JSV.build/2`, any `nil` value is ignored. This is not the case with other
-  strucs or maps.
+  For that reason, when giving a #{@t_doc} to `JSV.build/2`, any `nil` value is
+  ignored. The same behaviour can be defined for other struct by implementing
+  the `JSV.Normalizer.Normalize` protocol. Mere maps will keep their `nil`
+  values.
 
-  Note that `JSV.build/2` does not require `#{inspect(__MODULE__)}` structs, any
-  map with binary or atom keys is accepted.
+  Note that `JSV.build/2` does not require #{@t_doc}s, any map with binary or
+  atom keys is accepted.
 
-  This is also why the `#{inspect(__MODULE__)}` struct does not define the
-  `const` keyword, because `nil` is a valid value for that keyword but there is
-  no way to know if the value was omitted or explicitly defined as `nil`. To
-  circumvent that you may use the `enum` keyword or just use a regular map
-  instead of this module's struct:
+  This is also why the #{@t_doc} does not define the `const` keyword, because
+  `nil` is a valid value for that keyword but there is no way to know if the
+  value was omitted or explicitly defined as `nil`. To circumvent that you may
+  use the `enum` keyword or just use a regular map instead of this module's
+  struct:
 
       %#{inspect(__MODULE__)}{enum: [nil]}
       # OR
@@ -200,6 +204,28 @@ defmodule JSV.Schema do
       )
       |> required([:name, :age])
   """
+
+  @moduledoc groups: [
+               %{
+                 title: "Schema Definition Utilities",
+                 description: """
+                 Helper functions to define schemas or merge into a schema when
+                 given as the first argument.
+
+                 See `merge/2` for more information.
+                 """
+               },
+               %{
+                 title: "Schema Casts",
+                 description: """
+                 Built-in cast functions for JSON Schemas.
+
+                 Functions in this section can be called on a schema to return a
+                 new schema that will automatically cast the data to the
+                 desired type upon validation.
+                 """
+               }
+             ]
 
   @all_keys [
     :"$anchor",
@@ -295,80 +321,77 @@ defmodule JSV.Schema do
     struct!(__MODULE__, key_values)
   end
 
-  @t_doc "`%#{inspect(__MODULE__)}{}` struct"
-
   @doc """
-  Updates the given schema with the given key/values.
+  Merges the given key/values into the base schema. The merge is shallow and
+  will overwrite any pre-existing key.
 
-  This function accepts a base schema and override values that will be merged
-  into the base.
+  The resulting schema is always a map or a struct but the actual type depends
+  on the given base. It follows the followng rules:
 
-  The resulting schema is always a map or a struct but depends on the given
-  base. If follows the followng rules. See the examples below.
+  * **When the base type is a map or a struct, it is preserved**
+    - If the base is a #{@t_doc}, the `values` are merged in.
+    - If the base is another struct, the `values` a merged in. It will fail if
+      the struct does not define the overriden keys. No invalid struct is
+      generated.
+    - If the base is a mere map, it is **not** turned into a #{@t_doc} and the
+      `values` are merged in.
 
-  * The base type is not changed when it is a map or struct:
-    - If the base is a #{@t_doc}, the overrides are merged in.
-    - If the base is another struct, the overrides a merged in but it fails if
-      the struct does not define the overriden keys.
-    - If the base is a mere map, **it is not** turned into a #{@t_doc} and the
-      overrides are merged in.
-
-  * Otherwise the base is casted to a #{@t_doc}:
+  * **Otherwise the base is cast to a #{@t_doc}**
     - If the base is `nil`, the function returns a #{@t_doc} with the given
-      overrides.
+      `values`.
     - If the base is a keyword list, the list will be turned into a #{@t_doc}
-    and the `overrides` will then be merged in.
+    and then the `values` are merged in.
 
   ## Examples
 
-      iex> JSV.Schema.override(%JSV.Schema{description: "base"}, %{type: :integer})
+      iex> JSV.Schema.merge(%JSV.Schema{description: "base"}, %{type: :integer})
       %JSV.Schema{description: "base", type: :integer}
 
       defmodule CustomSchemaStruct do
         defstruct [:type, :description]
       end
 
-      iex> JSV.Schema.override(%CustomSchemaStruct{description: "base"}, %{type: :integer})
+      iex> JSV.Schema.merge(%CustomSchemaStruct{description: "base"}, %{type: :integer})
       %CustomSchemaStruct{description: "base", type: :integer}
 
-      iex> JSV.Schema.override(%CustomSchemaStruct{description: "base"}, %{format: :date})
+      iex> JSV.Schema.merge(%CustomSchemaStruct{description: "base"}, %{format: :date})
       ** (KeyError) struct CustomSchemaStruct does not accept key :format
 
-      iex> JSV.Schema.override(%{description: "base"}, %{type: :integer})
+      iex> JSV.Schema.merge(%{description: "base"}, %{type: :integer})
       %{description: "base", type: :integer}
 
-      iex> JSV.Schema.override(nil, %{type: :integer})
+      iex> JSV.Schema.merge(nil, %{type: :integer})
       %JSV.Schema{type: :integer}
 
-      iex> JSV.Schema.override([description: "base"], %{type: :integer})
+      iex> JSV.Schema.merge([description: "base"], %{type: :integer})
       %JSV.Schema{description: "base", type: :integer}
   """
   @doc section: :schema_utilities
-  @spec override(base, overrides) :: schema
-  def override(nil, overrides) do
-    new(overrides)
+  @spec merge(base, overrides) :: schema
+  def merge(nil, values) do
+    new(values)
   end
 
-  def override(base, overrides) when is_list(base) do
-    struct!(new(base), overrides)
+  def merge(base, values) when is_list(base) do
+    struct!(new(base), values)
   end
 
-  # shortcut for required/2. The previous clauses will cast nil and lists to a
-  # struct. From there, if there is nothing to override we can just return the
-  # base.
-  def override(base, []) when is_map(base) do
-    base
-  end
-
-  def override(%mod{} = base, overrides) do
-    struct!(base, overrides)
+  def merge(%mod{} = base, values) do
+    struct!(base, values)
   rescue
     e in KeyError ->
       reraise %{e | message: "struct #{inspect(mod)} does not accept key #{inspect(e.key)}"}, __STACKTRACE__
   end
 
-  def override(base, overrides) when is_map(base) do
-    Enum.into(overrides, base)
+  def merge(base, values) when is_map(base) do
+    Enum.into(values, base)
+  end
+
+  @doc "Alias for `merge/2`."
+  @deprecated "Use `merge/2`"
+  @spec override(base, overrides) :: schema
+  def override(base, values) do
+    merge(base, values)
   end
 
   defcompose :boolean, type: :boolean
@@ -473,7 +496,7 @@ defmodule JSV.Schema do
   @spec cast(base, [atom | binary | integer, ...]) :: schema()
   def cast(base \\ nil, [mod, tag] = _mod_tag)
       when (is_atom(mod) or is_binary(mod)) and (is_atom(tag) or is_binary(tag) or is_integer(tag)) do
-    override(base, "jsv-cast": [to_string_if_atom(mod), to_string_if_atom(tag)])
+    merge(base, "jsv-cast": [to_string_if_atom(mod), to_string_if_atom(tag)])
   end
 
   defp to_string_if_atom(value) when is_atom(value) do
@@ -514,7 +537,7 @@ defmodule JSV.Schema do
   >
   > This function sets the `string` type on the schema. If `nil` is given in the
   > enum, the corresponding valid JSON value will be the `"nil"` string rather
-  > than `null`.
+  > than `null`
   """
   @doc sub_section: :schema_casters
   defcompose :string_to_atom_enum,
@@ -526,11 +549,11 @@ defmodule JSV.Schema do
              when is_list(enum)
 
   @doc """
-  Overrides the [base schema](JSV.Schema.html#override/2) with `required: keys`
-  or merges the given `keys` in the predefined keys.
+  Defines a JSON Schema with `required: keys` or adds the given `keys` if the
+  [base schema](JSV.Schema.html#merge/2) already has a `:required`
+  definition.
 
-  Adds or merges the given keys as required in the base schema. Existing
-  required keys are preserved.
+  Existing required keys are preserved.
 
   ### Examples
 
@@ -546,9 +569,9 @@ defmodule JSV.Schema do
       iex> JSV.Schema.required(%{required: [:a]}, [:a])
       %{required: [:a, :a]}
 
-  Use `override/2` to replace existing required keys.
+  Use `merge/2` to replace existing required keys.
 
-      iex> JSV.Schema.override(%{required: [:a, :b, :c]}, required: [:x, :y, :z])
+      iex> JSV.Schema.merge(%{required: [:a, :b, :c]}, required: [:x, :y, :z])
       %{required: [:x, :y, :z]}
   """
   @doc section: :schema_utilities
@@ -560,9 +583,9 @@ defmodule JSV.Schema do
   end
 
   def required(base, keys) when is_list(keys) do
-    case override(base, []) do
-      %{required: list} = cast_base when is_list(list) -> override(cast_base, required: keys ++ list)
-      cast_base -> override(cast_base, required: keys)
+    case merge(base, []) do
+      %{required: list} = cast_base when is_list(list) -> merge(cast_base, required: keys ++ list)
+      cast_base -> merge(cast_base, required: keys)
     end
   end
 

@@ -203,8 +203,9 @@ defmodule JSV.SchemaTest do
         %{valids: valids, invalids: invalids} = spec
         args = Map.get(spec, :args, [])
 
-        # If no overrideable base schema is set we call the arity-1 function
-        # version to ensure that the override is properly handled.
+        # If no mergeable base schema is set we call the arity-1 function
+        # version to ensure that the merge is properly handled on top of a nil
+        # value.
         schema =
           case Map.get(spec, :base, nil) do
             nil -> apply(Schema, fun, args)
@@ -304,42 +305,48 @@ defmodule JSV.SchemaTest do
     defstruct [:properties, :foo, :required]
   end
 
-  describe "override/2" do
-    test "override accepts nil as base and returns a Schema struct" do
-      result = Schema.override(nil, %{type: :string})
+  describe "merge/2" do
+    test "merge accepts nil as base and returns a Schema struct" do
+      result = Schema.merge(nil, %{type: :string})
       assert %Schema{type: :string} = result
     end
 
-    test "override accepts a map as base and keeps it as a map" do
+    test "merge accepts a map as base and keeps it as a map" do
       base = %{foo: "bar"}
-      assert %{foo: "bar", type: :string} = result = Schema.override(base, %{type: :string})
+      assert %{foo: "bar", type: :string} = result = Schema.merge(base, %{type: :string})
       refute is_struct(result)
     end
 
-    test "override accepts a Schema struct as base" do
+    test "merge accepts a Schema struct as base" do
       base = %Schema{description: "test"}
-      result = Schema.override(base, %{type: :string})
+      result = Schema.merge(base, %{type: :string})
       assert %Schema{description: "test", type: :string} = result
     end
 
-    test "override fails if another struct is passed and doesn't have the keys" do
+    test "merge fails if another struct is passed and doesn't have the keys" do
       base = %TestCustomStruct{foo: "bar"}
 
       # the struct accept properties
 
       assert %TestCustomStruct{foo: "bar", properties: %{a: %{type: :integer}}} =
-               Schema.override(base, properties: %{a: %{type: :integer}})
+               Schema.merge(base, properties: %{a: %{type: :integer}})
 
       # the struct does not have a :type key
 
       assert_raise KeyError, ~r/does not accept key :type/, fn ->
-        Schema.override(base, %{type: :string})
+        Schema.merge(base, %{type: :string})
       end
     end
 
-    test "override accepts a keyword list as base and returns a Schema struct" do
+    test "merge does not add unknown keys in a Schema struct" do
+      assert_raise KeyError, ~r/does not accept key :foo/, fn ->
+        Schema.merge(%Schema{}, %{foo: :bar})
+      end
+    end
+
+    test "merge accepts a keyword list as base and returns a Schema struct" do
       base = [description: "some description"]
-      result = Schema.override(base, %{type: :string})
+      result = Schema.merge(base, %{type: :string})
       assert %Schema{description: "some description", type: :string} = result
       assert is_struct(result)
     end

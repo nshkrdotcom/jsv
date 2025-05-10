@@ -158,7 +158,7 @@ defmodule JSV.MixProject do
   defp groups_for_docs do
     [
       "Schema Definition Utilities": &(&1[:section] == :schema_utilities && &1[:sub_section] != :schema_casters),
-      "Schema Casters": &(&1[:sub_section] == :schema_casters)
+      "Schema Casts": &(&1[:sub_section] == :schema_casters)
     ]
   end
 
