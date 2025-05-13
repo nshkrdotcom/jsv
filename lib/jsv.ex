@@ -111,7 +111,8 @@ defmodule JSV do
 
                          This option accepts a map with vocabulary URIs as keys and implementations as values.
                          The URIs are not fetched by JSV and does not need to point to anything specific.
-                         In the standard Draft 2020-12 meta-schema, these URIs point to human-readable documentation.
+                         For instance, vocabulary URIs in the standard Draft 2020-12 meta-schema point to
+                         human-readable documentation.
 
                          The given implementations will only be used if the meta-schema used to build a validation root
                          actually declare those URIs in their `$vocabulary` keyword.
@@ -128,7 +129,7 @@ defmodule JSV do
                          Implementations can also be passed options by wrapping them in a tuple:
 
                              %{
-                               "https://json-schema.org/draft/2020-12/vocab/validation" => {MyCustomModule, opt: "hello"}
+                               "https://json-schema.org/draft/2020-12/vocab/validation" => {MyCustomModule, foo: "bar"}
                              }
                          """,
                          default: %{}
