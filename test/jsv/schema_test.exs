@@ -138,6 +138,14 @@ defmodule JSV.SchemaTest do
         valids: ["a", "hello", " "],
         invalids: ["", true, false, 1, %{}, nil]
       },
+      string_to_number: %{
+        valids: ["1", "42", "-10", "0", "1.5", "42.0", "-10.3", "0.0", "1e5", "1.0e-3"],
+        invalids: ["one", "abc", "1a", "", nil, 1, 1.5]
+      },
+      string_to_boolean: %{
+        valids: ["true", "false"],
+        invalids: ["True", "False", "1", "0", "yes", "no", 1, 0, true, false, nil]
+      },
       all_of: %{
         args: [
           [

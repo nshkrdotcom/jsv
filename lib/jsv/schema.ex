@@ -514,6 +514,12 @@ defmodule JSV.Schema do
   defcompose :string_to_float, type: :string, "jsv-cast": JSV.Cast.string_to_float()
 
   @doc sub_section: :schema_casters
+  defcompose :string_to_number, type: :string, "jsv-cast": JSV.Cast.string_to_number()
+
+  @doc sub_section: :schema_casters
+  defcompose :string_to_boolean, type: :string, "jsv-cast": JSV.Cast.string_to_boolean()
+
+  @doc sub_section: :schema_casters
   defcompose :string_to_existing_atom, type: :string, "jsv-cast": JSV.Cast.string_to_existing_atom()
 
   @doc sub_section: :schema_casters

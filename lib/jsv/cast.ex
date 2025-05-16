@@ -21,6 +21,36 @@ defmodule JSV.Cast do
     end
   end
 
+  defcast string_to_number(data) do
+    with true <- is_binary(data),
+         {:ok, number} <- parse_number(data) do
+      {:ok, number}
+    else
+      _ -> {:error, "invalid number representation"}
+    end
+  end
+
+  defp parse_number(data) do
+    case Float.parse(data) do
+      {float, ""} ->
+        {:ok, float}
+
+      _ ->
+        case Integer.parse(data) do
+          {int, ""} -> {:ok, int}
+          _ -> :error
+        end
+    end
+  end
+
+  defcast string_to_boolean(data) do
+    case data do
+      "true" -> {:ok, true}
+      "false" -> {:ok, false}
+      _ -> {:error, "invalid boolean representation"}
+    end
+  end
+
   defcast string_to_existing_atom(data) do
     {:ok, String.to_existing_atom(data)}
   rescue
