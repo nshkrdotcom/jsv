@@ -203,7 +203,7 @@ defmodule JSV.Builder do
 
   # TODO we should only stage for build the dynamic anchors that have the same
   # anchor name as the ref. Not a big deal since we will not waste time to
-  # rebuilt what is arealdy built thanks to check_not_built/2 -> :already_built.
+  # rebuild what is arealdy built thanks to check_not_built/2 -> :already_built.
   defp stage_all_dynamic(builder) do
     # To build all dynamic references we tap into the resolver. The resolver
     # also conveniently allows to fetch by its own keys ({:dynamic_anchor, _,

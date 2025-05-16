@@ -347,9 +347,8 @@ defmodule JSV.Vocabulary.V202012.Applicator do
       {[{_, data, _subschema_, _detached_vctx}], _, vctx} ->
         {:ok, data, vctx}
 
-      {[], _, _} ->
-        # TODO compute branch error of all invalid
-        {:error, Validator.with_error(vctx, :oneOf, data, validated: [])}
+      {[], invalids, vctx} ->
+        {:error, Validator.with_error(vctx, :oneOf, data, validated: [], invalidated: invalids)}
 
       # with oneOf we also return the subschema so we can compute the
       # schemaLocation of the extra validated subschemas
@@ -361,8 +360,6 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   end
 
   def validate_keyword({:anyOf, subschemas}, data, vctx) do
-    # TODO return early once we validate at least one schema. There is no need
-    # to continue validation afterwards.
     case validate_split(subschemas, :anyOf, data, vctx) do
       # If multiple schemas validate the data, we take the casted value of the
       # first one, arbitrarily.
@@ -460,7 +457,6 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   def validate_keyword({:not, schema}, data, vctx) do
     case Validator.validate(data, schema, vctx) do
       {:ok, data, vctx} -> {:error, Validator.with_error(vctx, :not, data, [])}
-      # TODO maybe we need to merge "evaluted" properties
       {:error, _} -> {:ok, data, vctx}
     end
   end
@@ -503,8 +499,6 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   end
 
   defp validate_split(subschemas, kind, data, vctx) do
-    # TODO return vctx for each matched or unmatched schema, do not return a
-    # global vctx
     {valids, invalids, vctx, _} =
       Enum.reduce(subschemas, {[], [], vctx, _index = 0}, fn subschema, {valids, invalids, vctx, index} ->
         case Validator.validate_detach(data, {kind, index}, subschema, vctx) do
@@ -550,7 +544,6 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     {rev_items, vctx} =
       Enum.reduce(stream, {[], vctx}, fn
         {_kind, _index, data_item, nil = _subschema}, {casted, vctx} ->
-          # TODO add evaluated path to validator
           {[data_item | casted], vctx}
 
         {kind, index, data_item, subschema}, {casted, vctx} ->
@@ -612,8 +605,9 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     "property '#{key}' did not conform to the patternProperties schema for pattern /#{pattern}/"
   end
 
-  def format_error(:oneOf, %{validated: []}, _data) do
-    "value did not conform to any of the given schemas"
+  def format_error(:oneOf, %{validated: [], invalidated: invalidated}, _data) do
+    sub_errors = format_invalidated_subs(invalidated)
+    {"value did not conform to one of the given schemas", sub_errors}
   end
 
   def format_error(:oneOf, %{validated: validated}, _data) do

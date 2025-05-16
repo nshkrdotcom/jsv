@@ -16,8 +16,6 @@ defmodule JSV.Codec do
               JSV.Codec.NativeCodec
 
             true ->
-              # TODO this could be a runtime error, if library users do not use the
-              # resolver at all, there is no need to require a codec.
               raise "could not define JSON codec for #{inspect(__MODULE__)}\n\n" <>
                       "For Elixir versions lower than 1.18, make sure to declare a JSON parser " <>
                       ~S|dependency such as {:jason, "~> 1.0"}, {:poison, "~> 5.0"} or | <>

@@ -327,8 +327,6 @@ defmodule JSV do
     normalize_error(ValidationError.of(errors))
   end
 
-  # TODO provide a way to return ordered json for errors, or just provide a
-  # preprocess function.
   def normalize_error(%ValidationContext{} = validator) do
     normalize_error(Validator.to_error(validator))
   end
@@ -465,7 +463,6 @@ defmodule JSV do
     end
   end
 
-  # TODO document defschema_for
   @doc false
   defmacro defschema_for(target, schema) do
     quote bind_quoted: binding() do

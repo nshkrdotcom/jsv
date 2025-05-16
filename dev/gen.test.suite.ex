@@ -584,8 +584,8 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
   defp render_ordered_schema(schema, suite_flavor) when is_map(schema) do
     # For all flavors the wrapper will render the keys in a preferred order.
 
-    # TODO for now we support Decimal in data but not in the schema, so here
-    # it is always a float.
+    # For now we support Decimal in data but not in the schema, so here it is
+    # always a float.
 
     schema =
       Traverse.postwalk(schema, fn

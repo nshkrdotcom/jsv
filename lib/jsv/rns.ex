@@ -10,8 +10,6 @@ defmodule JSV.RNS do
   an URI without a query string or fragment.
   """
 
-  # TODO maybe do not use the URI module at all and implement a custom parser.
-
   @type t :: URI.t() | :root
 
   @doc """
@@ -72,18 +70,12 @@ defmodule JSV.RNS do
   end
 
   # The URI module does not allow to merge URIs onto relative URIs. The problem
-  # is that the URI module considers URIs without host as not valid absolute
-  # URIs. The check is made on the host. For instance
+  # is that the URI module considers URIs without host as invalid absolute URIs.
+  # The check is made on the host. For instance
   # `"urn:uuid:deadbeef-1234-00ff-ff00-4321feebdaed"` does not have a :host, so
   # it will fail. However it is allowed to merge fragments onto such URIs that
-  # are non hierachical (does not have "//" at the start indicating a hierachy
-  # of components such as //authorithy/path1/path2/).
-  #
-  # In this function we will check if the relative URI is only a fragment, and
-  # if so, we will fake the :host and leading slash of the base URI to let the
-  # URI module merge it.
-  #
-  # TODO this should be handled by the standard library though.
+  # are non hierachical (it does not have "//" at the start indicating a
+  # hierachy of components such as //authorithy/path1/path2/).
   defp safe_uri_merge(%{host: nil} = base_uri, relative_uri) do
     case relative_uri do
       %URI{
@@ -99,7 +91,7 @@ defmodule JSV.RNS do
         #
         #     {:ok, Map.put(base_uri, :fragment, fragment)}
         #
-        # For now this is only used to generate an ns, to the fragment will be
+        # For now this is only used to generate an ns, so the fragment will be
         # discarded anyway
         {:ok, base_uri}
 

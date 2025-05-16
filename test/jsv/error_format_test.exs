@@ -336,6 +336,57 @@ defmodule JSV.ErrorFormatTest do
     })
   end
 
+  test "error formatting for none of oneOf" do
+    schema =
+      build_schema!(
+        Codec.decode!(~S"""
+        {
+          "$id": "https://example.com/oneOfExample",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "properties": {
+            "foo": {
+              "oneOf": [
+                {
+                  "properties": {"bar": {"type": "number"}},
+                  "required": ["bar"]
+                },
+                {
+                  "properties": {"baz": {"type": "number"}},
+                  "required": ["baz"]
+                },
+                {
+                  "properties": {"qux": {"type": "number"}},
+                  "required": ["qux"]
+                }
+              ]
+            }
+          },
+          "required": ["foo"]
+        }
+        """)
+      )
+
+    # validates only schemas of index 0 and 2, not 1
+    invalid_data = %{"foo" => %{"other" => "nope"}}
+
+    assert {:error, validation_error} = JSV.validate(invalid_data, schema)
+    formatted_error = JSV.normalize_error(validation_error)
+    assert_output_schema(formatted_error)
+    assert valid_message(validation_error) =~ "at:"
+
+    assert_match_error(formatted_error, %{
+      schemaLocation: "https://example.com/oneOfExample#/properties/foo/oneOf/0"
+    })
+
+    assert_match_error(formatted_error, %{
+      schemaLocation: "https://example.com/oneOfExample#/properties/foo/oneOf/1"
+    })
+
+    assert_match_error(formatted_error, %{
+      schemaLocation: "https://example.com/oneOfExample#/properties/foo/oneOf/2"
+    })
+  end
+
   test "error formatting for if / else" do
     schema =
       build_schema!(

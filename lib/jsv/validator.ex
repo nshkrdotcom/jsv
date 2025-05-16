@@ -230,14 +230,11 @@ defmodule JSV.Validator do
   defp do_validate_ref(data, ref, vctx) do
     subvalidators = checkout_ref(vctx, ref)
 
-    # TODO should separate validator  have its isolated evaluated data_paths?
     separate_vctx = %ValidationContext{vctx | errors: []}
 
     case validate(data, subvalidators, separate_vctx) do
       {:ok, data, separate_vctx} ->
-        # There should not be errors in sub at this point ?
-        new_vctx = vctx |> merge_evaluated(separate_vctx) |> merge_errors(separate_vctx)
-        {:ok, data, new_vctx}
+        {:ok, data, merge_evaluated(vctx, separate_vctx)}
 
       {:error, %ValidationContext{errors: [_ | _]} = separate_vctx} ->
         {:error, merge_errors(vctx, separate_vctx)}
@@ -320,7 +317,8 @@ defmodule JSV.Validator do
   end
 
   defp do_merge_errors(vctx_errors, sub_errors) do
-    # TODO maybe append but for now we will flatten only when rendering/formatting errors
+    # Errors are not appended. We rather build a deep list. Errors are only
+    # flattened at the end of the validation when returning a ValidationError.
     [vctx_errors, sub_errors]
   end
 

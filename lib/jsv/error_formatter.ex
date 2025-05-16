@@ -40,30 +40,24 @@ defmodule JSV.ErrorFormatter do
   """
   @spec normalize_error(ValidationError.t()) :: map()
   def normalize_error(%ValidationError{} = e) do
-    normalize_error(e, [])
+    %{valid: false, details: normalize_errors(e.errors)}
   end
 
-  # TODO maybe remove opts as they are no more used. We may need them if we want
-  # to use custom JSON encoding for errors.
-  defp normalize_error(e, opts) do
-    %{valid: false, details: normalize_errors(e.errors, opts)}
-  end
-
-  defp normalize_errors(errors, opts) do
+  defp normalize_errors(errors) do
     errors
     |> Enum.group_by(fn
       %Error{data_path: dp, eval_path: ep, schema_path: sp} -> {dp, ep, sp}
       %{valid: _, instanceLocation: _, evaluationPath: _, schemaLocation: _} = already_normalized -> already_normalized
     end)
     |> Enum.map(fn
-      {{data_path, eval_path, schema_path}, errors} -> error_annot(data_path, eval_path, schema_path, errors, opts)
+      {{data_path, eval_path, schema_path}, errors} -> error_annot(data_path, eval_path, schema_path, errors)
       {already_normalized, [already_normalized]} -> already_normalized
     end)
     |> Enum.sort_by(& &1.schemaLocation)
   end
 
-  defp error_annot(rev_data_path, rev_eval_path, rev_schema_path, errors, opts) do
-    errors_fmt = Enum.map(errors, &build_error(&1, opts))
+  defp error_annot(rev_data_path, rev_eval_path, rev_schema_path, errors) do
+    errors_fmt = Enum.map(errors, &build_error/1)
 
     %{
       valid: false,
@@ -74,7 +68,7 @@ defmodule JSV.ErrorFormatter do
     }
   end
 
-  defp build_error(error, opts) do
+  defp build_error(error) do
     %Error{kind: kind, data: data, formatter: formatter, args: args} =
       error
 
@@ -88,10 +82,10 @@ defmodule JSV.ErrorFormatter do
         %{message: message, kind: new_kind}
 
       {message, sub_errors} when is_binary(message) and is_list(sub_errors) ->
-        %{message: message, kind: kind, details: normalize_errors(sub_errors, opts)}
+        %{message: message, kind: kind, details: normalize_errors(sub_errors)}
 
       {new_kind, message, sub_errors} when is_atom(new_kind) and is_binary(message) and is_list(sub_errors) ->
-        %{message: message, kind: new_kind, details: normalize_errors(sub_errors, opts)}
+        %{message: message, kind: new_kind, details: normalize_errors(sub_errors)}
     end
   end
 

@@ -14,7 +14,7 @@ defmodule JSV.Resolver do
     Metadata gathered from a remote schema or a sub-schema.
     """
 
-    # TODO drop parent_ns once we do not support draft-7
+    # TODO(Draft7-removal) drop parent_ns once we do not support draft-7
     @enforce_keys [:raw, :meta, :vocabularies, :ns, :parent_ns, :rev_path]
     defstruct @enforce_keys
 
@@ -587,7 +587,7 @@ defmodule JSV.Resolver do
   # fetched subschema. The top parent is the last item in the list, the fetched
   # subschema is the head.
   #
-  # TODO This is to support Draft 7 to define the correct NS for the subschema.
+  # TODO(Draft7-removal) This is to support Draft 7 to define the correct NS for the subschema.
   # We can remove that list building once Draft 7 is not supported anymore.
   defp do_fetch_docpath(list, [h | t], parents) when is_list(list) and is_integer(h) do
     with {:ok, item} <- Enum.fetch(list, h) do
@@ -605,7 +605,7 @@ defmodule JSV.Resolver do
     {:ok, [raw_schema | parents]}
   end
 
-  # TODO remove derive_docpath_ns/3, this is only to support Draft7 where we
+  # TODO(Draft7-removal) remove derive_docpath_ns/3, this is only to support Draft7 where we
   # must keep the parent_ns around in a %Resolved{}
   defp derive_docpath_ns([%{"$id" => id} | [_ | _] = tail], parent_ns, parent_parent_ns) do
     # Recursion first to go back to the top schema of the docpath
