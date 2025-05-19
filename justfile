@@ -24,7 +24,7 @@ lint:
   mix credo
 
 dialyzer:
-  mix dialyzer
+  mix dialyzer --format dialyzer
 
 _mix_format:
   mix format

@@ -330,7 +330,8 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     data_items_index = Stream.with_index(data)
 
     # Zipping items with their schemas. If the schema only specifies
-    # prefixItems, then items_schema is nil and the zip will associate with nil.
+    # prefixItems, then items_schema is nil and the zip will associate
+    # non-prefix data items with a nil schema.
     zipped =
       Enum.zip_with([data_items_index, all_stream], fn
         [{data_item, index}, {kind, schema}] -> {kind, index, data_item, schema}
@@ -537,12 +538,18 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   @doc false
   # This function is public for draft7, with support of :additionalItems
   #
-  # Validate all items in a stream of {kind, index, item_data, subschema}.
-  # The subschema can be nil which makes the item automatically valid.
-  @spec validate_items(Enumerable.t(), list, Validator.context(), module) :: {Enumerable.t(), Validator.context()}
-  def validate_items(stream, data, vctx, error_formatter \\ __MODULE__) do
-    {rev_items, vctx} =
-      Enum.reduce(stream, {[], vctx}, fn
+  # Validate all items in a list of {kind, index, item_data, subschema}. The
+  # subschema can be nil which makes the item automatically valid.
+  #
+  # The list is reversed first instead of at the end so the suberrors are
+  # ordered from 0 to N if the error is normalized.
+  @spec validate_items([validation_item], list, Validator.context(), module) :: {list, Validator.context()}
+        when validation_item: {term, non_neg_integer(), nil | Validator.validator(), term}
+  def validate_items(items_with_schema, data, vctx, error_formatter \\ __MODULE__) do
+    {items, vctx} =
+      items_with_schema
+      |> :lists.reverse()
+      |> Enum.reduce({[], vctx}, fn
         {_kind, _index, data_item, nil = _subschema}, {casted, vctx} ->
           {[data_item | casted], vctx}
 
@@ -558,7 +565,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
           end
       end)
 
-    {:lists.reverse(rev_items), vctx}
+    {items, vctx}
   end
 
   # ---------------------------------------------------------------------------
