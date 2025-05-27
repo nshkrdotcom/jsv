@@ -36,21 +36,30 @@ defmodule JSV.Validator do
 
   @type context :: %ValidationContext{}
   @type eval_sub_path :: Builder.path_segment() | [Builder.path_segment()]
+  @type validators :: %{Key.t() => validator}
   @type validator :: JSV.Subschema.t() | BooleanSchema.t() | {:alias_of, binary}
   @type result :: {:ok, term, context} | {:error, context}
 
-  @spec context(%{Key.t() => validator}, [Key.ns()], keyword()) :: context
-  def context(validators, [_] = scope, opts) do
+  @spec context(%{Key.t() => validator}, Key.t(), keyword()) :: context
+  def context(validators, entrypoint, opts) do
     %ValidationContext{
       data_path: [],
-      eval_path: [],
-      schema_path: [scope],
+      eval_path: key_to_eval_path(entrypoint),
+      schema_path: [Key.namespace_of(entrypoint)],
       validators: validators,
-      scope: scope,
+      scope: [Key.namespace_of(entrypoint)],
       errors: [],
       evaluated: [%{}],
       opts: opts
     }
+  end
+
+  defp key_to_eval_path(key) do
+    # TODO how to handle anchors here ?
+    case key do
+      {:pointer, _, arg} -> :lists.reverse(arg)
+      _ -> []
+    end
   end
 
   @doc """

@@ -114,8 +114,6 @@ defmodule JSV.Vocabulary.V202012.Core do
     end
   end
 
-  Atom.to_string(:x)
-
   defp do_find_local_dynamic_anchor(%{"$id" => _}, _anchor) do
     :error
   end

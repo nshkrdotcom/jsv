@@ -6,7 +6,7 @@ defmodule JSV.Ref do
   Representation of a JSON Schema reference (`$ref` or `$dynamicRef`).
   """
 
-  defstruct ns: nil, kind: nil, fragment: nil, arg: nil, dynamic?: false
+  defstruct ns: nil, kind: nil, arg: nil, dynamic?: false
 
   @type t :: %__MODULE__{}
   @type ns :: binary | :root
@@ -23,6 +23,17 @@ defmodule JSV.Ref do
   end
 
   @doc """
+  Bang function for `parse/2`.
+  """
+  @spec parse!(binary, ns) :: t
+  def parse!(url, current_ns) do
+    case parse(url, current_ns) do
+      {:ok, ref} -> ref
+      {:error, reason} -> raise ArgumentError, "could not parse $ref: #{inspect(url)}, got: #{inspect(reason)}"
+    end
+  end
+
+  @doc """
   Like `parse/2` but flags the reference as dynamic.
   """
   @spec parse_dynamic(binary, ns) :: {:ok, t} | {:error, term}
@@ -32,33 +43,33 @@ defmodule JSV.Ref do
 
   defp do_parse(url, current_ns, dynamic?) do
     uri = URI.parse(url)
-    {kind, normalized_fragment, arg} = parse_fragment(uri.fragment)
+    {kind, arg} = parse_fragment(uri.fragment)
 
     dynamic? = dynamic? and kind == :anchor
 
     with {:ok, ns} <- RNS.derive(current_ns, url) do
-      {:ok, %Ref{ns: ns, kind: kind, fragment: normalized_fragment, arg: arg, dynamic?: dynamic?}}
+      {:ok, %Ref{ns: ns, kind: kind, arg: arg, dynamic?: dynamic?}}
     end
   end
 
   defp parse_fragment(nil) do
-    {:top, nil, []}
+    {:top, []}
   end
 
   defp parse_fragment("") do
-    {:top, nil, []}
+    {:top, []}
   end
 
   defp parse_fragment("/") do
-    {:top, nil, []}
+    {:top, []}
   end
 
-  defp parse_fragment("/" <> path = fragment) do
-    {:pointer, fragment, parse_pointer(path)}
+  defp parse_fragment("/" <> path) do
+    {:pointer, parse_pointer(path)}
   end
 
   defp parse_fragment(anchor) do
-    {:anchor, anchor, anchor}
+    {:anchor, anchor}
   end
 
   defp parse_pointer(raw_docpath) do

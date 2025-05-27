@@ -60,20 +60,20 @@ defmodule JSV.Key do
   end
 
   @doc "Returns a pointer type key."
-  @spec for_pointer(ns, term) :: pointer()
-  def for_pointer(ns, arg) do
+  @spec for_pointer(ns, [binary()]) :: pointer()
+  def for_pointer(ns, arg) when is_list(arg) do
     {:pointer, ns, arg}
   end
 
   @doc "Returns an anchor type key."
-  @spec for_anchor(ns, term) :: anchor()
-  def for_anchor(ns, arg) do
+  @spec for_anchor(ns, binary) :: anchor()
+  def for_anchor(ns, arg) when is_binary(arg) do
     {:anchor, ns, arg}
   end
 
   @doc "Returns a dynamic anchor type key."
-  @spec for_dynamic_anchor(ns, term) :: dynamic_anchor()
-  def for_dynamic_anchor(ns, arg) do
+  @spec for_dynamic_anchor(ns, binary) :: dynamic_anchor()
+  def for_dynamic_anchor(ns, arg) when is_binary(arg) do
     {:dynamic_anchor, ns, arg}
   end
 

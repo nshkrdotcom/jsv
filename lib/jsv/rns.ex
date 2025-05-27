@@ -47,8 +47,8 @@ defmodule JSV.RNS do
     {:ok, base}
   end
 
-  defp merge(:root, %{scheme: scheme} = relative) when is_binary(scheme) do
-    {:ok, relative}
+  defp merge(:root, %{scheme: scheme} = absolute) when is_binary(scheme) do
+    {:ok, absolute}
   end
 
   defp merge(:root, relative) do

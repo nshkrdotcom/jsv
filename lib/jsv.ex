@@ -1,11 +1,19 @@
 defmodule JSV do
+  alias JSV.BooleanSchema
   alias JSV.Builder
   alias JSV.ErrorFormatter
+  alias JSV.Key
+  alias JSV.Ref
+  alias JSV.Resolver
   alias JSV.Resolver.Internal
   alias JSV.Root
+  alias JSV.Schema
   alias JSV.ValidationError
   alias JSV.Validator
   alias JSV.Validator.ValidationContext
+
+  require Record
+  Record.defrecordp(:build_ctx, :build, builder: nil, validators: %{})
 
   @moduledoc """
   JSV is a JSON Schema Validator.
@@ -51,6 +59,7 @@ defmodule JSV do
   """
 
   @type raw_schema :: map() | boolean() | module()
+  @opaque build_context :: record(:build_ctx, builder: Builder.t(), validators: Validator.validators())
 
   @default_default_meta "https://json-schema.org/draft/2020-12/schema"
 
@@ -129,7 +138,7 @@ defmodule JSV do
                          Implementations can also be passed options by wrapping them in a tuple:
 
                              %{
-                               "https://json-schema.org/draft/2020-12/vocab/validation" => {MyCustomModule, foo: "bar"}
+                              "https://json-schema.org/draft/2020-12/vocab/validation" => {MyCustomModule, foo: "bar"}
                              }
                          """,
                          default: %{}
@@ -146,28 +155,105 @@ defmodule JSV do
   @spec build(JSV.raw_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
   def build(raw_schema, opts \\ [])
 
+  def build(valid?, _opts) when is_boolean(valid?) do
+    {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?, [:root])}}}
+  end
+
   def build(raw_schema, opts) when is_map(raw_schema) when is_atom(raw_schema) do
-    case NimbleOptions.validate(opts, @build_opts_schema) do
-      {:ok, opts} ->
-        builder =
-          opts
-          |> build_resolvers()
-          |> Builder.new()
-
-        case Builder.build(builder, raw_schema) do
-          {:ok, root} -> {:ok, root}
-          {:error, reason} -> {:error, %JSV.BuildError{reason: reason}}
-        end
-
-      {:error, _} = err ->
-        err
+    with {:ok, ctx} <- build_init(opts),
+         {:ok, root_key, normal_schema, builder} <- build_add(ctx, raw_schema),
+         {:ok, ^root_key, build_ctx(validators: validators)} <- build_key(builder, root_key) do
+      {:ok, %Root{raw: normal_schema, validators: validators, root_key: root_key}}
+    else
+      {:error, reason} -> {:error, %JSV.BuildError{reason: reason}}
     end
   end
 
-  defp build_resolvers(opts) do
-    {resolvers, opts} = Keyword.pop!(opts, :resolver)
+  @doc false
+  @spec build_init(keyword) :: {:ok, build_context()} | {:error, term}
+  def build_init(opts \\ []) do
+    case NimbleOptions.validate(opts, @build_opts_schema) do
+      {:ok, opts} ->
+        {resolver, opts} = make_resolver(opts)
+        builder = make_builder(resolver, opts)
+        {:ok, build_ctx(builder: builder)}
 
-    Keyword.put(opts, :resolvers, resolver_chain(resolvers))
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # TODO(types) here the input is a proto schema, and in the result we get a raw schema
+  @doc false
+  @spec build_add(build_context(), JSV.raw_schema()) ::
+          {:ok, Key.t(), JSV.raw_schema(), build_context()} | {:error, term}
+  def build_add(build_ctx(builder: builder) = ctx, raw_schema) do
+    with {:ok, raw_schema} <- ensure_map_schema(raw_schema),
+         normal_schema = Schema.normalize(raw_schema),
+         {:ok, key} <- schema_to_key(normal_schema),
+         {:ok, builder} <- Builder.add_schema(builder, key, normal_schema) do
+      {:ok, key, normal_schema, build_ctx(ctx, builder: builder)}
+    else
+      {:error, _} = err -> err
+    end
+  end
+
+  @doc false
+  @spec build_key(build_context(), binary | Ref.t()) :: {:ok, Key.t(), build_context()} | {:error, term}
+  def build_key(build_ctx(builder: builder, validators: vds) = ctx, ref_or_ns)
+      when ref_or_ns == :root
+      when is_binary(ref_or_ns)
+      when is_struct(ref_or_ns, Ref) do
+    key = Key.of(ref_or_ns)
+
+    case Builder.build(builder, ref_or_ns, vds) do
+      {:ok, new_vds, builder} -> {:ok, key, build_ctx(ctx, builder: builder, validators: new_vds)}
+      {:error, _} = err -> err
+    end
+  end
+
+  @doc false
+  @spec build_root(build_context, Key.t()) :: {:ok, Root.t()}
+  def build_root(build_ctx(validators: vds), root_key) do
+    {:ok, %Root{raw: nil, validators: vds, root_key: root_key}}
+  end
+
+  defp ensure_map_schema(map) when is_map(map) do
+    {:ok, map}
+  end
+
+  defp ensure_map_schema(module) when is_atom(module) do
+    {:ok, module.schema()}
+  rescue
+    e in UndefinedFunctionError -> {:error, e}
+  end
+
+  defp schema_to_key(raw_schema) do
+    case Map.get(raw_schema, "$id", :root) do
+      root_ns when is_binary(root_ns) or :root == root_ns ->
+        {:ok, ^root_ns = Key.of(root_ns)}
+
+      other ->
+        {:error, {:invalid_root_id, other}}
+    end
+  end
+
+  defp make_resolver(opts) do
+    {resolvers, opts} = Keyword.pop!(opts, :resolver)
+    {default_meta, opts} = Keyword.pop!(opts, :default_meta)
+
+    resolver =
+      resolvers
+      |> resolver_chain()
+      |> Resolver.chain_of(default_meta)
+
+    # |> Resolver.put_cached(root_key, raw_schema)
+
+    {resolver, opts}
+  end
+
+  defp make_builder(resolver, opts) do
+    Builder.new([{:resolver, resolver} | opts])
   end
 
   @doc """
@@ -269,6 +355,20 @@ defmodule JSV do
 
                             It has no effect when the schema was not built with formats enabled.
                             """
+                          ],
+                          key: [
+                            type: :any,
+                            required: false,
+                            doc: """
+                            When specified, the validation will start in the schema at the given key
+                            instead of using the root schema.
+
+                            The key must have been built and returned by `build_key/2`. The validation
+                            does not accept to validate any Ref or pointer in the schema.
+
+                            This is useful when validating with a JSON document that contains schemas but
+                            is not itself a schema.
+                            """
                           ]
                         )
 
@@ -336,9 +436,17 @@ defmodule JSV do
   @spec validation_entrypoint(term, term, term) :: Validator.result()
   def validation_entrypoint(%JSV.Root{} = schema, data, opts) do
     %JSV.Root{validators: validators, root_key: root_key} = schema
-    root_schema_validators = Map.fetch!(validators, root_key)
-    context = JSV.Validator.context(validators, _scope = [root_key], opts)
-    JSV.Validator.validate(data, root_schema_validators, context)
+
+    {key, opts} = Keyword.pop(opts, :key, root_key)
+
+    case Map.fetch(validators, key) do
+      {:ok, root_schema_validators} ->
+        context = JSV.Validator.context(validators, key, opts)
+        JSV.Validator.validate(data, root_schema_validators, context)
+
+      :error ->
+        raise ArgumentError, "validators are not defined for key #{inspect(key)}"
+    end
   end
 
   @doc """

@@ -6,8 +6,6 @@ defmodule JSV.Builder do
   alias JSV.Resolver
   alias JSV.Resolver.Resolved
   alias JSV.RNS
-  alias JSV.Root
-  alias JSV.Schema
   alias JSV.Validator
   alias JSV.Vocabulary
 
@@ -17,21 +15,22 @@ defmodule JSV.Builder do
 
   @derive {Inspect, except: []}
   @enforce_keys [:resolver]
-  defstruct [
-    :resolver,
-    staged: [],
-    vocabularies: nil,
-    vocabulary_impls: %{},
-    ns: nil,
-    parent_ns: nil,
-    opts: [],
-    current_rev_path: []
-  ]
+  defstruct resolver: nil,
+            staged: [],
+            vocabularies: nil,
+            vocabulary_impls: %{},
+            ns: nil,
+            parent_ns: nil,
+            opts: [],
+            current_rev_path: []
 
   @type t :: %__MODULE__{resolver: term, staged: [term], vocabularies: term, ns: term, parent_ns: term, opts: term}
   @type resolvable :: Resolver.resolvable()
   @type buildable :: {:resolved, resolvable} | resolvable
   @type path_segment :: binary | non_neg_integer | atom | {atom, term}
+
+  # TODO remove this type alias
+  @type validators :: Validator.validators()
 
   @doc """
   Returns a new builder. Builders are not reusable ; a fresh builder must be
@@ -39,49 +38,25 @@ defmodule JSV.Builder do
   """
   @spec new(keyword) :: t
   def new(opts) do
-    {resolver_chain, opts} = Keyword.pop!(opts, :resolvers)
-    {default_meta, opts} = Keyword.pop!(opts, :default_meta)
-
     # beware, the :vocabularies option is not the final value of the
     # :vocabularies key in the Builder struct. It's a configuration option to
     # build the final value. This option is kept around in the :vocabulary_impls
     # struct key after being merged on top of the default implementations.
+    {resolver, opts} = Keyword.pop!(opts, :resolver)
     {add_vocabulary_impls, opts} = Keyword.pop!(opts, :vocabularies)
     vocabulary_impls = build_vocabulary_impls(add_vocabulary_impls)
 
-    resolver = Resolver.chain_of(resolver_chain, default_meta)
     struct!(__MODULE__, resolver: resolver, opts: opts, vocabulary_impls: vocabulary_impls)
   end
 
   @doc """
-  Builds the given raw schema into a `JSV.Root` struct.
+  Builds the given key into the given validators.
   """
-  @spec build(t, JSV.raw_schema()) :: {:ok, JSV.Root.t()} | {:error, term}
-  def build(_builder, valid?) when is_boolean(valid?) do
-    {:ok, %Root{raw: valid?, root_key: :root, validators: %{root: BooleanSchema.of(valid?, [:root])}}}
-  end
-
-  def build(builder, module) when is_atom(module) do
-    build_root(builder, module.schema())
-  rescue
-    e in UndefinedFunctionError -> {:error, e}
-  end
-
-  def build(builder, raw_schema) when is_map(raw_schema) do
-    build_root(builder, raw_schema)
-  end
-
-  @spec build_root(t, map) :: {:ok, JSV.Root.t()} | {:error, term}
-  defp build_root(builder, raw_schema) do
-    raw_schema = Schema.normalize(raw_schema)
-
-    with {:ok, root_key, resolver} <- Resolver.resolve_root(builder.resolver, raw_schema),
-         builder = stage_build(%__MODULE__{builder | resolver: resolver}, root_key),
-         {:ok, validators} <- build_all(builder) do
-      {:ok, %Root{raw: raw_schema, validators: validators, root_key: root_key}}
-    else
-      {:error, _} = err -> err
-    end
+  @spec build(t, Key.t(), validators) :: {:ok, validators, t} | {:error, term}
+  def build(builder, key, validators) do
+    builder
+    |> stage_build(key)
+    |> build_all_staged(validators)
   end
 
   @doc """
@@ -91,6 +66,16 @@ defmodule JSV.Builder do
   @spec stage_build(t, buildable) :: t()
   def stage_build(%{staged: staged} = builder, buildable) do
     %__MODULE__{builder | staged: append_unique(staged, buildable)}
+  end
+
+  # TODO raw_schema type should be only binmap/bool
+
+  @spec add_schema(t, Key.t(), JSV.raw_schema()) :: {:ok, t} | {:error, term}
+  def add_schema(builder, key, schema) do
+    case Resolver.put_cached(builder.resolver, key, schema) do
+      {:ok, rsv} -> {:ok, %{builder | resolver: rsv}}
+      {:error, :already_cached} -> {:error, {:duplicate_ns, key}}
+    end
   end
 
   defp append_unique([same | t], same) do
@@ -140,18 +125,13 @@ defmodule JSV.Builder do
   # * mod_validators are the created validators from part of a schema
   #   keywords+values and a vocabulary module
 
-  defp build_all(builder) do
-    build_all(builder, %{})
-  catch
-    {:thrown_build_error, reason} -> {:error, reason}
-  end
-
-  defp build_all(builder, all_validators) do
+  defp build_all_staged(builder, all_validators) do
     # We split the buildables in three cases:
     # - One dynamic refs will lead to build all existing dynamic refs not
     #   already built.
     # - Resolvables such as ID and Ref will be resolved and turned into
-    #   :resolved tuples.
+    #   :resolved tuples. We do not build them right away to avoid building them
+    #   multiple times.
     # - :resolved tuples assume to be already resolved and will be built into
     #   validators.
     #
@@ -163,29 +143,31 @@ defmodule JSV.Builder do
         with :buildable <- check_not_built(all_validators, vkey),
              {:ok, resolved} <- Resolver.fetch_resolved(builder.resolver, vkey),
              {:ok, schema_validators, builder} <- build_resolved(builder, resolved) do
-          build_all(builder, register_validator(all_validators, vkey, schema_validators))
+          build_all_staged(builder, register_validator(all_validators, vkey, schema_validators))
         else
-          {:already_built, _} -> build_all(builder, all_validators)
+          {:already_built, _} -> build_all_staged(builder, all_validators)
           {:error, _} = err -> err
         end
 
-      {%Ref{dynamic?: true}, builder} ->
-        builder = stage_all_dynamic(builder)
-        build_all(builder, all_validators)
+      {%Ref{kind: :anchor, dynamic?: true, arg: anchor}, builder} ->
+        builder = stage_dynamic_anchors(builder, anchor)
+        build_all_staged(builder, all_validators)
 
       {resolvable, builder} when is_binary(resolvable) when is_struct(resolvable, Ref) when :root == resolvable ->
         with :buildable <- check_not_built(all_validators, Key.of(resolvable)),
              {:ok, builder} <- resolve_and_stage(builder, resolvable) do
-          build_all(builder, all_validators)
+          build_all_staged(builder, all_validators)
         else
-          {:already_built, _} -> build_all(builder, all_validators)
+          {:already_built, _} -> build_all_staged(builder, all_validators)
           {:error, _} = err -> err
         end
 
       # Finally there is nothing more to build
       :empty ->
-        {:ok, all_validators}
+        {:ok, all_validators, builder}
     end
+  catch
+    {:thrown_build_error, reason} -> {:error, reason}
   end
 
   defp register_validator(all_validators, vkey, schema_validators) do
@@ -201,18 +183,16 @@ defmodule JSV.Builder do
     end
   end
 
-  # TODO we should only stage for build the dynamic anchors that have the same
-  # anchor name as the ref. Not a big deal since we will not waste time to
-  # rebuild what is arealdy built thanks to check_not_built/2 -> :already_built.
-  defp stage_all_dynamic(builder) do
+  defp stage_dynamic_anchors(builder, anchor) do
     # To build all dynamic references we tap into the resolver. The resolver
-    # also conveniently allows to fetch by its own keys ({:dynamic_anchor, _,
-    # _}) instead of passing the original ref.
+    # also conveniently allows to fetch by its own keys ({:dynamic_anchor,_,_})
+    # instead of passing the original ref.
     #
-    # Everytime we encounter a dynamic ref in build_all/2 we insert all dynamic
-    # references into the staged list. But if we insert the ref itself it will
-    # lead to an infinite loop, since we do that when we find a ref in this
-    # loop.
+    # Everytime we encounter a dynamic ref in build_all_staged/2 we need to
+    # stage the build of all dynamic references with the given anchor.
+    #
+    # But if we insert the ref itself it will lead to an infinite loop, since we
+    # do that when we find a ref in this loop.
     #
     # So instead of inserting the ref we insert the Key, and the Key module and
     # Resolver accept to work with that kind of schema identifier (that is,
@@ -224,7 +204,7 @@ defmodule JSV.Builder do
     # But to keep it clean we scan the whole list every time.
     dynamic_buildables =
       Enum.flat_map(builder.resolver.resolved, fn
-        {{:dynamic_anchor, _, _} = vkey, _resolved} -> [{:resolved, vkey}]
+        {{:dynamic_anchor, _, ^anchor} = vkey, _resolved} -> [{:resolved, vkey}]
         _ -> []
       end)
 
@@ -360,7 +340,7 @@ defmodule JSV.Builder do
   defp build_mod_validators(raw_pairs, module, init_opts, builder, raw_schema) when is_map(raw_schema) do
     {leftovers, mod_acc, builder} =
       Enum.reduce(raw_pairs, {[], module.init_validators(init_opts), builder}, fn pair, {leftovers, mod_acc, builder} ->
-        # "keyword" refers to the schema keywod, e.g. "type", "properties", etc,
+        # "keyword" refers to the schema keyword, e.g. "type", "properties", etc,
         # supported by a vocabulary.
 
         case module.handle_keyword(pair, mod_acc, builder, raw_schema) do
@@ -405,12 +385,8 @@ defmodule JSV.Builder do
     "https://json-schema.org/draft-07/--fallback--vocab/meta-data" => Vocabulary.V7.MetaData
   }
 
-  defp default_vocabulary_impls do
-    @vocabulary_impls
-  end
-
   defp build_vocabulary_impls(user_mapped) do
-    Map.merge(default_vocabulary_impls(), user_mapped)
+    Map.merge(@vocabulary_impls, user_mapped)
   end
 
   defp load_vocabularies(builder, map) do
