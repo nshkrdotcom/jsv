@@ -295,7 +295,7 @@ defmodule JSV.Vocabulary do
   Gives the sub raw schema to the builder and adds the build result in the list
   accumulator as a 2-tuple with the given `key`.
   """
-  @spec take_sub(Builder.path_segment(), JSV.raw_schema(), list, Builder.t()) ::
+  @spec take_sub(Builder.path_segment(), JSV.normal_schema(), list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, term}
   def take_sub(key, sub_raw_schema, acc, builder) when is_list(acc) do
     take_sub(key, key, sub_raw_schema, acc, builder)
@@ -305,7 +305,7 @@ defmodule JSV.Vocabulary do
   Same as `take_sub/4` but uses a custom `path_segment` to append to the
   `schemaLocation` of the built subschema.
   """
-  @spec take_sub(Builder.path_segment(), Builder.path_segment(), JSV.raw_schema(), list, Builder.t()) ::
+  @spec take_sub(Builder.path_segment(), Builder.path_segment(), JSV.normal_schema(), list, Builder.t()) ::
           {:ok, list, Builder.t()} | {:error, term}
   def take_sub(key, path_segment, sub_raw_schema, acc, builder) when is_list(acc) do
     case Builder.build_sub(sub_raw_schema, [path_segment], builder) do

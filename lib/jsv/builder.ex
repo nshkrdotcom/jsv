@@ -29,9 +29,6 @@ defmodule JSV.Builder do
   @type buildable :: {:resolved, resolvable} | resolvable
   @type path_segment :: binary | non_neg_integer | atom | {atom, term}
 
-  # TODO remove this type alias
-  @type validators :: Validator.validators()
-
   @doc """
   Returns a new builder. Builders are not reusable ; a fresh builder must be
   made for each different root schema.
@@ -52,7 +49,7 @@ defmodule JSV.Builder do
   @doc """
   Builds the given key into the given validators.
   """
-  @spec build(t, Key.t(), validators) :: {:ok, validators, t} | {:error, term}
+  @spec build(t, Key.t(), Validator.validators()) :: {:ok, Validator.validators(), t} | {:error, term}
   def build(builder, key, validators) do
     builder
     |> stage_build(key)
@@ -70,7 +67,7 @@ defmodule JSV.Builder do
 
   # TODO raw_schema type should be only binmap/bool
 
-  @spec add_schema(t, Key.t(), JSV.raw_schema()) :: {:ok, t} | {:error, term}
+  @spec add_schema(t, Key.t(), JSV.normal_schema()) :: {:ok, t} | {:error, term}
   def add_schema(builder, key, schema) do
     case Resolver.put_cached(builder.resolver, key, schema) do
       {:ok, rsv} -> {:ok, %{builder | resolver: rsv}}
@@ -106,7 +103,7 @@ defmodule JSV.Builder do
   Returns the raw schema identified by the given key. Use `ensure_resolved/2`
   before if the resource may not have been fetched.
   """
-  @spec fetch_resolved(t, Key.t()) :: {:ok, JSV.raw_schema()} | {:error, term}
+  @spec fetch_resolved(t, Key.t()) :: {:ok, Resolved.t() | {:alias_of, Key.t()}} | {:error, term}
   def fetch_resolved(%{resolver: resolver}, key) do
     Resolver.fetch_resolved(resolver, key)
   end
@@ -273,7 +270,7 @@ defmodule JSV.Builder do
   Builds a subschema. Called from vocabulary modules to build nested schemas
   such as in properties, if/else, items, etc.
   """
-  @spec build_sub(JSV.raw_schema(), [path_segment()], t) :: {:ok, Validator.validator(), t} | {:error, term}
+  @spec build_sub(JSV.normal_schema(), [path_segment()], t) :: {:ok, Validator.validator(), t} | {:error, term}
   def build_sub(%{"$id" => id}, _add_rev_path, builder) do
     with {:ok, key} <- RNS.derive(builder.ns, id) do
       {:ok, {:alias_of, key}, stage_build(builder, key)}

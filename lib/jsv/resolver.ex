@@ -19,7 +19,7 @@ defmodule JSV.Resolver do
     defstruct @enforce_keys
 
     @type t :: %__MODULE__{
-            raw: term,
+            raw: JSV.normal_schema(),
             meta: binary,
             vocabularies: term,
             ns: binary,
@@ -70,7 +70,7 @@ defmodule JSV.Resolver do
   end
 
   @doc false
-  @spec put_cached(t, binary | :root, JSV.raw_schema()) :: {:ok, t} | {:error, :already_cached}
+  @spec put_cached(t, binary | :root, JSV.normal_schema()) :: {:ok, t} | {:error, :already_cached}
   def put_cached(rsv, ext_id, raw_schema) when is_map(raw_schema) and (is_binary(ext_id) or :root == ext_id) do
     case rsv.fetch_cache do
       %{^ext_id => _} -> {:error, :already_cached}
@@ -441,7 +441,7 @@ defmodule JSV.Resolver do
     end
   end
 
-  @spec fetch_raw_schema(t, binary | {:meta, binary} | Ref.t()) :: {:ok, binary, JSV.raw_schema()} | {:error, term}
+  @spec fetch_raw_schema(t, binary | {:meta, binary} | Ref.t()) :: {:ok, binary, JSV.normal_schema()} | {:error, term}
   defp fetch_raw_schema(rsv, {:meta, url}) do
     fetch_raw_schema(rsv, url)
   end

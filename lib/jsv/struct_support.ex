@@ -14,7 +14,7 @@ defmodule JSV.StructSupport do
   * `properties` is a map with atom keys.
   * `required`, if present, contains only atoms
   """
-  @spec validate!(JSV.raw_schema()) :: :ok
+  @spec validate!(JSV.native_schema()) :: :ok
   def validate!(schema) do
     validate_object_type!(schema)
     validate_properties_presence!(schema)
@@ -111,7 +111,7 @@ defmodule JSV.StructSupport do
   implements a struct (with `defstruct/1`). When given, the function will
   validate that all schema keys exist in the given struct.
   """
-  @spec keycast_pairs(JSV.raw_schema(), target :: nil | module) :: [{binary, atom}]
+  @spec keycast_pairs(JSV.native_schema(), target :: nil | module) :: [{binary, atom}]
 
   def keycast_pairs(schema, target \\ nil)
 
@@ -165,7 +165,7 @@ defmodule JSV.StructSupport do
 
   The schema must be valid against `validate!1/`.
   """
-  @spec data_pairs_partition(JSV.raw_schema()) :: {[atom], keyword()}
+  @spec data_pairs_partition(JSV.native_schema()) :: {[atom], keyword()}
   def data_pairs_partition(schema) do
     {no_defaults, with_defaults} =
       schema
@@ -185,7 +185,7 @@ defmodule JSV.StructSupport do
 
   The schema must be valid against `validate!1/`.
   """
-  @spec list_required(JSV.raw_schema()) :: [atom()]
+  @spec list_required(JSV.native_schema()) :: [atom()]
   def list_required(schema) do
     list =
       case schema do

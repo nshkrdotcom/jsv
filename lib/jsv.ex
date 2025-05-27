@@ -58,7 +58,20 @@ defmodule JSV do
   to the guides provided in this documentation.
   """
 
-  @type raw_schema :: map() | boolean() | module()
+  @typedoc """
+  A schema in a JSON-decoded form: Only maps with binary keys and
+  binary/number/boolean/nil values, or a boolean.
+
+  The name refers to the process of _normalization_. A `t:native_schema/0` can
+  be turned into a `t:normal_schema/0` with the help of
+  `JSV.Schema.normalize/1`.
+  """
+  @type normal_schema :: boolean() | %{binary => normal_schema() | [normal_schema()]}
+
+  @typedoc """
+  A schema in native JSV/Elixir terms: maps with atoms, structs, and module.
+  """
+  @type native_schema :: boolean() | map() | module() | normal_schema()
   @opaque build_context :: record(:build_ctx, builder: Builder.t(), validators: Validator.validators())
 
   @default_default_meta "https://json-schema.org/draft/2020-12/schema"
@@ -152,7 +165,7 @@ defmodule JSV do
 
   #{NimbleOptions.docs(@build_opts_schema)}
   """
-  @spec build(JSV.raw_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
+  @spec build(native_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
   def build(raw_schema, opts \\ [])
 
   def build(valid?, _opts) when is_boolean(valid?) do
@@ -185,8 +198,7 @@ defmodule JSV do
 
   # TODO(types) here the input is a proto schema, and in the result we get a raw schema
   @doc false
-  @spec build_add(build_context(), JSV.raw_schema()) ::
-          {:ok, Key.t(), JSV.raw_schema(), build_context()} | {:error, term}
+  @spec build_add(build_context(), native_schema()) :: {:ok, Key.t(), normal_schema(), build_context()} | {:error, term}
   def build_add(build_ctx(builder: builder) = ctx, raw_schema) do
     with {:ok, raw_schema} <- ensure_map_schema(raw_schema),
          normal_schema = Schema.normalize(raw_schema),
@@ -311,7 +323,7 @@ defmodule JSV do
   @doc """
   Same as `build/2` but raises on error.
   """
-  @spec build!(JSV.raw_schema(), keyword) :: Root.t()
+  @spec build!(JSV.native_schema(), keyword) :: Root.t()
   def build!(raw_schema, opts \\ [])
 
   def build!(raw_schema, opts) do
