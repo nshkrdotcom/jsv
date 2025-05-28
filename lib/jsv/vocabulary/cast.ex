@@ -11,10 +11,8 @@ defmodule JSV.Vocabulary.Cast do
   end
 
   take_keyword :"jsv-cast", [module_str, arg], vds, builder, _ do
-    case StringExt.safe_string_to_existing_module(module_str) do
-      {:ok, module} -> {:ok, Map.put(vds, :"jsv-cast", {module, arg}), builder}
-      {:error, _} = err -> err
-    end
+    module = unwrap_ok(StringExt.safe_string_to_existing_module(module_str))
+    {Map.put(vds, :"jsv-cast", {module, arg}), builder}
   end
 
   ignore_any_keyword()

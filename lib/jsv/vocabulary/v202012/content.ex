@@ -13,18 +13,9 @@ defmodule JSV.Vocabulary.V202012.Content do
   end
 
   @impl true
-  take_keyword :contentMediaType, _, acc, builder, _ do
-    {:ok, acc, builder}
-  end
-
-  take_keyword :contentEncoding, _, acc, builder, _ do
-    {:ok, acc, builder}
-  end
-
-  take_keyword :contentSchema, _, acc, builder, _ do
-    {:ok, acc, builder}
-  end
-
+  consume_keyword :contentMediaType
+  consume_keyword :contentEncoding
+  consume_keyword :contentSchema
   ignore_any_keyword()
 
   @impl true

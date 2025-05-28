@@ -1,7 +1,6 @@
 defmodule JSV.Vocabulary.V202012.Applicator do
   alias JSV.Builder
   alias JSV.ErrorFormatter
-  alias JSV.Helpers.EnumExt
   alias JSV.Validator
   alias JSV.Vocabulary
   alias JSV.Vocabulary.V202012.Validation
@@ -18,25 +17,21 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   end
 
   take_keyword :properties, properties when is_map(properties) or is_boolean(properties), acc, builder, _ do
-    properties
-    |> EnumExt.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
-      # Support properties as atoms for atom schemas
-      k =
-        if is_atom(k) do
-          Atom.to_string(k)
-        else
-          k
-        end
+    {props_validators, builder} =
+      Enum.map_reduce(properties, builder, fn {k, pschema}, builder ->
+        # Support properties as atoms for atom schemas
+        k =
+          if is_atom(k) do
+            Atom.to_string(k)
+          else
+            k
+          end
 
-      case Builder.build_sub(pschema, [properties: k], builder) do
-        {:ok, subvalidators, builder} -> {:ok, {Map.put(acc, k, subvalidators), builder}}
-        {:error, _} = err -> err
-      end
-    end)
-    |> case do
-      {:ok, {subvalidators, builder}} -> {:ok, [{:properties, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+        {subvalidators, builder} = Builder.build_sub!(pschema, [properties: k], builder)
+        {{k, subvalidators}, builder}
+      end)
+
+    {[{:properties, Map.new(props_validators)} | acc], builder}
   end
 
   take_keyword :additionalProperties, additional_properties, acc, builder, _ do
@@ -44,17 +39,15 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   end
 
   take_keyword :patternProperties, pattern_properties, acc, builder, _ do
-    pattern_properties
-    |> EnumExt.reduce_ok({%{}, builder}, fn {k, pschema}, {acc, builder} ->
-      with {:ok, re} <- Regex.compile(k),
-           {:ok, subvalidators, builder} <- Builder.build_sub(pschema, [patternProperties: k], builder) do
-        {:ok, {Map.put(acc, {k, re}, subvalidators), builder}}
-      end
-    end)
-    |> case do
-      {:ok, {subvalidators, builder}} -> {:ok, [{:patternProperties, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {built_subs, builder} =
+      Enum.map_reduce(pattern_properties, builder, fn {k, pschema}, builder ->
+        re = unwrap_ok(Regex.compile(k))
+
+        {subvalidators, builder} = Builder.build_sub!(pschema, [patternProperties: k], builder)
+        {{{k, re}, subvalidators}, builder}
+      end)
+
+    {[{:patternProperties, Map.new(built_subs)} | acc], builder}
   end
 
   take_keyword :items, items, acc, builder, _ do
@@ -62,31 +55,23 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   end
 
   take_keyword :prefixItems, prefix_items when is_list(prefix_items), acc, builder, _ do
-    case build_sub_list(:prefixItems, prefix_items, builder) do
-      {:ok, subvalidators, builder} -> {:ok, [{:prefixItems, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {subvalidators, builder} = build_sub_list(:prefixItems, prefix_items, builder)
+    {[{:prefixItems, subvalidators} | acc], builder}
   end
 
   take_keyword :allOf, [_ | _] = all_of, acc, builder, _ do
-    case build_sub_list(:allOf, all_of, builder) do
-      {:ok, subvalidators, builder} -> {:ok, [{:allOf, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {subvalidators, builder} = build_sub_list(:allOf, all_of, builder)
+    {[{:allOf, subvalidators} | acc], builder}
   end
 
   take_keyword :anyOf, [_ | _] = any_of, acc, builder, _ do
-    case build_sub_list(:anyOf, any_of, builder) do
-      {:ok, subvalidators, builder} -> {:ok, [{:anyOf, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {subvalidators, builder} = build_sub_list(:anyOf, any_of, builder)
+    {[{:anyOf, subvalidators} | acc], builder}
   end
 
   take_keyword :oneOf, [_ | _] = one_of, acc, builder, _ do
-    case build_sub_list(:oneOf, one_of, builder) do
-      {:ok, subvalidators, builder} -> {:ok, [{:oneOf, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {subvalidators, builder} = build_sub_list(:oneOf, one_of, builder)
+    {[{:oneOf, subvalidators} | acc], builder}
   end
 
   take_keyword :if, if_schema, acc, builder, _ do
@@ -126,35 +111,64 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   end
 
   take_keyword :dependentSchemas, dependent_schemas when is_map(dependent_schemas), acc, builder, _ do
-    dependent_schemas
-    |> EnumExt.reduce_ok({%{}, builder}, fn {k, depschema}, {acc, builder} ->
-      case Builder.build_sub(depschema, [k], builder) do
-        {:ok, subvalidators, builder} -> {:ok, {Map.put(acc, k, subvalidators), builder}}
-        {:error, _} = err -> err
-      end
-    end)
-    |> case do
-      {:ok, {subvalidators, builder}} -> {:ok, [{:dependentSchemas, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {built_dependent, builder} = build_dependent_schemas(dependent_schemas, builder)
+    {[{:dependentSchemas, built_dependent} | acc], builder}
   end
 
-  take_keyword :dependencies, map when is_map(map), acc, builder, raw_schema do
+  defp build_dependent_schemas(dependent_schemas, builder) do
+    {built_dependent, builder} =
+      Enum.map_reduce(dependent_schemas, builder, fn {k, depschema}, builder ->
+        {subvalidators, builder} = Builder.build_sub!(depschema, [k], builder)
+        {{k, subvalidators}, builder}
+      end)
+
+    {Map.new(built_dependent), builder}
+  end
+
+  # dependencies is an old keyword. It is a map of prop-name (parent) to a list
+  # of prop-names (requirements) or a sub schema.
+  #
+  # * for each par in the dependencies,
+  #   * if the data is an object (a map) and the map contains the `parent` key
+  #     * if the dependencies is a list of requirements, the data must also
+  #       define those keys
+  #     * if the dependencies is a schema, the data must validate against the
+  #       schema
+  #
+  # So for instance, if the "foo" key is defined, we can require that the "bar"
+  # key must also be present by passing the list ["bar"], or by passing a
+  # subschema with {"required": ["bar"]}
+  take_keyword :dependencies, map when is_map(map), acc, builder, _raw_schema do
     {dependent_schemas, dependent_required} =
       Enum.reduce(map, {[], []}, fn {key, subschema}, {dependent_schemas, dependent_required} ->
         cond do
+          # dependency is a list of keys, we add it as a dependentRequired
+          # validation.
           is_list(subschema) && Enum.all?(subschema, &is_binary/1) ->
             {dependent_schemas, [{key, subschema} | dependent_required]}
 
+          # dependency is a sub schema, we add it as a dependentSchemas
+          # validation.
           is_boolean(subschema) || is_map(subschema) ->
             {[{key, subschema} | dependent_schemas], dependent_required}
         end
       end)
 
-    with {:ok, acc, builder} <-
-           handle_keyword({"dependentSchemas", Map.new(dependent_schemas)}, acc, builder, raw_schema) do
-      {:ok, [{:dependentRequired, dependent_required} | acc], builder}
-    end
+    acc =
+      case dependent_required do
+        [] -> acc
+        list -> [{:dependentRequired, list} | acc]
+      end
+
+    {_acc, _builder} =
+      case dependent_schemas do
+        [] ->
+          {acc, builder}
+
+        list ->
+          {built_dependent, builder} = build_dependent_schemas(list, builder)
+          {[{:dependentSchemas, built_dependent} | acc], builder}
+      end
   end
 
   take_keyword :not, subschema, acc, builder, _ do
@@ -166,20 +180,12 @@ defmodule JSV.Vocabulary.V202012.Applicator do
   # ---------------------------------------------------------------------------
 
   defp build_sub_list(keyword, subschemas, builder) do
-    subs =
+    {_subvalidators, _builder} =
       subschemas
       |> Enum.with_index()
-      |> EnumExt.reduce_ok({[], builder}, fn {subschema, index}, {acc, builder} ->
-        case Builder.build_sub(subschema, [path_segment(keyword, index)], builder) do
-          {:ok, subvalidators, builder} -> {:ok, {[subvalidators | acc], builder}}
-          {:error, _} = err -> err
-        end
+      |> Enum.map_reduce(builder, fn {subschema, index}, builder ->
+        {_subvalidators, _builder} = Builder.build_sub!(subschema, [path_segment(keyword, index)], builder)
       end)
-
-    case subs do
-      {:ok, {subvalidators, builder}} -> {:ok, :lists.reverse(subvalidators), builder}
-      {:error, _} = err -> err
-    end
   end
 
   # ---------------------------------------------------------------------------

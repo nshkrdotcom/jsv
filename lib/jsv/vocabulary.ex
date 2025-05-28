@@ -35,8 +35,7 @@ defmodule JSV.Vocabulary do
   @type pair :: {binary, term}
   @type data :: %{optional(binary) => data} | [data] | binary | boolean | number | nil
   @callback init_validators(keyword) :: acc
-  @callback handle_keyword(pair, acc, Builder.t(), raw_schema :: term) ::
-              {:ok, acc, Builder.t()} | :ignore | {:error, term}
+  @callback handle_keyword(pair, acc, Builder.t(), raw_schema :: term) :: {acc, Builder.t()} | :ignore
   @callback finalize_validators(acc) :: :ignore | collection
   @callback validate(data, collection, vctx :: Validator.context()) :: Validator.result()
   @callback format_error(atom, %{optional(atom) => term}, data) ::
@@ -94,6 +93,7 @@ defmodule JSV.Vocabulary do
     quote do
       import unquote(__MODULE__)
       @behaviour unquote(__MODULE__)
+      import JSV.Builder, only: [unwrap_ok: 1]
       require JSV.Validator
       unquote(priority_callback)
     end
@@ -230,7 +230,7 @@ defmodule JSV.Vocabulary do
 
     quote do
       def handle_keyword({unquote(string_form), _}, acc, builder, _) do
-        {:ok, acc, builder}
+        {acc, builder}
       end
     end
   end
@@ -295,8 +295,7 @@ defmodule JSV.Vocabulary do
   Gives the sub raw schema to the builder and adds the build result in the list
   accumulator as a 2-tuple with the given `key`.
   """
-  @spec take_sub(Builder.path_segment(), JSV.normal_schema(), list, Builder.t()) ::
-          {:ok, list, Builder.t()} | {:error, term}
+  @spec take_sub(Builder.path_segment(), JSV.normal_schema(), list, Builder.t()) :: {list, Builder.t()}
   def take_sub(key, sub_raw_schema, acc, builder) when is_list(acc) do
     take_sub(key, key, sub_raw_schema, acc, builder)
   end
@@ -306,12 +305,10 @@ defmodule JSV.Vocabulary do
   `schemaLocation` of the built subschema.
   """
   @spec take_sub(Builder.path_segment(), Builder.path_segment(), JSV.normal_schema(), list, Builder.t()) ::
-          {:ok, list, Builder.t()} | {:error, term}
+          {list, Builder.t()}
   def take_sub(key, path_segment, sub_raw_schema, acc, builder) when is_list(acc) do
-    case Builder.build_sub(sub_raw_schema, [path_segment], builder) do
-      {:ok, subvalidators, builder} -> {:ok, [{key, subvalidators} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {subvalidators, builder} = Builder.build_sub!(sub_raw_schema, [path_segment], builder)
+    {[{key, subvalidators} | acc], builder}
   end
 
   @doc """
@@ -321,11 +318,11 @@ defmodule JSV.Vocabulary do
   Fails if the value is not an integer. Floats with zero-fractional (as `123.0`)
   will be accepted and converted to integer, as the JSON Schema spec dictates.
   """
-  @spec take_integer(Builder.path_segment(), integer | term, list, Builder.t()) ::
-          {:ok, list, Builder.t()} | {:error, binary}
+  @spec take_integer(Builder.path_segment(), integer | term, list, Builder.t()) :: {list, Builder.t()}
   def take_integer(key, n, acc, builder) when is_list(acc) do
-    with {:ok, n} <- force_integer(n) do
-      {:ok, [{key, n} | acc], builder}
+    case force_integer(n) do
+      {:ok, n} -> {[{key, n} | acc], builder}
+      :error -> Builder.fail(builder, {:invalid_integer, n}, :take_integer)
     end
   end
 
@@ -337,12 +334,12 @@ defmodule JSV.Vocabulary do
     if Math.fractional_is_zero?(n) do
       {:ok, Math.trunc(n)}
     else
-      {:error, "not an integer: #{inspect(n)}"}
+      :error
     end
   end
 
-  defp force_integer(other) do
-    {:error, "not an integer: #{inspect(other)}"}
+  defp force_integer(_) do
+    :error
   end
 
   @doc """
@@ -351,19 +348,11 @@ defmodule JSV.Vocabulary do
 
   Fails if the value is not a number.
   """
-  @spec take_number(Builder.path_segment(), number | term, list, Builder.t()) ::
-          {:ok, list, Builder.t()} | {:error, binary}
+  @spec take_number(Builder.path_segment(), number | term, list, Builder.t()) :: {list, Builder.t()}
   def take_number(key, n, acc, builder) when is_list(acc) do
-    with :ok <- check_number(n) do
-      {:ok, [{key, n} | acc], builder}
+    case is_number(n) do
+      true -> {[{key, n} | acc], builder}
+      false -> Builder.fail(builder, {:invalid_number, n}, :take_number)
     end
-  end
-
-  defp check_number(n) when is_number(n) do
-    :ok
-  end
-
-  defp check_number(other) do
-    {:error, "not a number: #{inspect(other)}"}
   end
 end

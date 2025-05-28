@@ -30,19 +30,19 @@ defmodule JSV.CustomVocabulariesTest do
         # priority is 50 so very high (lower figure is is higher priority) so we
         # will be called with both keywords
         |> expect(:handle_keyword, 2, fn
-          {"type", "integer"}, :some_state, builder, _schema -> {:ok, :some_new_state, builder}
+          {"type", "integer"}, :some_state, builder, _schema -> {:some_new_state, builder}
           {"$schema", _}, _state, _builder, _schema -> :ignore
         end)
         |> expect(:finalize_validators, fn :some_new_state -> :some_final_state end)
 
       # We should be able to build
 
-      assert {:ok, root} =
-               JSV.build(schema,
-                 vocabularies: %{
-                   "https://json-schema.org/draft/2020-12/vocab/validation" => {custom, [some_opt: 123]}
-                 }
-               )
+      root =
+        JSV.build!(schema,
+          vocabularies: %{
+            "https://json-schema.org/draft/2020-12/vocab/validation" => {custom, [some_opt: 123]}
+          }
+        )
 
       # Now the data will be validated according to our implementation that
       # accepts numerical strings.

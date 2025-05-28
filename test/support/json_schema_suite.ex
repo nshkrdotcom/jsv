@@ -117,19 +117,15 @@ defmodule JSV.Test.JsonSchemaSuite do
   end
 
   def build_schema(json_schema, build_opts) do
-    case JSV.build(json_schema, [resolver: {JSV.Test.TestResolver, [fake_opts: true]}] ++ build_opts) do
-      {:ok, schema} -> schema
-      {:error, reason} -> flunk(denorm_failure(json_schema, reason, []))
-    end
+    JSV.build!(json_schema, [resolver: {JSV.Test.TestResolver, [fake_opts: true]}] ++ build_opts)
   rescue
-    e in FunctionClauseError ->
-      IO.puts(denorm_failure(json_schema, e, __STACKTRACE__))
-      reraise e, __STACKTRACE__
+    # credo:disable-for-next-line Credo.Check.Warning.RaiseInsideRescue
+    e -> raise build_errmsg(json_schema, e, __STACKTRACE__)
   end
 
-  defp denorm_failure(json_schema, reason, stacktrace) do
+  defp build_errmsg(json_schema, reason, stacktrace) do
     """
-    Failed to denormalize schema.
+    could not build schema
 
     SCHEMA
     #{inspect(json_schema, pretty: true)}

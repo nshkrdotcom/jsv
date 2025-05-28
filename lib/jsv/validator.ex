@@ -115,12 +115,10 @@ defmodule JSV.Validator do
   in the end if some error arose.
   """
   @spec reduce(Enumerable.t(), term, context, function) :: result
-  def reduce(enum, init, vctx, fun) when is_function(fun, 3) do
+  def reduce(enum, accin, vctx, fun) when is_function(fun, 3) do
     {new_acc, new_vctx} =
-      Enum.reduce(enum, {init, vctx}, fn item, {acc, vctx} ->
-        res = fun.(item, acc, vctx)
-
-        case res do
+      Enum.reduce(enum, {accin, vctx}, fn item, {acc, vctx} ->
+        case fun.(item, acc, vctx) do
           # When returning :ok, the errors may be empty or not, depending on
           # previous iterations.
           {:ok, new_acc, new_vctx} ->
@@ -131,7 +129,7 @@ defmodule JSV.Validator do
             {acc, new_vctx}
 
           other ->
-            raise "Invalid return from #{inspect(fun)} called with #{inspect(item)}: #{inspect(other)}"
+            raise "Invalid return from #{Exception.format_fa(fun, 3)}, expected {:ok, acc, context} or {:error, term}, got: #{inspect(other)}"
         end
       end)
 

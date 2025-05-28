@@ -70,10 +70,10 @@ defmodule JSV.Resolver do
   end
 
   @doc false
-  @spec put_cached(t, binary | :root, JSV.normal_schema()) :: {:ok, t} | {:error, :already_cached}
+  @spec put_cached(t, binary | :root, JSV.normal_schema()) :: {:ok, t} | {:error, {:key_exists, term}}
   def put_cached(rsv, ext_id, raw_schema) when is_map(raw_schema) and (is_binary(ext_id) or :root == ext_id) do
     case rsv.fetch_cache do
-      %{^ext_id => _} -> {:error, :already_cached}
+      %{^ext_id => _} -> {:error, {:key_exists, ext_id}}
       fetch_cache -> {:ok, %__MODULE__{rsv | fetch_cache: Map.put(fetch_cache, ext_id, raw_schema)}}
     end
   end

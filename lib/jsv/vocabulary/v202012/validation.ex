@@ -1,4 +1,5 @@
 defmodule JSV.Vocabulary.V202012.Validation do
+  alias JSV.Builder
   alias JSV.Codec
   alias JSV.Helpers.Math
   alias JSV.Validator
@@ -15,7 +16,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
   end
 
   take_keyword :type, t, vds, builder, _ do
-    {:ok, [{:type, valid_type!(t)} | vds], builder}
+    {[{:type, unwrap_ok(valid_type(t))} | vds], builder}
   end
 
   take_keyword :maximum, maximum, acc, builder, _ do
@@ -43,11 +44,11 @@ defmodule JSV.Vocabulary.V202012.Validation do
   end
 
   take_keyword :required, required when is_list(required), acc, builder, _ do
-    {:ok, [{:required, required} | acc], builder}
+    {[{:required, required} | acc], builder}
   end
 
-  take_keyword :multipleOf, zero when zero in [0, 0.0, -0.0], _acc, _builder, _ do
-    {:error, "mutipleOf zero is not allowed"}
+  take_keyword :multipleOf, zero when zero in [0, 0.0, -0.0], _acc, builder, _ do
+    Builder.fail(builder, "mutipleOf zero is not allowed", :multipleOf)
   end
 
   take_keyword :multipleOf, multiple_of, acc, builder, _ do
@@ -55,7 +56,7 @@ defmodule JSV.Vocabulary.V202012.Validation do
   end
 
   take_keyword :const, const, acc, builder, _ do
-    {:ok, [{:const, const} | acc], builder}
+    {[{:const, const} | acc], builder}
   end
 
   take_keyword :maxLength, max_length, acc, builder, _ do
@@ -75,31 +76,53 @@ defmodule JSV.Vocabulary.V202012.Validation do
   end
 
   take_keyword :enum, enum, acc, builder, _ do
-    {:ok, [{:enum, enum} | acc], builder}
+    {[{:enum, enum} | acc], builder}
   end
 
   take_keyword :pattern, pattern, acc, builder, _ do
-    case Regex.compile(pattern) do
-      {:ok, re} -> {:ok, [{:pattern, re} | acc], builder}
-      {:error, _} -> {:error, {:invalid_pattern, pattern}}
-    end
+    re = unwrap_ok(Regex.compile(pattern))
+    {[{:pattern, re} | acc], builder}
   end
 
   take_keyword :uniqueItems, unique?, acc, builder, _ do
     if unique? do
-      {:ok, [{:uniqueItems, true} | acc], builder}
+      {[{:uniqueItems, true} | acc], builder}
     else
-      {:ok, acc, builder}
+      {acc, builder}
     end
   end
 
   take_keyword :dependentRequired, dependent_required, acc, builder, _ do
-    {:ok, [{:dependentRequired, dependent_required} | acc], builder}
+    {[{:dependentRequired, dependent_required} | acc], builder}
   end
 
   # minContains/maxContains is handled by the Applicator module IF the validation vocabulary is
   # enabled
   ignore_any_keyword()
+
+  defp valid_type([h | t]) do
+    with {:ok, new_t} <- valid_type(t),
+         {:ok, new_h} <- valid_type(h) do
+      {:ok, [new_h | new_t]}
+    end
+  end
+
+  defp valid_type([]) do
+    {:ok, []}
+  end
+
+  defp valid_type(type) do
+    case type do
+      "array" -> {:ok, :array}
+      "object" -> {:ok, :object}
+      "null" -> {:ok, :null}
+      "boolean" -> {:ok, :boolean}
+      "string" -> {:ok, :string}
+      "integer" -> {:ok, :integer}
+      "number" -> {:ok, :number}
+      other -> {:error, {:invalid_type, other}}
+    end
+  end
 
   # ---------------------------------------------------------------------------
 
@@ -110,40 +133,6 @@ defmodule JSV.Vocabulary.V202012.Validation do
 
   def finalize_validators(list) do
     list
-  end
-
-  # -----------------------------------------------------------------------------
-
-  defp valid_type!(list) when is_list(list) do
-    Enum.map(list, &valid_type!/1)
-  end
-
-  defp valid_type!("array") do
-    :array
-  end
-
-  defp valid_type!("object") do
-    :object
-  end
-
-  defp valid_type!("null") do
-    :null
-  end
-
-  defp valid_type!("boolean") do
-    :boolean
-  end
-
-  defp valid_type!("string") do
-    :string
-  end
-
-  defp valid_type!("integer") do
-    :integer
-  end
-
-  defp valid_type!("number") do
-    :number
   end
 
   @impl true

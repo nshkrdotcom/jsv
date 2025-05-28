@@ -15,6 +15,7 @@
     defcast: 1,
     defcast: 2,
     defcast: 3,
-    with_decimal: 1
+    with_decimal: 1,
+    debang: 1
   ]
 ]

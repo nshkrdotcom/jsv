@@ -135,19 +135,23 @@ defmodule JSV.ErrorFormatter do
     IO.iodata_to_binary(["#" | iodata])
   end
 
-  # defp format_schema_path([]) do
-  #   "#"
-  # end
+  @doc false
+  @spec format_schema_path([term] | Validator.validator()) :: binary
+  def format_schema_path(rev_path)
 
-  defp format_schema_path(rev_path) when is_list(rev_path) do
+  def format_schema_path([]) do
+    "#"
+  end
+
+  def format_schema_path(rev_path) when is_list(rev_path) do
     format_schema_path(rev_path, [])
   end
 
-  defp format_schema_path({:alias_of, key}) do
+  def format_schema_path({:alias_of, key}) do
     [Key.to_iodata(key)]
   end
 
-  defp format_schema_path(%{schema_path: sp}) do
+  def format_schema_path(%{schema_path: sp}) do
     format_schema_path(sp)
   end
 

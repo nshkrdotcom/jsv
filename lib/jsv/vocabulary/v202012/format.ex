@@ -1,4 +1,5 @@
 defmodule JSV.Vocabulary.V202012.Format do
+  alias JSV.Builder
   alias JSV.Validator
   use JSV.Vocabulary, priority: 700
 
@@ -7,8 +8,6 @@ defmodule JSV.Vocabulary.V202012.Format do
   `https://json-schema.org/draft/2020-12/vocab/format-annotation` and
   `https://json-schema.org/draft/2020-12/vocab/format-assertion` vocabularies.
   """
-
-  @default_validators JSV.default_format_validator_modules()
 
   @impl true
   def init_validators(opts) do
@@ -40,7 +39,7 @@ defmodule JSV.Vocabulary.V202012.Format do
       end
 
     case validator_mods do
-      :none -> {:ok, acc, builder}
+      :none -> {acc, builder}
       _ -> add_format(validator_mods, format, acc, builder)
     end
   end
@@ -52,13 +51,13 @@ defmodule JSV.Vocabulary.V202012.Format do
   end
 
   defp validation_modules_or_none(true) do
-    @default_validators
+    JSV.default_format_validator_modules()
   end
 
   defp add_format(validator_mods, format, acc, builder) do
     case Enum.find(validator_mods, :__no_mod__, fn mod -> format in mod.supported_formats() end) do
-      :__no_mod__ -> {:error, {:unsupported_format, format}}
-      module -> {:ok, Map.put(acc, :format, {module, format}), builder}
+      :__no_mod__ -> Builder.fail(builder, {:unsupported_format, format}, nil)
+      module -> {Map.put(acc, :format, {module, format}), builder}
     end
   end
 

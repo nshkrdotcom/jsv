@@ -27,19 +27,15 @@ defmodule JSV.Vocabulary.V7.Core do
           current_ns
       end
 
-    with {:ok, ref} <- Ref.parse(raw_ref, ref_relative_to_ns) do
-      # reset the acc as $ref overrides any other keyword
-      Fallback.ok_put_ref(ref, :"$ref", [], builder)
-    end
+    ref = unwrap_ok(Ref.parse(raw_ref, ref_relative_to_ns))
+    Fallback.put_ref(ref, :"$ref", [], builder)
   end
 
-  take_keyword :definitions, _defs, acc, builder, _ do
-    {:ok, acc, builder}
-  end
+  consume_keyword :definitions
 
-  # $ref overrides any other keyword
+  # $ref overrides any other keyword in Draft7
   def handle_keyword(_kw_tuple, acc, builder, raw_schema) when is_map_key(raw_schema, "$ref") do
-    {:ok, acc, builder}
+    {acc, builder}
   end
 
   defdelegate handle_keyword(kw_tuple, acc, builder, raw_schema), to: Fallback

@@ -1,6 +1,5 @@
 defmodule JSV.Vocabulary.V7.Applicator do
   alias JSV.Builder
-  alias JSV.Helpers.EnumExt
   alias JSV.Validator
   alias JSV.Vocabulary.V202012.Applicator, as: Fallback
   use JSV.Vocabulary, priority: 200
@@ -22,17 +21,12 @@ defmodule JSV.Vocabulary.V7.Applicator do
   end
 
   take_keyword :items, items when is_list(items), acc, builder, _ do
-    items
-    |> EnumExt.reduce_ok({[], builder}, fn item, {subacc, builder} ->
-      case Builder.build_sub(item, [:items], builder) do
-        {:ok, subvalidators, builder} -> {:ok, {[subvalidators | subacc], builder}}
-        {:error, _} = err -> err
-      end
-    end)
-    |> case do
-      {:ok, {subvalidators, builder}} -> {:ok, [{:items, :lists.reverse(subvalidators)} | acc], builder}
-      {:error, _} = err -> err
-    end
+    {subvalidators, builder} =
+      Enum.map_reduce(items, builder, fn item, builder ->
+        {_subvalidators, _builder} = Builder.build_sub!(item, [:items], builder)
+      end)
+
+    {[{:items, subvalidators} | acc], builder}
   end
 
   def handle_keyword(pair, acc, builder, raw_schema) do

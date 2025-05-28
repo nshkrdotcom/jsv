@@ -21,6 +21,36 @@ defmodule JSV.BuilderTest do
       assert {:ok, root} = JSV.build(raw_schema)
       assert {:ok, 1} = JSV.validate(1, root)
     end
+
+    test "returns a build error" do
+      raw_schema = %{
+        properties: %{foo: %{properties: %{bar: %{properties: %{baz: %{type: "bad type"}}}}}}
+      }
+
+      assert {:error, err} = JSV.build(raw_schema)
+
+      assert %{
+               build_path: "#/properties/foo/properties/bar/properties/baz",
+               action: {JSV.Vocabulary.V202012.Validation, :valid_type, ["bad type"]},
+               reason: {:invalid_type, "bad type"}
+             } = err
+    end
+
+    # TODO this should be fixed so we get the actual build path for refs
+    #
+    # test "returns a correct build error for resolver errors" do
+    #   raw_schema = %{
+    #     properties: %{foo: %{properties: %{bar: %{properties: %{baz: %{"$ref": "http://some-unknown-ref"}}}}}}
+    #   }
+
+    #   assert {:error, err} = JSV.build(raw_schema)
+    #   err |> dbg()
+
+    #   assert %{
+    #            action: {JSV.Resolver, :resolve, _},
+    #            build_path: "#/properties/foo/properties/bar/properties/baz/$ref"
+    #          } = err
+    # end
   end
 
   describe "building multi-entrypoint schemas" do
@@ -35,7 +65,7 @@ defmodule JSV.BuilderTest do
       assert {:ok, ctx} = JSV.build_init([])
       assert {:ok, :root, ^expected_normal, ctx} = JSV.build_add(ctx, document)
       assert {:ok, key, ctx} = JSV.build_key(ctx, Ref.parse!("#/nested/map/with/schema", :root))
-      assert {:ok, root} = JSV.build_root(ctx, :root)
+      root = JSV.build_root!(ctx, :root)
 
       # The root does not have a build for the root schema
       refute is_map_key(root.validators, :root)
@@ -99,7 +129,7 @@ defmodule JSV.BuilderTest do
       schema_str = %{type: :string}
       assert {:ok, ctx} = JSV.build_init([])
       assert {:ok, :root, _, ctx} = JSV.build_add(ctx, schema_int)
-      assert {:error, {:duplicate_ns, :root}} = JSV.build_add(ctx, schema_str)
+      assert {:error, %JSV.BuildError{reason: {:key_exists, :root}}} = JSV.build_add(ctx, schema_str)
     end
 
     test "can build two documents" do

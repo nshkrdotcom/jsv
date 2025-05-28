@@ -1,6 +1,7 @@
 defmodule JSV.Builder do
   alias JSV.BooleanSchema
-  alias JSV.Helpers.EnumExt
+  alias JSV.BuildError
+  alias JSV.ErrorFormatter
   alias JSV.Key
   alias JSV.Ref
   alias JSV.Resolver
@@ -13,7 +14,7 @@ defmodule JSV.Builder do
   Internal logic to build raw schemas into `JSV.Root` structs.
   """
 
-  @derive {Inspect, except: []}
+  @derive {Inspect, only: [:ns, :current_rev_path]}
   @enforce_keys [:resolver]
   defstruct resolver: nil,
             staged: [],
@@ -28,6 +29,47 @@ defmodule JSV.Builder do
   @type resolvable :: Resolver.resolvable()
   @type buildable :: {:resolved, resolvable} | resolvable
   @type path_segment :: binary | non_neg_integer | atom | {atom, term}
+
+  @doc false
+  defmacro unwrap_ok(call) do
+    if !Macro.Env.has_var?(__CALLER__, {:builder, nil}) do
+      raise "unwrap_ok requires a `builder` variable to be defined in scope"
+    end
+
+    errcall = quoted_call_parts(call, __CALLER__.module)
+
+    quote generated: true do
+      case unquote(call) do
+        {:ok, value} -> value
+        {:error, reason} -> unquote(__MODULE__).fail(var!(builder), reason, unquote(errcall))
+        :error -> unquote(__MODULE__).fail(var!(builder), :error, unquote(errcall))
+      end
+    end
+  end
+
+  defmacrop unwrap_ok_resolver(call) do
+    errcall = quoted_call_parts(call, __CALLER__.module)
+
+    quote generated: true do
+      case unquote(call) do
+        {:ok, value} -> value
+        {:error, reason} -> unquote(__MODULE__).fail(var!(builder), reason, unquote(errcall))
+        :error -> unquote(__MODULE__).fail(var!(builder), :error, unquote(errcall))
+      end
+    end
+  end
+
+  defp quoted_call_parts(call, module) do
+    {m, f, a} =
+      case Macro.decompose_call(call) do
+        {m, f, a} -> {m, f, a}
+        {f, a} -> {module, f, a}
+      end
+
+    quote do
+      {unquote(m), unquote(f), unquote(a)}
+    end
+  end
 
   @doc """
   Returns a new builder. Builders are not reusable ; a fresh builder must be
@@ -49,8 +91,8 @@ defmodule JSV.Builder do
   @doc """
   Builds the given key into the given validators.
   """
-  @spec build(t, Key.t(), Validator.validators()) :: {:ok, Validator.validators(), t} | {:error, term}
-  def build(builder, key, validators) do
+  @spec build!(t, Key.t(), Validator.validators()) :: {Validator.validators(), t}
+  def build!(builder, key, validators) do
     builder
     |> stage_build(key)
     |> build_all_staged(validators)
@@ -65,14 +107,14 @@ defmodule JSV.Builder do
     %__MODULE__{builder | staged: append_unique(staged, buildable)}
   end
 
-  # TODO raw_schema type should be only binmap/bool
-
-  @spec add_schema(t, Key.t(), JSV.normal_schema()) :: {:ok, t} | {:error, term}
-  def add_schema(builder, key, schema) do
-    case Resolver.put_cached(builder.resolver, key, schema) do
-      {:ok, rsv} -> {:ok, %{builder | resolver: rsv}}
-      {:error, :already_cached} -> {:error, {:duplicate_ns, key}}
-    end
+  @doc """
+  Adds a schema under the given key to the build, so that key or references to
+  this schema or its subschemas become buildable.
+  """
+  @spec add_schema!(t, Key.t(), JSV.normal_schema()) :: t
+  def add_schema!(builder, key, schema) do
+    rsv = unwrap_ok_resolver(Resolver.put_cached(builder.resolver, key, schema))
+    %{builder | resolver: rsv}
   end
 
   defp append_unique([same | t], same) do
@@ -91,21 +133,19 @@ defmodule JSV.Builder do
   Ensures that the remote resource that the given reference or key points to is
   fetched in the builder internal cache
   """
-  @spec ensure_resolved(t, resolvable) :: {:ok, t} | {:error, {:resolver_error, term}}
-  def ensure_resolved(%{resolver: resolver} = builder, resolvable) do
-    case Resolver.resolve(resolver, resolvable) do
-      {:ok, resolver} -> {:ok, %__MODULE__{builder | resolver: resolver}}
-      {:error, _} = err -> err
-    end
+  @spec ensure_resolved!(t, resolvable) :: t
+  def ensure_resolved!(%{resolver: resolver} = builder, resolvable) do
+    resolver = unwrap_ok_resolver(Resolver.resolve(resolver, resolvable))
+    %__MODULE__{builder | resolver: resolver}
   end
 
   @doc """
   Returns the raw schema identified by the given key. Use `ensure_resolved/2`
   before if the resource may not have been fetched.
   """
-  @spec fetch_resolved(t, Key.t()) :: {:ok, Resolved.t() | {:alias_of, Key.t()}} | {:error, term}
-  def fetch_resolved(%{resolver: resolver}, key) do
-    Resolver.fetch_resolved(resolver, key)
+  @spec fetch_resolved!(t, Key.t()) :: Resolved.t() | {:alias_of, Key.t()}
+  def fetch_resolved!(%{resolver: resolver} = builder, key) do
+    unwrap_ok_resolver(Resolver.fetch_resolved(resolver, key))
   end
 
   defp take_staged(%{staged: []}) do
@@ -137,13 +177,14 @@ defmodule JSV.Builder do
 
     case take_staged(builder) do
       {{:resolved, vkey}, builder} ->
-        with :buildable <- check_not_built(all_validators, vkey),
-             {:ok, resolved} <- Resolver.fetch_resolved(builder.resolver, vkey),
-             {:ok, schema_validators, builder} <- build_resolved(builder, resolved) do
-          build_all_staged(builder, register_validator(all_validators, vkey, schema_validators))
-        else
-          {:already_built, _} -> build_all_staged(builder, all_validators)
-          {:error, _} = err -> err
+        case check_not_built(all_validators, vkey) do
+          :buildable ->
+            resolved = fetch_resolved!(builder, vkey)
+            {schema_validators, builder} = build_resolved(builder, resolved)
+            build_all_staged(builder, register_validator(all_validators, vkey, schema_validators))
+
+          :already_built ->
+            build_all_staged(builder, all_validators)
         end
 
       {%Ref{kind: :anchor, dynamic?: true, arg: anchor}, builder} ->
@@ -151,20 +192,19 @@ defmodule JSV.Builder do
         build_all_staged(builder, all_validators)
 
       {resolvable, builder} when is_binary(resolvable) when is_struct(resolvable, Ref) when :root == resolvable ->
-        with :buildable <- check_not_built(all_validators, Key.of(resolvable)),
-             {:ok, builder} <- resolve_and_stage(builder, resolvable) do
-          build_all_staged(builder, all_validators)
-        else
-          {:already_built, _} -> build_all_staged(builder, all_validators)
-          {:error, _} = err -> err
+        case check_not_built(all_validators, Key.of(resolvable)) do
+          :buildable ->
+            builder = resolve_and_stage(builder, resolvable)
+            build_all_staged(builder, all_validators)
+
+          :already_built ->
+            build_all_staged(builder, all_validators)
         end
 
       # Finally there is nothing more to build
       :empty ->
-        {:ok, all_validators, builder}
+        {all_validators, builder}
     end
-  catch
-    {:thrown_build_error, reason} -> {:error, reason}
   end
 
   defp register_validator(all_validators, vkey, schema_validators) do
@@ -174,10 +214,9 @@ defmodule JSV.Builder do
   defp resolve_and_stage(builder, resolvable) do
     vkey = Key.of(resolvable)
 
-    case ensure_resolved(builder, resolvable) do
-      {:ok, new_builder} -> {:ok, stage_build(new_builder, {:resolved, vkey})}
-      {:error, _} = err -> err
-    end
+    builder
+    |> ensure_resolved!(resolvable)
+    |> stage_build({:resolved, vkey})
   end
 
   defp stage_dynamic_anchors(builder, anchor) do
@@ -210,7 +249,7 @@ defmodule JSV.Builder do
 
   defp check_not_built(all_validators, vkey) do
     case is_map_key(all_validators, vkey) do
-      true -> {:already_built, vkey}
+      true -> :already_built
       false -> :buildable
     end
   end
@@ -225,59 +264,54 @@ defmodule JSV.Builder do
     #
     # Since this key is provided by the resolver we have the guarantee that the
     # alias target is actually resolved already.
-    {:ok, {:alias_of, key}, stage_build(builder, {:resolved, key})}
+    {{:alias_of, key}, stage_build(builder, {:resolved, key})}
   end
 
   defp build_resolved(builder, resolved) do
     %Resolved{meta: meta, ns: ns, parent_ns: parent_ns, rev_path: rev_path} = resolved
 
-    with {:ok, raw_vocabularies} <- fetch_vocabulary(builder, meta),
-         {:ok, vocabularies} <- load_vocabularies(builder, raw_vocabularies) do
-      builder = %__MODULE__{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
-      # Here we call `do_build_sub` directly instead of `build_sub` because in
-      # this case, if the sub schema has an $id we want to actually build it
-      # and not register an alias.
-      #
-      # We set the current_rev_path on the builder because if the vocabulary
-      # module recursively calls build_sub we will need the current path
-      # later.
+    raw_vocabularies = fetch_vocabulary(builder, meta)
+    vocabularies = load_vocabularies(builder, raw_vocabularies)
 
-      with_current_path(builder, rev_path, fn builder ->
-        do_build_sub(resolved.raw, rev_path, builder)
-      end)
-    else
-      {:error, _} = err ->
-        err
-    end
+    builder = %__MODULE__{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
+    # Here we call `do_build_sub` directly instead of `build_sub` because in
+    # this case, if the sub schema has an $id we want to actually build it
+    # and not register an alias.
+    #
+    # We set the current_rev_path on the builder because if the vocabulary
+    # module recursively calls build_sub we will need the current path
+    # later.
+
+    with_current_path(builder, rev_path, fn builder ->
+      do_build_sub(resolved.raw, rev_path, builder)
+    end)
   end
 
   defp with_current_path(builder, rev_path, fun) do
     previous_rev_path = builder.current_rev_path
 
     next = %__MODULE__{builder | current_rev_path: rev_path}
-
-    case fun.(next) do
-      {:ok, value, %__MODULE__{} = new_builder} ->
-        {:ok, value, %__MODULE__{new_builder | current_rev_path: previous_rev_path}}
-    end
+    {value, %__MODULE__{} = new_builder} = fun.(next)
+    {value, %__MODULE__{new_builder | current_rev_path: previous_rev_path}}
   end
 
   defp fetch_vocabulary(builder, meta) do
-    Resolver.fetch_vocabulary(builder.resolver, meta)
+    unwrap_ok_resolver(Resolver.fetch_vocabulary(builder.resolver, meta))
   end
 
   @doc """
   Builds a subschema. Called from vocabulary modules to build nested schemas
   such as in properties, if/else, items, etc.
   """
-  @spec build_sub(JSV.normal_schema(), [path_segment()], t) :: {:ok, Validator.validator(), t} | {:error, term}
-  def build_sub(%{"$id" => id}, _add_rev_path, builder) do
-    with {:ok, key} <- RNS.derive(builder.ns, id) do
-      {:ok, {:alias_of, key}, stage_build(builder, key)}
+  @spec build_sub!(JSV.normal_schema(), [path_segment()], t) :: {Validator.validator(), t} | {:error, term}
+  def build_sub!(%{"$id" => id}, _add_rev_path, builder) do
+    case RNS.derive(builder.ns, id) do
+      {:ok, key} -> {{:alias_of, key}, stage_build(builder, key)}
+      {:error, reason} -> fail(builder, reason, :deriving_namespace)
     end
   end
 
-  def build_sub(raw_schema, add_rev_path, builder) when is_map(raw_schema) when is_boolean(raw_schema) do
+  def build_sub!(raw_schema, add_rev_path, builder) when is_map(raw_schema) when is_boolean(raw_schema) do
     new_rev_path = add_rev_path ++ builder.current_rev_path
 
     with_current_path(builder, new_rev_path, fn builder ->
@@ -285,9 +319,12 @@ defmodule JSV.Builder do
     end)
   end
 
-  def build_sub(other, add_rev_path, builder) do
-    raise ArgumentError,
-          "invalid sub schema: #{inspect(other)} in #{JSV.ErrorFormatter.format_eval_path(add_rev_path ++ builder.current_rev_path)}"
+  def build_sub!(other, add_rev_path, builder) do
+    fail(
+      builder,
+      {:invalid_sub_schema, JSV.ErrorFormatter.format_schema_path(add_rev_path ++ builder.current_rev_path), other},
+      :building_subschema
+    )
   end
 
   defp do_build_sub(raw_schema, rev_path, builder) when is_map(raw_schema) do
@@ -319,11 +356,11 @@ defmodule JSV.Builder do
     # Reverse the list to keep the priority order from builder.vocabularies
     schema_validators = :lists.reverse(schema_validators)
 
-    {:ok, %JSV.Subschema{validators: schema_validators, schema_path: rev_path}, builder}
+    {%JSV.Subschema{validators: schema_validators, schema_path: rev_path}, builder}
   end
 
   defp do_build_sub(valid?, rev_path, builder) when is_boolean(valid?) do
-    {:ok, BooleanSchema.of(valid?, rev_path), builder}
+    {BooleanSchema.of(valid?, rev_path), builder}
   end
 
   defp mod_and_init_opts({module, opts}) when is_atom(module) and is_list(opts) do
@@ -341,9 +378,9 @@ defmodule JSV.Builder do
         # supported by a vocabulary.
 
         case module.handle_keyword(pair, mod_acc, builder, raw_schema) do
-          {:ok, mod_acc, builder} -> {leftovers, mod_acc, builder}
+          {mod_acc, builder} -> {leftovers, mod_acc, builder}
           :ignore -> {[pair | leftovers], mod_acc, builder}
-          {:error, reason} -> throw({:thrown_build_error, reason})
+          other -> fail(builder, {:bad_return, other}, {module, :handle_keyword, [pair, mod_acc, builder, raw_schema]})
         end
       end)
 
@@ -387,21 +424,18 @@ defmodule JSV.Builder do
   end
 
   defp load_vocabularies(builder, map) do
-    with {:ok, vocabs} <- do_load_vocabularies(builder, map) do
-      {:ok, sort_vocabularies([Vocabulary.Cast | vocabs])}
-    end
-  end
-
-  defp do_load_vocabularies(builder, map) do
     impls = builder.vocabulary_impls
 
-    EnumExt.reduce_ok(map, [], fn {uri, required?}, acc ->
-      case Map.fetch(impls, uri) do
-        {:ok, impl} -> {:ok, [impl | acc]}
-        :error when required? -> {:error, {:unknown_vocabulary, uri}}
-        :error -> {:ok, acc}
-      end
-    end)
+    vocabs =
+      Enum.reduce(map, [], fn {uri, required?}, acc ->
+        case Map.fetch(impls, uri) do
+          {:ok, impl} -> [impl | acc]
+          :error when required? -> fail(builder, {:unknown_vocabulary, uri}, nil)
+          :error -> acc
+        end
+      end)
+
+    sort_vocabularies([Vocabulary.Cast | vocabs])
   end
 
   defp sort_vocabularies(modules) do
@@ -409,5 +443,15 @@ defmodule JSV.Builder do
       {module, _} -> module.priority()
       module -> module.priority()
     end)
+  end
+
+  # TODO if we want to fail on resolver errors, we need to keep the
+  # current_rev_path when a ref is staged. Currently those are resolved at the
+  # top level and the buil path is just [:root] or [ns].
+  @spec fail(t, term, term) :: no_return()
+  def fail(%__MODULE__{} = builder, reason, action) do
+    build_path = ErrorFormatter.format_schema_path(builder.current_rev_path)
+
+    raise BuildError.of(reason, action, build_path)
   end
 end
