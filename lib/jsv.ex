@@ -564,7 +564,7 @@ defmodule JSV do
   defmacro defschema(schema) do
     quote bind_quoted: binding() do
       :ok = JSV.StructSupport.validate!(schema)
-      @keycast JSV.StructSupport.keycast_pairs(schema)
+      @jsv_keycast JSV.StructSupport.keycast_pairs(schema)
       {keys_no_defaults, default_pairs} = JSV.StructSupport.data_pairs_partition(schema)
       required = JSV.StructSupport.list_required(schema)
 
@@ -581,7 +581,7 @@ defmodule JSV do
 
       @doc false
       def __jsv__(@jsv_tag, data) do
-        pairs = JSV.StructSupport.take_keycast(data, @keycast)
+        pairs = JSV.StructSupport.take_keycast(data, @jsv_keycast)
         {:ok, struct!(__MODULE__, pairs)}
       end
     end
@@ -592,7 +592,7 @@ defmodule JSV do
     quote bind_quoted: binding() do
       :ok = JSV.StructSupport.validate!(schema)
       @target target
-      @keycast JSV.StructSupport.keycast_pairs(schema, target)
+      @jsv_keycast JSV.StructSupport.keycast_pairs(schema, target)
       {_keys_no_defaults, default_pairs} = JSV.StructSupport.data_pairs_partition(schema)
       @default_pairs default_pairs
 
@@ -608,7 +608,7 @@ defmodule JSV do
 
       @doc false
       def __jsv__(@jsv_tag, data) do
-        pairs = JSV.StructSupport.take_keycast(data, @keycast)
+        pairs = JSV.StructSupport.take_keycast(data, @jsv_keycast)
         pairs = Keyword.merge(@default_pairs, pairs)
 
         {:ok, struct!(@target, pairs)}
