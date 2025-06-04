@@ -564,8 +564,10 @@ defmodule JSV.Schema do
   end
 
   defimpl JSV.Normalizer.Normalize do
+    alias JSV.Helpers.MapExt
+
     def normalize(schema) do
-      JSV.Schema.to_map(schema)
+      MapExt.from_struct_no_nils(schema)
     end
   end
 end
