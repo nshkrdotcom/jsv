@@ -14,12 +14,9 @@ defmodule JSV.Normalizer do
           | false
           | nil
 
-  @doc_json_compat """
-  Returns the given term in a JSON-decoded form without general atoms or structs.\
-  """
-
   @doc """
-  #{@doc_json_compat}
+  Returns the given term in a JSON-decoded form without general atoms or
+  structs.
 
   See `normalize/3` for details and options.
 
@@ -67,7 +64,8 @@ defmodule JSV.Normalizer do
   end
 
   @doc """
-  #{@doc_json_compat} Accepts and returns an accumulator.
+  Returns the given term in a JSON-decoded form without general atoms or structs
+  with an accumulator.
 
   ### What is _JSON-decoded_ form?
 
