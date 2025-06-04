@@ -519,7 +519,7 @@ defmodule JSV.Schema do
       end
     ]
 
-    {normal, _acc} = JSV.Normalizer.normalize(term, normalize_opts, [])
+    {normal, _acc} = JSV.Normalizer.normalize(term, [], normalize_opts)
 
     normal
   end

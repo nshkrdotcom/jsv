@@ -59,7 +59,7 @@ defmodule JSV.Normalizer do
   """
   @spec normalize(term, keyword) :: json_decoded_form
   def normalize(term, opts \\ []) do
-    {normalized, _acc} = normalize(term, opts, [])
+    {normalized, _acc} = normalize(term, [], opts)
     normalized
   end
 
@@ -94,11 +94,11 @@ defmodule JSV.Normalizer do
       ...> end
       iex> opts = [on_general_atom: on_general_atom]
       iex> acc_in = []
-      iex> JSV.Normalizer.normalize(%{an_atom: SomeAtom, a_string: "hello"}, opts, acc_in)
+      iex> JSV.Normalizer.normalize(%{an_atom: SomeAtom, a_string: "hello"}, acc_in, opts)
       {%{"an_atom" => "found:Elixir.SomeAtom", "a_string" => "hello"}, [SomeAtom]}
   """
-  @spec normalize(term, keyword, term) :: {json_decoded_form, term}
-  def normalize(term, opts, acc_in) do
+  @spec normalize(term, term, keyword) :: {json_decoded_form, term}
+  def normalize(term, acc_in, opts) when is_list(opts) do
     on_general_atom =
       case Keyword.fetch(opts, :on_general_atom) do
         {:ok, f} when is_function(f, 2) -> f

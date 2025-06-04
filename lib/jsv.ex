@@ -556,7 +556,7 @@ defmodule JSV do
         })
       end
 
-      iex> {:ok, root} = JSV.build(MyApp.CompanySchema)
+      iex> root = JSV.build!(MyApp.CompanySchema)
       iex> data = %{"name" => "Schemas Inc.", "owner" => %{"name" => "Alice"}}
       iex> JSV.validate(data, root)
       {:ok, %MyApp.CompanySchema{name: "Schemas Inc.", owner: %MyApp.UserSchema{name: "Alice", age: 0}}}
