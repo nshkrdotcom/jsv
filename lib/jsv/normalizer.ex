@@ -131,9 +131,8 @@ defmodule JSV.Normalizer do
         raise ArgumentError, "invalid key in JSON data: #{inspect(other)}"
 
       {:struct, %_{} = struct, cont}, acc ->
-        data = JSV.Normalizer.Normalize.normalize(struct)
-
-        cont.(data, acc)
+        map = JSV.Normalizer.Normalize.normalize(struct)
+        cont.(map, acc)
     end)
   end
 
