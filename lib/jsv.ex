@@ -572,7 +572,7 @@ defmodule JSV do
       {keys_no_defaults, default_pairs} = JSV.StructSupport.data_pairs_partition(schema)
       required = JSV.StructSupport.list_required(schema)
 
-      @jsv_tag -1
+      @jsv_tag 0
 
       @jsv_schema Map.put(schema, :"jsv-cast", [Atom.to_string(__MODULE__), @jsv_tag])
 
@@ -600,7 +600,7 @@ defmodule JSV do
       {_keys_no_defaults, default_pairs} = JSV.StructSupport.data_pairs_partition(schema)
       @default_pairs default_pairs
 
-      @jsv_tag -2
+      @jsv_tag 1
 
       @jsv_schema schema
                   |> Map.put(:"jsv-cast", [Atom.to_string(__MODULE__), @jsv_tag])
