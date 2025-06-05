@@ -211,6 +211,13 @@ defmodule JSV.BuilderTest do
                valid: false,
                details: [
                  %{
+                   errors: [%{message: "value is not of type integer", kind: :type}],
+                   valid: false,
+                   instanceLocation: "#/1",
+                   evaluationPath: "#/schemas/array/items/$ref",
+                   schemaLocation: "#/schemas/integer"
+                 },
+                 %{
                    errors: [
                      %{
                        message: "item at index 1 does not validate the 'items' schema",
@@ -221,13 +228,6 @@ defmodule JSV.BuilderTest do
                    instanceLocation: "#",
                    evaluationPath: "#/schemas/array",
                    schemaLocation: "#/schemas/array"
-                 },
-                 %{
-                   errors: [%{message: "value is not of type integer", kind: :type}],
-                   valid: false,
-                   instanceLocation: "#/1",
-                   evaluationPath: "#/schemas/array/items/$ref",
-                   schemaLocation: "#/schemas/integer"
                  }
                ]
              } =
@@ -313,6 +313,13 @@ defmodule JSV.BuilderTest do
                valid: false,
                details: [
                  %{
+                   errors: [%{message: "value is not of type string", kind: :type}],
+                   valid: false,
+                   instanceLocation: "#/address/city",
+                   evaluationPath: "#/properties/address/$ref/properties/city",
+                   schemaLocation: "https://example.com/address.json#/properties/city"
+                 },
+                 %{
                    errors: [
                      %{
                        message: "property 'city' did not conform to the property schema",
@@ -323,13 +330,6 @@ defmodule JSV.BuilderTest do
                    instanceLocation: "#/address",
                    evaluationPath: "#/properties/address/$ref",
                    schemaLocation: "https://example.com/address.json#"
-                 },
-                 %{
-                   errors: [%{message: "value is not of type string", kind: :type}],
-                   valid: false,
-                   instanceLocation: "#/address/city",
-                   evaluationPath: "#/properties/address/$ref/properties/city",
-                   schemaLocation: "https://example.com/address.json#/properties/city"
                  },
                  %{
                    errors: [

@@ -473,6 +473,13 @@ defmodule JSV.ErrorFormatTest do
              valid: false,
              details: [
                %{
+                 errors: [%{message: "value was rejected from boolean schema: false", kind: :boolean_schema}],
+                 valid: false,
+                 schemaLocation: "#/additionalProperties",
+                 evaluationPath: "#/additionalProperties",
+                 instanceLocation: "#/b"
+               },
+               %{
                  errors: [
                    # Here is the custom message in that case
                    %{
@@ -484,13 +491,6 @@ defmodule JSV.ErrorFormatTest do
                  schemaLocation: "#",
                  evaluationPath: "#",
                  instanceLocation: "#"
-               },
-               %{
-                 errors: [%{message: "value was rejected from boolean schema: false", kind: :boolean_schema}],
-                 valid: false,
-                 schemaLocation: "#/additionalProperties",
-                 evaluationPath: "#/additionalProperties",
-                 instanceLocation: "#/b"
                }
              ]
            } =

@@ -37,27 +37,43 @@ defmodule JSV.ErrorFormatter do
 
   This is generatlly useful to generate HTTP API responses or message broker
   responses.
+
+  ### Options
+
+  * `:sort` - Either `:asc` or `:desc`. Defaults to `:desc` so the most deeply
+    nested errors, _i.e_ the root cause of errors, are displayed first. Errors
+    are sorted by `instanceLocation`.
   """
-  @spec normalize_error(ValidationError.t()) :: map()
-  def normalize_error(%ValidationError{} = e) do
-    %{valid: false, details: normalize_errors(e.errors)}
+  @spec normalize_error(ValidationError.t(), keyword) :: map()
+  def normalize_error(%ValidationError{} = e, opts \\ []) do
+    opts =
+      Keyword.update(opts, :sort, :desc, fn
+        :asc -> :asc
+        _ -> :desc
+      end)
+
+    %{valid: false, details: normalize_errors(e.errors, opts)}
   end
 
-  defp normalize_errors(errors) do
+  defp normalize_errors(errors, opts) do
     errors
     |> Enum.group_by(fn
       %Error{data_path: dp, eval_path: ep, schema_path: sp} -> {dp, ep, sp}
       %{valid: _, instanceLocation: _, evaluationPath: _, schemaLocation: _} = already_normalized -> already_normalized
     end)
     |> Enum.map(fn
-      {{data_path, eval_path, schema_path}, errors} -> error_annot(data_path, eval_path, schema_path, errors)
+      {{data_path, eval_path, schema_path}, errors} -> error_annot(data_path, eval_path, schema_path, errors, opts)
       {already_normalized, [already_normalized]} -> already_normalized
     end)
-    |> Enum.sort_by(& &1.schemaLocation)
+    |> sort_errors(opts[:sort])
   end
 
-  defp error_annot(rev_data_path, rev_eval_path, rev_schema_path, errors) do
-    errors_fmt = Enum.map(errors, &build_error/1)
+  defp sort_errors(errors, order) do
+    Enum.sort_by(errors, & &1.instanceLocation, order)
+  end
+
+  defp error_annot(rev_data_path, rev_eval_path, rev_schema_path, errors, opts) do
+    errors_fmt = Enum.map(errors, &build_error(&1, opts))
 
     %{
       valid: false,
@@ -68,7 +84,7 @@ defmodule JSV.ErrorFormatter do
     }
   end
 
-  defp build_error(error) do
+  defp build_error(error, opts) do
     %Error{kind: kind, data: data, formatter: formatter, args: args} =
       error
 
@@ -82,10 +98,10 @@ defmodule JSV.ErrorFormatter do
         %{message: message, kind: new_kind}
 
       {message, sub_errors} when is_binary(message) and is_list(sub_errors) ->
-        %{message: message, kind: kind, details: normalize_errors(sub_errors)}
+        %{message: message, kind: kind, details: normalize_errors(sub_errors, opts)}
 
       {new_kind, message, sub_errors} when is_atom(new_kind) and is_binary(message) and is_list(sub_errors) ->
-        %{message: message, kind: new_kind, details: normalize_errors(sub_errors)}
+        %{message: message, kind: new_kind, details: normalize_errors(sub_errors, opts)}
     end
   end
 

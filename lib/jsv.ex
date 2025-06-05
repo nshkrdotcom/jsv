@@ -433,18 +433,22 @@ defmodule JSV do
 
   @doc """
   Returns a JSON compatible represenation of a `JSV.ValidationError` struct.
+
+  See `JSV.ErrorFormatter.normalize_error/2` for options.
   """
-  @spec normalize_error(ValidationError.t() | Validator.context() | [Validator.Error.t()]) :: map()
-  def normalize_error(%ValidationError{} = error) do
-    ErrorFormatter.normalize_error(error)
+  @spec normalize_error(ValidationError.t() | Validator.context() | [Validator.Error.t()], keyword) :: map()
+  def normalize_error(error, opts \\ [])
+
+  def normalize_error(%ValidationError{} = error, opts) do
+    ErrorFormatter.normalize_error(error, opts)
   end
 
-  def normalize_error(errors) when is_list(errors) do
-    normalize_error(ValidationError.of(errors))
+  def normalize_error(errors, opts) when is_list(errors) do
+    normalize_error(ValidationError.of(errors), opts)
   end
 
-  def normalize_error(%ValidationContext{} = validator) do
-    normalize_error(Validator.to_error(validator))
+  def normalize_error(%ValidationContext{} = validator, opts) do
+    normalize_error(Validator.to_error(validator), opts)
   end
 
   @doc false
