@@ -432,6 +432,9 @@ defmodule JSV.Schema do
   defcompose :string_to_atom_enum,
              [
                type: :string,
+               # We need to cast atoms to string, otherwise if `nil` is provided
+               # it will be JSON-encoded as `nil` instead of `"null". But this
+               # caster only accepts strings.
                enum: Enum.map(enum, &Atom.to_string/1) <- enum :: [atom],
                "jsv-cast": JSV.Cast.string_to_atom()
              ]

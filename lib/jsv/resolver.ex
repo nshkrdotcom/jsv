@@ -568,8 +568,9 @@ defmodule JSV.Resolver do
   # fetched subschema. The top parent is the last item in the list, the fetched
   # subschema is the head.
   #
-  # TODO(Draft7-removal) This is to support Draft 7 to define the correct NS for the subschema.
-  # We can remove that list building once Draft 7 is not supported anymore.
+  # TODO(Draft7-removal) This is to support Draft 7 to define the correct NS for
+  # the subschema. We can remove that list building once Draft 7 is not
+  # supported anymore.
   defp do_fetch_docpath(list, [h | t], parents) when is_list(list) and is_integer(h) do
     with {:ok, item} <- Enum.fetch(list, h) do
       do_fetch_docpath(item, t, [list | parents])
