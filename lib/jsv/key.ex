@@ -32,6 +32,8 @@ defmodule JSV.Key do
   Creates a new key from an external or local reference.
   """
   @spec of(ns | Ref.t()) :: t
+  def of(namespace_or_ref)
+
   def of(binary) when is_binary(binary) do
     binary
   end
