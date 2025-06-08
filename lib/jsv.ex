@@ -245,10 +245,10 @@ defmodule JSV do
   `root_key`. That key is used as the default entrypoint for validation when no
   `:key` option is passed to `validate/2`.
   """
-  @spec build_root!(build_context, Key.t()) :: Root.t()
-  debang def build_root!(build_ctx, root_key)
+  @spec to_root!(build_context, Key.t()) :: Root.t()
+  debang def to_root!(build_ctx, root_key)
 
-  def build_root!(build_ctx(validators: vds), root_key) do
+  def to_root!(build_ctx(validators: vds), root_key) do
     %Root{raw: nil, validators: vds, root_key: root_key}
   end
 

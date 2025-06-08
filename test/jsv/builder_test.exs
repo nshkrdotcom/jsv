@@ -65,7 +65,7 @@ defmodule JSV.BuilderTest do
       assert {:ok, ctx} = JSV.build_init([])
       assert {:ok, :root, ^expected_normal, ctx} = JSV.build_add(ctx, document)
       assert {:ok, key, ctx} = JSV.build_key(ctx, Ref.parse!("#/nested/map/with/schema", :root))
-      root = JSV.build_root!(ctx, :root)
+      root = JSV.to_root!(ctx, :root)
 
       # The root does not have a build for the root schema
       refute is_map_key(root.validators, :root)
@@ -115,7 +115,7 @@ defmodule JSV.BuilderTest do
       assert {:ok, :root, _, ctx} = JSV.build_add(ctx, document)
       assert {:ok, key_int, ctx} = JSV.build_key(ctx, Ref.parse!("#/schema_int", :root))
       assert {:ok, key_str, ctx} = JSV.build_key(ctx, Ref.parse!("#/schema_str", :root))
-      assert {:ok, root} = JSV.build_root(ctx, :root)
+      assert {:ok, root} = JSV.to_root(ctx, :root)
 
       assert {:ok, 123} = JSV.validate(123, root, key: key_int)
       assert {:ok, "hello"} = JSV.validate("hello", root, key: key_str)
@@ -142,7 +142,7 @@ defmodule JSV.BuilderTest do
 
       assert {:ok, key_int, ctx} = JSV.build_key(ctx, :root)
       assert {:ok, key_str, ctx} = JSV.build_key(ctx, "str")
-      assert {:ok, root} = JSV.build_root(ctx, :root)
+      assert {:ok, root} = JSV.to_root(ctx, :root)
 
       assert {:ok, 123} = JSV.validate(123, root, key: key_int)
       assert {:ok, "hello"} = JSV.validate("hello", root, key: key_str)
@@ -199,7 +199,7 @@ defmodule JSV.BuilderTest do
       assert {:ok, ctx} = JSV.build_init([])
       assert {:ok, :root, _, ctx} = JSV.build_add(ctx, document)
       assert {:ok, key_array, ctx} = JSV.build_key(ctx, Ref.parse!("#/schemas/array", :root))
-      assert {:ok, root} = JSV.build_root(ctx, :root)
+      assert {:ok, root} = JSV.to_root(ctx, :root)
 
       # Valid array of integers
       assert {:ok, [1, 2, 3]} = JSV.validate([1, 2, 3], root, key: key_array)
@@ -266,7 +266,7 @@ defmodule JSV.BuilderTest do
       assert {:ok, person_key, ctx} = JSV.build_key(ctx, "https://example.com/person.json")
       assert {:ok, address_key, ctx} = JSV.build_key(ctx, "https://example.com/address.json")
 
-      assert {:ok, root} = JSV.build_root(ctx, "https://example.com/person.json")
+      assert {:ok, root} = JSV.to_root(ctx, "https://example.com/person.json")
 
       # Valid person without address
       valid_person = %{"name" => "John", "age" => 30}
