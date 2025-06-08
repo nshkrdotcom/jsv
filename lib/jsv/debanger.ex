@@ -10,10 +10,10 @@ defmodule JSV.Debanger do
   end
 
   defmacro debang(call) do
-    {:def, _, [{fun, _, args}]} = call
+    {:def, meta, [{fun, _, args}]} = call
 
     quote do
-      @__debang_bang_funs {unquote(fun), unquote(Macro.escape(args))}
+      @__debang_bang_funs {unquote(fun), unquote(meta), unquote(Macro.escape(args))}
       unquote(call)
     end
   end
@@ -23,25 +23,30 @@ defmodule JSV.Debanger do
     specs = Module.get_attribute(env.module, :spec)
 
     quoted_unbanged =
-      Enum.map(bang_funs, fn {bang_fun, args} ->
+      Enum.map(bang_funs, fn {bang_fun, bang_meta, args} ->
         {:spec, {:"::", _, [{^bang_fun, _, arg_types}, return_type]}, _} = find_spec!(specs, bang_fun)
 
         args_no_defaults = args_no_defaults(args)
         tuple_return_type = return_type_to_tuple_type(return_type)
         nobang_fun = debang_atom(bang_fun)
 
-        quote do
-          @doc """
-          Same as `#{unquote(bang_fun)}/#{unquote(length(args))}` but rescues
-          errors and returns a result tuple.
-          """
-          @spec unquote(nobang_fun)(unquote_splicing(arg_types)) :: unquote(tuple_return_type)
-          def unquote(nobang_fun)(unquote_splicing(args)) do
-            __debang_wrap__(unquote(bang_fun)(unquote_splicing(args_no_defaults)))
-          rescue
-            e -> {:error, e}
+        quoted =
+          quote do
+            @doc """
+            Same as `#{unquote(bang_fun)}/#{unquote(length(args))}` but rescues
+            errors and returns a result tuple.
+            """
+            @spec unquote(nobang_fun)(unquote_splicing(arg_types)) :: unquote(tuple_return_type)
+            def unquote(nobang_fun)(unquote_splicing(args)) do
+              __debang_wrap__(unquote(bang_fun)(unquote_splicing(args_no_defaults)))
+            rescue
+              e -> {:error, e}
+            end
           end
-        end
+
+        Macro.postwalk(quoted, fn
+          node -> Macro.update_meta(node, &Keyword.merge(bang_meta, &1))
+        end)
       end)
 
     quote generated: true do
