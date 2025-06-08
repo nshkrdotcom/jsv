@@ -187,10 +187,9 @@ defmodule JSV.ErrorFormatter do
 
   defp format_eval_path_segment(item) do
     case item do
-      atom when is_atom(atom) -> Atom.to_string(atom)
-      key when is_binary(key) -> key
+      atom when is_atom(atom) -> Ref.escape_json_pointer(Atom.to_string(atom))
+      key when is_binary(key) -> Ref.escape_json_pointer(key)
       index when is_integer(index) -> Integer.to_string(index)
-      # {tag, atom} when is_atom(atom) -> [Atom.to_string(tag), ?/, Atom.to_string(atom)]
       {tag, key} when is_binary(key) -> [Atom.to_string(tag), ?/, Ref.escape_json_pointer(key)]
       {tag, index} when is_integer(index) -> [Atom.to_string(tag), ?/, Integer.to_string(index)]
       {_, :"$ref", _} -> "$ref"

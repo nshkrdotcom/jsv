@@ -627,4 +627,51 @@ defmodule JSV.ErrorFormatTest do
       instanceLocation: "#"
     })
   end
+
+  test "locations are json-pointer encoded" do
+    schema = %{
+      "some" => %{
+        "type" => "object",
+        "properties" => %{
+          "nested/~with/special" => %{"type" => "integer"}
+        }
+      },
+      "$ref" => "#/some"
+    }
+
+    invalid = %{"nested/~with/special" => "not an int"}
+    root = JSV.build!(schema)
+    assert {:error, err} = JSV.validate(invalid, root)
+
+    assert %{
+             valid: false,
+             details: [
+               %{
+                 errors: [
+                   %{
+                     kind: :type,
+                     message: "value is not of type integer"
+                   }
+                 ],
+                 valid: false,
+                 instanceLocation: "#/nested~1~0with~1special",
+                 schemaLocation: "#/some/properties/nested~1~0with~1special",
+                 evaluationPath: "#/$ref/properties/nested~1~0with~1special"
+               },
+               %{
+                 errors: [
+                   %{
+                     kind: :properties,
+                     message: "property 'nested/~with/special' did not conform to the property schema"
+                   }
+                 ],
+                 valid: false,
+                 instanceLocation: "#",
+                 schemaLocation: "#/some",
+                 evaluationPath: "#/$ref"
+               }
+             ]
+           } =
+             JSV.normalize_error(err)
+  end
 end

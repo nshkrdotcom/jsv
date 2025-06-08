@@ -94,10 +94,16 @@ defmodule JSV.Ref do
   Encodes the given string as a JSON representation of a JSON pointer, that is
   with `~` as `~0` and `/` as `~1`.
   """
-  @spec escape_json_pointer(binary) :: binary
-  def escape_json_pointer(str) do
+  @spec escape_json_pointer(binary | iodata()) :: binary
+  def escape_json_pointer(str) when is_binary(str) do
     str
     |> String.replace("~", "~0")
     |> String.replace("/", "~1")
+  end
+
+  def escape_json_pointer(str) do
+    str
+    |> IO.iodata_to_binary()
+    |> escape_json_pointer()
   end
 end
