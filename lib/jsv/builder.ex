@@ -14,7 +14,7 @@ defmodule JSV.Builder do
   Internal logic to build raw schemas into `JSV.Root` structs.
   """
 
-  @derive {Inspect, only: [:ns, :current_rev_path]}
+  @derive {Inspect, Application.compile_env(:jsv, :builder_inspect_derive, only: [:ns, :current_rev_path, :resolver])}
   @enforce_keys [:resolver]
   defstruct resolver: nil,
             staged: [],

@@ -47,7 +47,7 @@ defmodule JSV.Resolver do
   """
   @callback resolve(uri :: String.t(), opts :: term) :: {:ok, map} | {:normal, map} | {:error, term}
 
-  @derive {Inspect, except: [:fetch_cache]}
+  @derive {Inspect, Application.compile_env(:jsv, :resolver_inspect_derive, except: [:fetch_cache])}
   defstruct chain: [],
             default_meta: nil,
             # fetch_cache is a local cache for the resolver instance. Actual
