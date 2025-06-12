@@ -8,7 +8,7 @@ defmodule MyApp.UserSchema do
     type: :object,
     properties: %{
       name: %{type: :string, default: ""},
-      age: %{type: :integer, default: 0}
+      age: %{type: :integer, default: 123}
     }
   })
 end

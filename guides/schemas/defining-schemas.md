@@ -54,7 +54,7 @@ However, the choice for the maximum value is not made by JSV.
 
 ## Struct schemas
 
-Schemas can be used to define structs.
+Schemas can be used to define structs with the `JSV.defschema/1` macro.
 
 For instance, with this module definition schema:
 

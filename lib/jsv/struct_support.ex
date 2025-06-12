@@ -16,11 +16,10 @@ defmodule JSV.StructSupport do
   """
   @spec validate!(JSV.native_schema()) :: :ok
   def validate!(schema) do
-    validate_object_type!(schema)
-    validate_properties_presence!(schema)
-    validate_properties_keys!(schema)
-    required = validate_required_type!(schema)
-    validate_required_keys!(required)
+    :ok = validate_object_type!(schema)
+    :ok = validate_properties_presence!(schema)
+    properties_keys = get_validate_properties_keys!(schema)
+    :ok = validate_required_keys!(schema, properties_keys)
     :ok
   end
 
@@ -49,33 +48,33 @@ defmodule JSV.StructSupport do
         :ok
 
       %{"properties" => other} ->
-        raise ArgumentError, errmsg("must defined properties as a map, got: #{inspect(other)}")
+        raise ArgumentError, errmsg("must define properties as a map, got: #{inspect(other)}")
 
       %{properties: other} ->
-        raise ArgumentError, errmsg("must defined properties as a map, got: #{inspect(other)}")
+        raise ArgumentError, errmsg("must define properties as a map, got: #{inspect(other)}")
 
       _ ->
         raise ArgumentError, errmsg("must include a properties key")
     end
   end
 
-  defp validate_properties_keys!(schema) do
+  defp get_validate_properties_keys!(schema) do
     properties =
       case schema do
         %{"properties" => properties} -> properties
         %{properties: properties} -> properties
       end
 
-    all_atom_keys? = Enum.all?(properties, fn {k, _} -> is_atom(k) end)
+    keys = Enum.map(properties, fn {k, _} -> k end)
 
-    if all_atom_keys? do
-      :ok
+    if Enum.all?(keys, &is_atom/1) do
+      keys
     else
       raise ArgumentError, errmsg("properties must be defined with atom keys")
     end
   end
 
-  defp validate_required_type!(schema) do
+  defp validate_required_keys!(schema, properties_keys) do
     required =
       case schema do
         %Schema{required: nil} -> []
@@ -88,17 +87,19 @@ defmodule JSV.StructSupport do
       raise ArgumentError, errmsg("required must be a list")
     end
 
-    required
-  end
-
-  defp validate_required_keys!(list) do
-    all_atoms? = Enum.all?(list, &is_atom/1)
-
-    if all_atoms? do
-      :ok
-    else
-      raise ArgumentError, errmsg("must list atom keys in :required")
+    if not Enum.all?(required, &is_atom/1) do
+      raise ArgumentError, errmsg("must list atom keys in :required, got: #{inspect(required)}")
     end
+
+    case Enum.uniq(required) -- properties_keys do
+      [] ->
+        :ok
+
+      rest ->
+        raise ArgumentError, errmsg("must use known keys only in :required, unknown keys: #{inspect(rest)}")
+    end
+
+    :ok
   end
 
   @doc """
@@ -225,6 +226,6 @@ defmodule JSV.StructSupport do
   end
 
   defp errmsg(msg) do
-    "schema given to defschema/1 or defschema_for/2 " <> msg
+    "schema given to defschema/1 " <> msg
   end
 end

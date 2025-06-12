@@ -96,8 +96,8 @@ defmodule JSV.StructSupportTest do
       good_schemas = [
         %{"properties" => %{}, "type" => "object", "required" => []},
         %{"properties" => %{}, "type" => "object", :required => []},
-        %{"properties" => %{}, "type" => "object", :required => [:a]},
-        %{"properties" => %{}, "type" => "object", :required => [:a, :b]},
+        %{"properties" => %{a: %{}}, "type" => "object", :required => [:a]},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", :required => [:a, :b]},
 
         # nil is accepted with the schema struct
         %Schema{properties: %{}, type: "object", required: nil}
@@ -108,6 +108,41 @@ defmodule JSV.StructSupportTest do
         %{"properties" => %{}, "type" => "object", :required => ["string"]},
         %{"properties" => %{}, "type" => "object", :required => [:a, "b", :c]},
         %Schema{properties: %{}, type: "object", required: :bad_stuff}
+      ]
+
+      Enum.each(good_schemas, fn s -> assert :ok = StructSupport.validate!(s) end)
+
+      Enum.each(bad_schemas, fn s ->
+        assert_raise ArgumentError, ~r/required/, fn ->
+          StructSupport.validate!(s)
+        end
+      end)
+    end
+
+    test "ensures required uses known keys" do
+      good_schemas = [
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", :required => [:a]},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", :required => [:b]},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", :required => [:a, :b]},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", :required => []},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", "required" => [:a]},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", "required" => [:b]},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", "required" => [:a, :b]},
+        %{"properties" => %{a: %{}, b: %{}}, "type" => "object", "required" => []},
+
+        # nil is accepted with the schema struct
+        %Schema{properties: %{}, type: "object", required: nil}
+      ]
+
+      bad_schemas = [
+        %{"properties" => %{}, "type" => "object", :required => [:a]},
+        %{"properties" => %{}, "type" => "object", :required => [:a, :b]},
+        %{"properties" => %{x: %{}}, "type" => "object", :required => [:a]},
+        %{"properties" => %{x: %{}}, "type" => "object", :required => [:a, :b]},
+        %{"properties" => %{}, "type" => "object", "required" => [:a]},
+        %{"properties" => %{}, "type" => "object", "required" => [:a, :b]},
+        %{"properties" => %{x: %{}}, "type" => "object", "required" => [:a]},
+        %{"properties" => %{x: %{}}, "type" => "object", "required" => [:a, :b]}
       ]
 
       Enum.each(good_schemas, fn s -> assert :ok = StructSupport.validate!(s) end)

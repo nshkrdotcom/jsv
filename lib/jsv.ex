@@ -483,15 +483,16 @@ defmodule JSV do
   Defines a struct in the calling module where the struct keys are the
   properties of the schema.
 
+  The given schema must define the `type` keyword as `object` and must define a
+  `properties` map. That map can be empty to define a struct without any key.
+  Properties keys must be given as atoms.
+
+  The `required` keyword is supported and must use atom keys as well.
+
   If a default value is given in a property schema, it will be used as the
   default value for the corresponding struct key. Otherwise, the default value
   will be `nil`. A default value is _not_ validated against the property schema
   itself.
-
-  The `$id` property of the schema will automatically be set, if not present, to
-  `"jsv:module:" <> Atom.to_string(__MODULE__)`. Because of this, module based
-  schemas must avoid using relative references to a parent schema as the
-  references will resolve to that generated `$id`.
 
   ### Additional properties
 
@@ -515,7 +516,7 @@ defmodule JSV do
           type: :object,
           properties: %{
             name: %{type: :string, default: ""},
-            age: %{type: :integer, default: 0}
+            age: %{type: :integer, default: 123}
           }
         })
       end
@@ -523,21 +524,24 @@ defmodule JSV do
   We can get the struct with default values:
 
       iex> %MyApp.UserSchema{}
-      %MyApp.UserSchema{name: "", age: 0}
+      %MyApp.UserSchema{name: "", age: 123}
+
+      iex> %MyApp.UserSchema{age: 999}
+      %MyApp.UserSchema{name: "", age: 999}
 
   And we can use the module as a schema:
 
       iex> {:ok, root} = JSV.build(MyApp.UserSchema)
       iex> data = %{"name" => "Alice"}
       iex> JSV.validate(data, root)
-      {:ok, %MyApp.UserSchema{name: "Alice", age: 0}}
+      {:ok, %MyApp.UserSchema{name: "Alice", age: 123}}
 
   Additional properties are ignored:
 
       iex> {:ok, root} = JSV.build(MyApp.UserSchema)
       iex> data = %{"name" => "Alice", "extra" => "hello!"}
       iex> JSV.validate(data, root)
-      {:ok, %MyApp.UserSchema{name: "Alice", age: 0}}
+      {:ok, %MyApp.UserSchema{name: "Alice", age: 123}}
 
   Disabling struct casting with additional properties:
 
@@ -561,9 +565,15 @@ defmodule JSV do
       end
 
       iex> root = JSV.build!(MyApp.CompanySchema)
-      iex> data = %{"name" => "Schemas Inc.", "owner" => %{"name" => "Alice"}}
+      iex> data = %{"name" => "Schemas Inc.", "owner" => %{"name" => "Alice", "age" => 999}}
       iex> JSV.validate(data, root)
-      {:ok, %MyApp.CompanySchema{name: "Schemas Inc.", owner: %MyApp.UserSchema{name: "Alice", age: 0}}}
+      {:ok, %MyApp.CompanySchema{
+        name: "Schemas Inc.",
+        owner: %MyApp.UserSchema{
+          name: "Alice",
+          age: 999
+        }
+      }}
   """
   defmacro defschema(schema) do
     quote bind_quoted: binding() do
