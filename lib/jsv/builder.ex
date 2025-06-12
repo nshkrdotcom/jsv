@@ -103,8 +103,8 @@ defmodule JSV.Builder do
   reference.
   """
   @spec stage_build(t, buildable) :: t()
-  def stage_build(%{staged: staged} = builder, buildable) do
-    %__MODULE__{builder | staged: append_unique(staged, buildable)}
+  def stage_build(%__MODULE__{staged: staged} = builder, buildable) do
+    %{builder | staged: append_unique(staged, buildable)}
   end
 
   @doc """
@@ -134,9 +134,9 @@ defmodule JSV.Builder do
   fetched in the builder internal cache
   """
   @spec ensure_resolved!(t, resolvable) :: t
-  def ensure_resolved!(%{resolver: resolver} = builder, resolvable) do
+  def ensure_resolved!(%__MODULE__{resolver: resolver} = builder, resolvable) do
     resolver = unwrap_ok_resolver(Resolver.resolve(resolver, resolvable))
-    %__MODULE__{builder | resolver: resolver}
+    %{builder | resolver: resolver}
   end
 
   @doc """
@@ -152,8 +152,8 @@ defmodule JSV.Builder do
     :empty
   end
 
-  defp take_staged(%{staged: [staged | tail]} = builder) do
-    {staged, %__MODULE__{builder | staged: tail}}
+  defp take_staged(%__MODULE__{staged: [staged | tail]} = builder) do
+    {staged, %{builder | staged: tail}}
   end
 
   # * all_validators represent the map of schema_id_or_ref => validators for
@@ -219,7 +219,7 @@ defmodule JSV.Builder do
     |> stage_build({:resolved, vkey})
   end
 
-  defp stage_dynamic_anchors(builder, anchor) do
+  defp stage_dynamic_anchors(%__MODULE__{} = builder, anchor) do
     # To build all dynamic references we tap into the resolver. The resolver
     # also conveniently allows to fetch by its own keys ({:dynamic_anchor,_,_})
     # instead of passing the original ref.
@@ -244,7 +244,7 @@ defmodule JSV.Builder do
         _ -> []
       end)
 
-    %__MODULE__{builder | staged: dynamic_buildables ++ builder.staged}
+    %{builder | staged: dynamic_buildables ++ builder.staged}
   end
 
   defp check_not_built(all_validators, vkey) do
@@ -267,13 +267,13 @@ defmodule JSV.Builder do
     {{:alias_of, key}, stage_build(builder, {:resolved, key})}
   end
 
-  defp build_resolved(builder, resolved) do
+  defp build_resolved(%__MODULE__{} = builder, resolved) do
     %Resolved{meta: meta, ns: ns, parent_ns: parent_ns, rev_path: rev_path} = resolved
 
     raw_vocabularies = fetch_vocabulary(builder, meta)
     vocabularies = load_vocabularies(builder, raw_vocabularies)
 
-    builder = %__MODULE__{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
+    builder = %{builder | vocabularies: vocabularies, ns: ns, parent_ns: parent_ns}
     # Here we call `do_build_sub` directly instead of `build_sub` because in
     # this case, if the sub schema has an $id we want to actually build it
     # and not register an alias.
@@ -287,12 +287,12 @@ defmodule JSV.Builder do
     end)
   end
 
-  defp with_current_path(builder, rev_path, fun) do
+  defp with_current_path(%__MODULE__{} = builder, rev_path, fun) do
     previous_rev_path = builder.current_rev_path
 
-    next = %__MODULE__{builder | current_rev_path: rev_path}
+    next = %{builder | current_rev_path: rev_path}
     {value, %__MODULE__{} = new_builder} = fun.(next)
-    {value, %__MODULE__{new_builder | current_rev_path: previous_rev_path}}
+    {value, %{new_builder | current_rev_path: previous_rev_path}}
   end
 
   defp fetch_vocabulary(builder, meta) do

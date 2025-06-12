@@ -12,8 +12,6 @@ defmodule JSV.FormatValidator.Default do
   @supports_uri_template mod_exists?(AbnfParsec)
   @supports_json_pointer mod_exists?(AbnfParsec)
 
-  @re_hostname ~r/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/
-
   @formats [
              "ipv4",
              "ipv6",
@@ -44,7 +42,7 @@ defmodule JSV.FormatValidator.Default do
   @doc false
   @spec hostname_regex :: Regex.t()
   def hostname_regex do
-    @re_hostname
+    ~r/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/
   end
 
   @impl true
@@ -112,7 +110,7 @@ defmodule JSV.FormatValidator.Default do
   end
 
   def validate_cast("hostname", data) do
-    if Regex.match?(@re_hostname, data) do
+    if Regex.match?(hostname_regex(), data) do
       {:ok, data}
     else
       {:error, :invalid_hostname}

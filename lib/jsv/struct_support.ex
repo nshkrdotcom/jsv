@@ -97,7 +97,7 @@ defmodule JSV.StructSupport do
     if all_atoms? do
       :ok
     else
-      raise ArgumentError, errmsg("required must contain atom keys")
+      raise ArgumentError, errmsg("must list atom keys in :required")
     end
   end
 

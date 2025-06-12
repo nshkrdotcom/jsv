@@ -548,11 +548,9 @@ defmodule Mix.Tasks.Jsv.GenTestSuite do
     module_path
   end
 
-  @re_modpath ~r/\.ex$/
-
   defp module_path(module_name) do
     path = preferred_path(module_name)
-    mod_path = Regex.replace(@re_modpath, path, ".exs")
+    mod_path = Regex.replace(~r/\.ex$/, path, ".exs")
     true = String.ends_with?(mod_path, ".exs")
     mod_path
   end

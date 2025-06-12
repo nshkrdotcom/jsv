@@ -71,10 +71,11 @@ defmodule JSV.Resolver do
 
   @doc false
   @spec put_cached(t, binary | :root, JSV.normal_schema()) :: {:ok, t} | {:error, {:key_exists, term}}
-  def put_cached(rsv, ext_id, raw_schema) when is_map(raw_schema) and (is_binary(ext_id) or :root == ext_id) do
+  def put_cached(%__MODULE__{} = rsv, ext_id, raw_schema)
+      when is_map(raw_schema) and (is_binary(ext_id) or :root == ext_id) do
     case rsv.fetch_cache do
       %{^ext_id => _} -> {:error, {:key_exists, ext_id}}
-      fetch_cache -> {:ok, %__MODULE__{rsv | fetch_cache: Map.put(fetch_cache, ext_id, raw_schema)}}
+      fetch_cache -> {:ok, %{rsv | fetch_cache: Map.put(fetch_cache, ext_id, raw_schema)}}
     end
   end
 
@@ -342,7 +343,7 @@ defmodule JSV.Resolver do
   end
 
   defp insert_cache_entries(rsv, entries) do
-    %{resolved: cache} = rsv
+    %__MODULE__{resolved: cache} = rsv
 
     cache_result =
       EnumExt.reduce_ok(entries, cache, fn {k, resolved}, cache ->
@@ -359,7 +360,7 @@ defmodule JSV.Resolver do
       end)
 
     with {:ok, cache} <- cache_result do
-      {:ok, %__MODULE__{rsv | resolved: cache}}
+      {:ok, %{rsv | resolved: cache}}
     end
   end
 

@@ -348,10 +348,8 @@ defmodule JSV.Resolver.LocalTest do
     end
   end
 
-  @ansi_regex ~r/(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]/
-
   defp strip_ansi(ansi_string) when is_binary(ansi_string) do
-    Regex.replace(@ansi_regex, ansi_string, "")
+    Regex.replace(~r/(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]/, ansi_string, "")
   end
 
   describe "recompilation" do

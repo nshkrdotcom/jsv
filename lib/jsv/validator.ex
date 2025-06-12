@@ -144,10 +144,10 @@ defmodule JSV.Validator do
   the validation by the given `subschema`.
   """
   @spec validate_detach(term, eval_sub_path, validator, context) :: result
-  def validate_detach(data, add_eval_path, subschema, vctx) do
+  def validate_detach(data, add_eval_path, subschema, %ValidationContext{} = vctx) do
     %{eval_path: eval_path, schema_path: schema_path} = vctx
 
-    sub_vctx = %ValidationContext{
+    sub_vctx = %{
       vctx
       | evaluated: [%{}],
         eval_path: append_eval_path(eval_path, add_eval_path),
@@ -178,7 +178,7 @@ defmodule JSV.Validator do
       schema_path: schema_path
     } = vctx
 
-    sub_vctx = %ValidationContext{
+    sub_vctx = %{
       vctx
       | data_path: [key | data_path],
         eval_path: append_eval_path(eval_path, add_eval_path),
@@ -208,7 +208,7 @@ defmodule JSV.Validator do
   def validate_as(data, add_eval_path, subvalidators, vctx) do
     %ValidationContext{evaluated: evaluated, eval_path: eval_path, schema_path: schema_path} = vctx
 
-    sub_vctx = %ValidationContext{
+    sub_vctx = %{
       vctx
       | eval_path: append_eval_path(eval_path, add_eval_path),
         schema_path: append_schema_path(schema_path, add_eval_path),
@@ -234,10 +234,10 @@ defmodule JSV.Validator do
     end)
   end
 
-  defp do_validate_ref(data, ref, vctx) do
+  defp do_validate_ref(data, ref, %ValidationContext{} = vctx) do
     subvalidators = checkout_ref(vctx, ref)
 
-    separate_vctx = %ValidationContext{vctx | errors: []}
+    separate_vctx = %{vctx | errors: []}
 
     case validate(data, subvalidators, separate_vctx) do
       {:ok, data, separate_vctx} ->
@@ -248,7 +248,7 @@ defmodule JSV.Validator do
     end
   end
 
-  defp with_scope(vctx, sub_key, add_eval_path, fun) do
+  defp with_scope(%ValidationContext{} = vctx, sub_key, add_eval_path, fun) do
     %{scope: scopes, eval_path: eval_path, schema_path: schema_path} = vctx
 
     # Premature optimization that can be removed: skip appending scope if it is
@@ -256,14 +256,14 @@ defmodule JSV.Validator do
     sub_vctx =
       case {Key.namespace_of(sub_key), scopes} do
         {same, [same | _]} ->
-          %ValidationContext{
+          %{
             vctx
             | eval_path: append_eval_path(eval_path, add_eval_path),
               schema_path: append_schema_path(schema_path, add_eval_path)
           }
 
         {new_scope, scopes} ->
-          %ValidationContext{
+          %{
             vctx
             | scope: [new_scope | scopes],
               eval_path: append_eval_path(eval_path, add_eval_path),
@@ -272,8 +272,8 @@ defmodule JSV.Validator do
       end
 
     case fun.(sub_vctx) do
-      {:ok, data, vctx} -> {:ok, data, %ValidationContext{vctx | scope: scopes, eval_path: eval_path}}
-      {:error, vctx} -> {:error, %ValidationContext{vctx | scope: scopes, eval_path: eval_path}}
+      {:ok, data, vctx} -> {:ok, data, %{vctx | scope: scopes, eval_path: eval_path}}
+      {:error, vctx} -> {:error, %{vctx | scope: scopes, eval_path: eval_path}}
     end
   end
 
@@ -305,14 +305,14 @@ defmodule JSV.Validator do
     schema_path
   end
 
-  defp reset_schema_path(vctx, sub) do
-    %ValidationContext{vctx | schema_path: sub.schema_path}
+  defp reset_schema_path(%ValidationContext{} = vctx, %Subschema{} = sub) do
+    %{vctx | schema_path: sub.schema_path}
   end
 
-  defp merge_errors(vctx, sub) do
-    %ValidationContext{errors: vctx_errors} = vctx
-    %ValidationContext{errors: sub_errors} = sub
-    %ValidationContext{vctx | errors: do_merge_errors(vctx_errors, sub_errors)}
+  defp merge_errors(%ValidationContext{} = vctx, %ValidationContext{} = sub) do
+    %{errors: vctx_errors} = vctx
+    %{errors: sub_errors} = sub
+    %{vctx | errors: do_merge_errors(vctx_errors, sub_errors)}
   end
 
   defp do_merge_errors([], sub_errors) do
@@ -330,10 +330,10 @@ defmodule JSV.Validator do
   end
 
   @spec merge_evaluated(context, context) :: context
-  def merge_evaluated(vctx, sub) do
-    %ValidationContext{evaluated: [top_vctx | rest_vctx]} = vctx
-    %ValidationContext{evaluated: [top_sub | _rest_sub]} = sub
-    %ValidationContext{vctx | evaluated: [Map.merge(top_vctx, top_sub) | rest_vctx]}
+  def merge_evaluated(%ValidationContext{} = vctx, %ValidationContext{} = sub) do
+    %{evaluated: [top_vctx | rest_vctx]} = vctx
+    %{evaluated: [top_sub | _rest_sub]} = sub
+    %{vctx | evaluated: [Map.merge(top_vctx, top_sub) | rest_vctx]}
   end
 
   @spec return(term, context) :: result
@@ -409,13 +409,13 @@ defmodule JSV.Validator do
 
   defp add_error(vctx, error) do
     %ValidationContext{errors: errors} = vctx
-    %ValidationContext{vctx | errors: [error | errors]}
+    %{vctx | errors: [error | errors]}
   end
 
-  defp add_evaluated(vctx, key) do
+  defp add_evaluated(%ValidationContext{} = vctx, key) do
     %{evaluated: [current | ev]} = vctx
     current = Map.put(current, key, true)
-    %ValidationContext{vctx | evaluated: [current | ev]}
+    %{vctx | evaluated: [current | ev]}
   end
 
   @spec list_evaluaded(context) :: [String.t() | integer()]
