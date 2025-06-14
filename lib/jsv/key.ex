@@ -25,7 +25,7 @@ defmodule JSV.Key do
   @type pointer :: {:pointer, binary, [binary]}
   @type anchor :: {:anchor, binary, binary}
   @type dynamic_anchor :: {:dynamic_anchor, binary, binary}
-  @type ns :: binary | :root
+  @type ns :: Ref.ns()
   @type t :: ns | anchor | dynamic_anchor | pointer
 
   @doc """

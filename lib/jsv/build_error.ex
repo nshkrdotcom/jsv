@@ -3,6 +3,7 @@ defmodule JSV.BuildError do
   A simple wrapper for errors returned from `JSV.build/2`.
   """
 
+  @inspect_limit 1000
   @enforce_keys [:reason, :action, :build_path]
   defexception @enforce_keys
 
@@ -24,7 +25,7 @@ defmodule JSV.BuildError do
     could not build JSON schema
 
     REASON
-    #{inspect(reason, pretty: true)}
+    #{inspect(reason, pretty: true, limit: @inspect_limit)}
 
     action
     #{Exception.format_mfa(m, f, a)}
@@ -32,6 +33,6 @@ defmodule JSV.BuildError do
   end
 
   def message(e) do
-    "could not build JSON schema got error: #{inspect(e.reason)} in context #{inspect(e.action)}"
+    "could not build JSON schema got error: #{inspect(e.reason, limit: @inspect_limit)} in context #{inspect(e.action, limit: @inspect_limit)}"
   end
 end

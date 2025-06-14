@@ -89,12 +89,12 @@ defmodule JSV.Builder do
   end
 
   @doc """
-  Builds the given key into the given validators.
+  Builds the given root schema or reference into the given validators.
   """
-  @spec build!(t, Key.t(), Validator.validators()) :: {Validator.validators(), t}
-  def build!(builder, key, validators) do
+  @spec build!(t, Ref.ns() | Ref.t(), Validator.validators()) :: {Validator.validators(), t}
+  def build!(builder, source, validators) do
     builder
-    |> stage_build(key)
+    |> stage_build(source)
     |> build_all_staged(validators)
   end
 
