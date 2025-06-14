@@ -227,7 +227,7 @@ defmodule JSV do
   Returns the build context as well as a key, which is a pointer to the built
   schema.
   """
-  @spec build_key!(build_context(), binary | Ref.t()) :: {Key.t(), build_context()}
+  @spec build_key!(build_context(), Ref.ns() | Ref.t()) :: {Key.t(), build_context()}
   debang def build_key!(build_ctx, ref_or_ns)
 
   def build_key!(build_ctx(builder: builder, validators: vds) = ctx, ref_or_ns)
