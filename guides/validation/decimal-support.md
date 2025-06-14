@@ -15,8 +15,8 @@ The following validations work when the data is a `Decimal` struct:
 
 - `type`: supports both `:number` and `:integer` types
   - `:number` accepts any `Decimal` struct.
-  - `:integer` accepts only integer `Decimal` struct and converts them to Elixir
-    integers.
+  - `:integer` accepts only integer `Decimal` structs and converts them to
+    Elixir integers.
 - `maximum`: validates that a Decimal value is less than or equal to the maximum.
 - `exclusiveMaximum`: validates that a Decimal value is strictly less than the
   maximum.
@@ -91,50 +91,13 @@ The following validations do not support nested Decimal values:
 This is because while we could make a simple check for values that are just a
 decimal struct, those keywords can validate arbitrarily nested data.
 
-For instance, in the following list we have identical decimal elements:
+JSV will not perform a deep comparison between data and a `const` or `enum`
+value, or between items of an array when using `uniqueItems`, but rather just
+use the `==` operator for speed.
 
-```elixir
-[
-  %{"vs" => [1, 2, Decimal.new("3.0")], "name" => "Alice"},
-  %{"vs" => [1, 2, Decimal.new("3.0")], "name" => "Alice"}
-]
-```
-
-To make sure that `uniqueItems` will validate that, we would need to traverse
-both structures in parallel to compare every map key while including a special
-case for Decimal.
-
-This would impact performance for large lists because each item must be compared
-to each other. For now, JSV is using the optimized structural comparison
-provided by matching on previous list values when traversing the list.
-
-The same rationale applies to `enum` and `const`. While we could easily ensure that a decimal belongs to an enum of floats, it's will be way slower if the `enum` or `const` are matching on nested data.
-
-For instance with the following schema and data
-
-```elixir
-# Schema
-%{
-  "enum" => [
-    %{"scale" => %{"from" => [0.0, 1.0],   "to" => [0.0, 100.0]}},
-    %{"scale" => %{"from" => [0.0, 100.0], "to" => [0.0, 1.0]}}
-  ]
-}
-
-# Data
-%{
-  "scale" => %{
-    "from" => [Decimal.new("0.0"), Decimal.new("1.0")],
-    "to"   => [Decimal.new("0.0"), Decimal.new("100.0")]
-  }
-}
-```
-
-While the data could be considered valid, it requires a more complex algorithm,
-while relying on simply matching the data with enum values is very efficient.
-
-We believe that this is out of JSV's scope, as enums and consts are most often
-used with strings or atoms representing states, roles, categories, tags, _etc._
+We believe that handling those cases is out of JSV's scope, as enums and consts
+are most often used with strings or atoms representing states, roles,
+categories, tags, _etc._
 
 Custom vocabularies can be added to implement deep matching with support for
 decimal comparisons.
