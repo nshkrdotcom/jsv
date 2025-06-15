@@ -23,7 +23,7 @@ defmodule JSV.Ref do
   end
 
   @doc """
-  Bang function for `parse/2`.
+  Raising version of the `parse/2` function.
   """
   @spec parse!(binary, ns) :: t
   def parse!(url, current_ns) do
@@ -39,6 +39,36 @@ defmodule JSV.Ref do
   @spec parse_dynamic(binary, ns) :: {:ok, t} | {:error, term}
   def parse_dynamic(url, current_ns) do
     do_parse(url, current_ns, true)
+  end
+
+  @doc """
+  Creates a new pointer reference from a list of path segments.
+
+  The segments can be strings or integers, representing the path components
+  of a JSON pointer.
+
+  ## Examples
+
+      iex> JSV.Ref.pointer(["properties", "name"], :root)
+      {:ok, %JSV.Ref{ns: :root, kind: :pointer, arg: ["properties", "name"], dynamic?: false}}
+
+      iex> JSV.Ref.pointer(["items", 0], :root)
+      {:ok, %JSV.Ref{ns: :root, kind: :pointer, arg: ["items", 0], dynamic?: false}}
+
+  """
+  @spec pointer([binary | integer], ns) :: {:ok, t}
+  def pointer(segments, ns) when is_list(segments) do
+    {:ok, pointer!(segments, ns)}
+  end
+
+  @doc """
+  Creates a new pointer reference from a list of path segments.
+
+  Raising version of the `pointer/2` function.
+  """
+  @spec pointer!([binary | integer], ns) :: t
+  def pointer!(segments, ns) when is_list(segments) do
+    %Ref{ns: ns, kind: :pointer, arg: segments, dynamic?: false}
   end
 
   defp do_parse(url, current_ns, dynamic?) do

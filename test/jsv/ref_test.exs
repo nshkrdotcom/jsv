@@ -97,6 +97,44 @@ defmodule JSV.RefTest do
     end
   end
 
+  describe "forced creation of pointer" do
+    test "creates a pointer reference from string segments" do
+      assert %Ref{
+               ns: :root,
+               kind: :pointer,
+               arg: ["properties", "name"],
+               dynamic?: false
+             } = Ref.pointer!(["properties", "name"], :root)
+    end
+
+    test "creates a pointer reference from mixed string and integer segments" do
+      assert %Ref{
+               ns: :root,
+               kind: :pointer,
+               arg: ["items", 0, "name"],
+               dynamic?: false
+             } = Ref.pointer!(["items", 0, "name"], :root)
+    end
+
+    test "creates a pointer reference from empty segments list" do
+      assert %Ref{
+               ns: :root,
+               kind: :pointer,
+               arg: [],
+               dynamic?: false
+             } = Ref.pointer!([], :root)
+    end
+
+    test "creates a pointer reference with a custom namespace" do
+      assert %Ref{
+               ns: "http://example.com/schema.json",
+               kind: :pointer,
+               arg: ["properties", "user"],
+               dynamic?: false
+             } = Ref.pointer!(["properties", "user"], "http://example.com/schema.json")
+    end
+  end
+
   describe "escape_json_pointer/1" do
     test "escapes ~ as ~0" do
       assert "property~0name" == Ref.escape_json_pointer("property~name")
