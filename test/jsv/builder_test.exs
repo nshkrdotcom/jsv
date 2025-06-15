@@ -53,6 +53,19 @@ defmodule JSV.BuilderTest do
     # end
   end
 
+  describe "formats" do
+    test "unknown formats do not raise on build if formats are not enabled" do
+      raw_schema = %{type: :string, format: :some_unknown_format}
+
+      # Formats disabled, unknown format is ignored
+      assert {:ok, _} = JSV.build(raw_schema)
+
+      # Formats assertion forced, error
+      assert {:error, %JSV.BuildError{reason: {:unsupported_format, "some_unknown_format"}}} =
+               JSV.build(raw_schema, formats: true)
+    end
+  end
+
   describe "building multi-entrypoint schemas" do
     test "can build a schema with an deep entrypoint" do
       document = %{

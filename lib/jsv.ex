@@ -125,6 +125,15 @@ defmodule JSV do
                          >
                          > You'll probably want this option to be set to `true`
                          > or a list of your own modules.
+
+                         Worth noting, while this option does support providing your own formats,
+                         the [official specification](https://json-schema.org/draft/2020-12/draft-bhutton-json-schema-validation-00#rfc.section.7.2.3)
+                         recommends against it:
+
+                         > Vocabularies do not support specifically declaring different value sets for keywords.
+                         > Due to this limitation, and the historically uneven implementation of this keyword,
+                         > it is RECOMMENDED to define additional keywords in a custom vocabulary rather than
+                         > additional format attributes if interoperability is desired.
                          """,
                          default: nil
                        ],
