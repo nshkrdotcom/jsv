@@ -25,11 +25,22 @@ defmodule JSV.FormatValidator do
   @callback supported_formats :: [format]
 
   @doc """
-  Receives the schema format as string, and the data as a string.
+  Returns `true` if the given format should be used for the input data type.
+
+  For instance, the `"date"` format will not be validated if the input data is
+  not a string.
+
+  No validation should be done in this callback, only the _type_ of the data
+  should be considered.
+  """
+  @callback applies_to_type?(format, data :: term) :: boolean
+
+  @doc """
+  Receives the schema format as string, and the data.
 
   Returns a result tuple with data optionally casted to a more meaningful data
   structure (for instance returning a `Date` struct instead of the string
   representation of the date).
   """
-  @callback validate_cast(format, data :: String.t()) :: {:ok, term} | {:error, term}
+  @callback validate_cast(format, data :: term) :: {:ok, term} | {:error, term}
 end

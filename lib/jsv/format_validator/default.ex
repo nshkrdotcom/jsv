@@ -39,6 +39,12 @@ defmodule JSV.FormatValidator.Default do
     @formats
   end
 
+  # Default formats in the specification only apply to strings
+  @impl true
+  def applies_to_type?(_any_format, data) do
+    is_binary(data)
+  end
+
   @doc false
   @spec hostname_regex :: Regex.t()
   def hostname_regex do

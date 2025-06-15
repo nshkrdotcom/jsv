@@ -68,13 +68,6 @@ defmodule JSV do
   be turned into a `t:normal_schema/0` with the help of
   `JSV.Schema.normalize/1`.
   """
-  @type normal_schema :: boolean() | %{binary => normal_schema() | [normal_schema()]}
-
-  @typedoc """
-  A schema in native JSV/Elixir terms: maps with atoms, structs, and module.
-  """
-  @type native_schema :: boolean() | map() | module() | normal_schema()
-  @opaque build_context :: record(:build_ctx, builder: Builder.t(), validators: Validator.validators())
 
   @default_default_meta "https://json-schema.org/draft/2020-12/schema"
 
@@ -108,11 +101,13 @@ defmodule JSV do
                          doc: """
                          Controls the validation of strings with the `"format"` keyword.
 
-                         * `nil` - Formats are validated according to the meta-schema vocabulary.
+                         * `nil` - Format validation is enabled if to the meta-schema uses the format assertion vocabulary.
                          * `true` - Enforces validation with the default validator modules.
                          * `false` - Disables all format validation.
-                         * `[Module1, Module2,...]` – set those modules as validators. Disables the default format validator modules.
-                            The default validators can be included back in the list manually, see `default_format_validator_modules/0`.
+                         * `[Module1, Module2,...]` (A list of modules) - Format validation is enabled and
+                            will use those modules as validators instead of the default format validator modules.
+                            The default format validator modules can be included back in the list manually,
+                            see `default_format_validator_modules/0`.
 
                          > #### Formats are disabled by the default meta-schema {: .warning}
                          >
@@ -169,6 +164,58 @@ defmodule JSV do
                        ]
                      )
 
+  @validate_opts_schema NimbleOptions.new!(
+                          cast: [
+                            type: :boolean,
+                            default: true,
+                            doc: """
+                            Enables calling generic cast functions on validation.
+
+                            This is based on the `jsv-cast` JSON Schema custom keyword
+                            and is typically used by `defschema/1`.
+
+                            While it is on by default, some specific casting features are enabled
+                            separately, see option `:cast_formats`.
+                            """
+                          ],
+                          cast_formats: [
+                            type: :boolean,
+                            default: false,
+                            doc: """
+                            When enabled, format validators will return casted values,
+                            for instance a `Date` struct instead of the date as string.
+
+                            It has no effect when the schema was not built with formats enabled.
+                            """
+                          ],
+                          key: [
+                            type: :any,
+                            required: false,
+                            doc: """
+                            When specified, the validation will start in the schema at the given key
+                            instead of using the root schema.
+
+                            The key must have been built and returned by `build_key!/2`. The validation
+                            does not accept to validate any Ref or pointer in the schema.
+
+                            This is useful when validating with a JSON document that contains schemas but
+                            is not itself a schema.
+                            """
+                          ]
+                        )
+
+  @type normal_schema :: boolean() | %{binary => normal_schema() | [normal_schema()]}
+
+  @typedoc """
+  A schema in native JSV/Elixir terms: maps with atoms, structs, and module.
+  """
+  @type native_schema :: boolean() | map() | module() | normal_schema()
+
+  @type build_opt :: unquote(NimbleOptions.option_typespec(@build_opts_schema))
+  @type validate_opt :: unquote(NimbleOptions.option_typespec(@validate_opts_schema))
+
+  @opaque build_context :: record(:build_ctx, builder: Builder.t(), validators: Validator.validators())
+
   @doc """
   Builds the schema as a `#{inspect(Root)}` schema for validation.
 
@@ -176,7 +223,7 @@ defmodule JSV do
 
   #{NimbleOptions.docs(@build_opts_schema)}
   """
-  @spec build(native_schema(), keyword) :: {:ok, Root.t()} | {:error, Exception.t()}
+  @spec build(native_schema(), [build_opt]) :: {:ok, Root.t()} | {:error, Exception.t()}
   def build(raw_schema, opts \\ []) do
     {:ok, build!(raw_schema, opts)}
   rescue
@@ -192,7 +239,7 @@ defmodule JSV do
   Same as `build/2` but raises on error. Errors are not normalized into a
   `JSV.BuildError` as `build/2` does.
   """
-  @spec build!(JSV.native_schema(), keyword) :: Root.t()
+  @spec build!(JSV.native_schema(), [build_opt]) :: Root.t()
   def build!(raw_schema, opts \\ [])
 
   def build!(valid?, _opts) when is_boolean(valid?) do
@@ -207,8 +254,12 @@ defmodule JSV do
     %Root{raw: normal_schema, validators: validators, root_key: root_key}
   end
 
-  @doc "Initializes a build context for controlled builds."
-  @spec build_init!(keyword) :: build_context()
+  @doc """
+  Initializes a build context for controlled builds.
+
+  See `build/2` for options.
+  """
+  @spec build_init!([build_opt]) :: build_context()
   debang def build_init!(opts \\ [])
 
   def build_init!(opts) do
@@ -357,46 +408,6 @@ defmodule JSV do
     @default_default_meta
   end
 
-  @validate_opts_schema NimbleOptions.new!(
-                          cast: [
-                            type: :boolean,
-                            default: true,
-                            doc: """
-                            Enables calling generic cast functions on validation.
-
-                            This is based on the `jsv-cast` JSON Schema custom keyword
-                            and is typically used by `defschema/1`.
-
-                            While it is on by default, some specific casting features are enabled
-                            separately, see option `:cast_formats`.
-                            """
-                          ],
-                          cast_formats: [
-                            type: :boolean,
-                            default: false,
-                            doc: """
-                            When enabled, format validators will return casted values,
-                            for instance a `Date` struct instead of the date as string.
-
-                            It has no effect when the schema was not built with formats enabled.
-                            """
-                          ],
-                          key: [
-                            type: :any,
-                            required: false,
-                            doc: """
-                            When specified, the validation will start in the schema at the given key
-                            instead of using the root schema.
-
-                            The key must have been built and returned by `build_key!/2`. The validation
-                            does not accept to validate any Ref or pointer in the schema.
-
-                            This is useful when validating with a JSON document that contains schemas but
-                            is not itself a schema.
-                            """
-                          ]
-                        )
-
   @doc """
   Validates and casts the data with the given schema. The schema must be a
   `JSV.Root` struct generated with `build/2`.
@@ -416,7 +427,7 @@ defmodule JSV do
 
   #{NimbleOptions.docs(@validate_opts_schema)}
   """
-  @spec validate(term, JSV.Root.t(), keyword) :: {:ok, term} | {:error, Exception.t()}
+  @spec validate(term, JSV.Root.t(), [validate_opt]) :: {:ok, term} | {:error, Exception.t()}
   def validate(data, root, opts \\ [])
 
   def validate(data, %JSV.Root{} = root, opts) do

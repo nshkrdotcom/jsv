@@ -7,7 +7,7 @@ defmodule JSV.FormatValidationTest do
     JSV.build(json_schema, [resolver: JSV.Test.TestResolver] ++ opts)
   end
 
-  defp raw_for(format) do
+  defp raw_for_format(format) do
     %{
       "$schema" => "https://json-schema.org/draft/2020-12/schema",
       "format" => format
@@ -15,7 +15,7 @@ defmodule JSV.FormatValidationTest do
   end
 
   defp format_schema(format) do
-    raw = raw_for(format)
+    raw = raw_for_format(format)
     assert {:ok, schema} = build_schema(raw, formats: true)
     schema
   end
@@ -44,6 +44,12 @@ defmodule JSV.FormatValidationTest do
       # item, the default formats module
       assert {:ok, schema} = build_schema(ctx.json_schema, formats: true)
       assert {:error, %ValidationError{errors: [_]}} = JSV.validate(@bad_ipv4, schema)
+    end
+
+    test "this format only applies to strings", ctx do
+      # So passing an integer should be ok
+      assert {:ok, schema} = build_schema(ctx.json_schema, formats: true)
+      assert {:ok, 1234} = JSV.validate(1234, schema)
     end
   end
 
@@ -114,7 +120,17 @@ defmodule JSV.FormatValidationTest do
 
       @impl true
       def supported_formats do
-        ["beam-language", "date"]
+        ["beam-language", "date", "int8"]
+      end
+
+      @impl true
+      def applies_to_type?("int8", data) do
+        is_integer(data)
+      end
+
+      @impl true
+      def applies_to_type?(_, data) do
+        is_binary(data)
       end
 
       @impl true
@@ -129,6 +145,14 @@ defmodule JSV.FormatValidationTest do
       def validate_cast("date", anything) do
         {:ok, anything}
       end
+
+      def validate_cast("int8", n) when is_integer(n) do
+        if n >= -128 and n <= 127 do
+          {:ok, n}
+        else
+          {:error, :invalid_8bit_signed_integer}
+        end
+      end
     end
 
     test "passing a custom module" do
@@ -136,12 +160,12 @@ defmodule JSV.FormatValidationTest do
       formats = [CustomFormat]
 
       # We can validate the supported formats
-      assert {:ok, schema} = build_schema(raw_for("beam-language"), formats: formats)
+      assert {:ok, schema} = build_schema(raw_for_format("beam-language"), formats: formats)
       assert {:ok, "LFE"} = JSV.validate("LFE", schema)
 
       # but it does not support ipv4 format
       assert {:error, %JSV.BuildError{reason: {:unsupported_format, "ipv4"}}} =
-               build_schema(raw_for("ipv4"), formats: formats)
+               build_schema(raw_for_format("ipv4"), formats: formats)
     end
 
     test "adding a custom module over default one" do
@@ -149,16 +173,73 @@ defmodule JSV.FormatValidationTest do
       formats = [CustomFormat | JSV.default_format_validator_modules()]
 
       # We can validate the supported formats
-      assert {:ok, schema} = build_schema(raw_for("beam-language"), formats: formats)
+      assert {:ok, schema} = build_schema(raw_for_format("beam-language"), formats: formats)
       assert {:ok, "LFE"} = JSV.validate("LFE", schema)
 
       # and it does support ipv4 format
-      assert {:ok, schema} = build_schema(raw_for("ipv4"), formats: formats)
+      assert {:ok, schema} = build_schema(raw_for_format("ipv4"), formats: formats)
       assert {:ok, "127.0.0.1"} = JSV.validate("127.0.0.1", schema)
 
       # and we were able to override default implementations
-      assert {:ok, schema} = build_schema(raw_for("date"), formats: formats)
+      assert {:ok, schema} = build_schema(raw_for_format("date"), formats: formats)
       assert {:ok, "a long time ago"} = JSV.validate("a long time ago", schema)
+    end
+
+    test "format for integer type" do
+      formats = [CustomFormat | JSV.default_format_validator_modules()]
+
+      # If a format will only validate integers, then a string should not be
+      # validated.
+
+      # int8 is a signed 8-bit integer so -128..127
+      assert {:ok, schema} = build_schema(raw_for_format("int8"), formats: formats)
+      assert {:ok, "some string"} = JSV.validate("some string", schema)
+      assert {:ok, 1} = JSV.validate(1, schema)
+
+      assert {
+               :error,
+               %JSV.ValidationError{
+                 errors: [
+                   %JSV.Validator.Error{
+                     kind: :format,
+                     data: 200,
+                     args: [format: "int8", reason: "\"invalid_8bit_signed_integer\""]
+                   }
+                 ]
+               }
+             } = JSV.validate(200, schema)
+
+      # Format has less priority than validation, so Decimal integers should be
+      # casted and pass the is_integer(n) guard.
+      #
+      # Supporting Decimal integers must be done in the format implementation.
+      # So here ther is no cast as the schema only defines the format.
+      #
+      # Valid values are valid:
+      assert {:ok, %Decimal{}} = JSV.validate(Decimal.new("1.0"), schema)
+      # Invalid values too
+      assert {:ok, %Decimal{}} = JSV.validate(Decimal.new("200.0"), schema)
+
+      # If we use a schema with a type it will be correctly casted and validated
+      raw_schema_with_type = %{type: :integer, format: "int8"}
+      assert {:ok, schema_with_type} = build_schema(raw_schema_with_type, formats: formats)
+      # Then integers are cast and the format is validated. Actually we are not
+      # testing the format implementation here, but rather that the Format
+      # vocabulary has less priority than Validation and is applied later.
+      assert {:ok, 1} = JSV.validate(Decimal.new("1.0"), schema_with_type)
+      # So we sould have the same error as before with a bare integer
+      assert {
+               :error,
+               %JSV.ValidationError{
+                 errors: [
+                   %JSV.Validator.Error{
+                     kind: :format,
+                     data: 200,
+                     args: [format: "int8", reason: "\"invalid_8bit_signed_integer\""]
+                   }
+                 ]
+               }
+             } = JSV.validate(Decimal.new("200.0"), schema_with_type)
     end
   end
 

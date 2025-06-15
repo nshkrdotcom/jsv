@@ -31,26 +31,26 @@ defmodule JSV.Vocabulary.V202012.Format do
     validator_mods =
       case builder.opts[:formats] do
         # opt in / out, use defaults mods
-        bool when is_boolean(bool) -> validation_modules_or_none(bool)
+        bool when is_boolean(bool) -> validation_modules_or_ignore(bool)
         # no opt-in/out, use default for vocabulary "assert" opt
-        default when default in [nil, :default] -> validation_modules_or_none(acc.default_assert)
+        default when default in [nil, :default] -> validation_modules_or_ignore(acc.default_assert)
         # modules provided, use that
         list when is_list(list) -> list
       end
 
     case validator_mods do
-      :none -> {acc, builder}
+      :ignore -> {acc, builder}
       _ -> add_format(validator_mods, format, acc, builder)
     end
   end
 
   ignore_any_keyword()
 
-  defp validation_modules_or_none(false) do
-    :none
+  defp validation_modules_or_ignore(false) do
+    :ignore
   end
 
-  defp validation_modules_or_none(true) do
+  defp validation_modules_or_ignore(true) do
     JSV.default_format_validator_modules()
   end
 
@@ -73,7 +73,17 @@ defmodule JSV.Vocabulary.V202012.Format do
   end
 
   @impl true
-  def validate(data, [format: {module, format}], vctx) when is_binary(data) do
+  def validate(data, [format: mod_fmt], vctx) do
+    {module, format} = mod_fmt
+
+    if module.applies_to_type?(format, data) do
+      validate_format(data, module, format, vctx)
+    else
+      {:ok, data, vctx}
+    end
+  end
+
+  defp validate_format(data, module, format, vctx) do
     cast_formats? = vctx.opts[:cast_formats]
 
     case module.validate_cast(format, data) do
@@ -89,11 +99,6 @@ defmodule JSV.Vocabulary.V202012.Format do
       other ->
         raise "invalid return from #{module}.validate/2 called with format #{inspect(format)}, got: #{inspect(other)}"
     end
-  end
-
-  @impl true
-  def validate(data, [format: _], vctx) do
-    {:ok, data, vctx}
   end
 
   if Code.ensure_loaded?(Poison.EncodeError) do
@@ -115,6 +120,6 @@ defmodule JSV.Vocabulary.V202012.Format do
 
   @impl true
   def format_error(:format, %{format: format, reason: reason}, _data) do
-    "value does not respect the '#{format}' format (#{inspect(reason)})"
+    "value does not respect the '#{format}' format (#{reason})"
   end
 end
