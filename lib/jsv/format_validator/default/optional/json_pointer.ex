@@ -1,6 +1,6 @@
 require JSV.FormatValidator.Default.Optional
 
-if JSV.FormatValidator.Default.Optional.mod_exists?(AbnfParsec) do
+if Code.ensure_loaded?(AbnfParsec) do
   defmodule JSV.FormatValidator.Default.Optional.JSONPointer do
     @moduledoc false
     @external_resource "priv/grammars/json-pointer.abnf"

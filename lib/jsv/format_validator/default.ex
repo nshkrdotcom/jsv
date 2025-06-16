@@ -1,16 +1,16 @@
 defmodule JSV.FormatValidator.Default do
-  import JSV.FormatValidator.Default.Optional, only: [mod_exists?: 1, optional_support: 2]
+  import JSV.FormatValidator.Default.Optional
   alias JSV.FormatValidator.Default.Optional
 
   @moduledoc false
 
   @behaviour JSV.FormatValidator
 
-  @supports_duration mod_exists?(Duration)
-  @supports_email mod_exists?(AbnfParsec)
-  @supports_iri mod_exists?(AbnfParsec)
-  @supports_uri_template mod_exists?(AbnfParsec)
-  @supports_json_pointer mod_exists?(AbnfParsec)
+  @supports_duration Code.ensure_loaded?(Duration)
+  @supports_email Code.ensure_loaded?(AbnfParsec)
+  @supports_iri Code.ensure_loaded?(AbnfParsec)
+  @supports_uri_template Code.ensure_loaded?(AbnfParsec)
+  @supports_json_pointer Code.ensure_loaded?(AbnfParsec)
 
   @formats [
              "ipv4",

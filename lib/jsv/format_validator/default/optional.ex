@@ -10,13 +10,4 @@ defmodule JSV.FormatValidator.Default.Optional do
       []
     end
   end
-
-  @doc false
-  @spec mod_exists?(module) :: boolean
-  def mod_exists?(module) do
-    case Code.ensure_loaded(module) do
-      {:module, ^module} -> true
-      {:error, _} -> false
-    end
-  end
 end
