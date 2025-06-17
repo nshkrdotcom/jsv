@@ -66,7 +66,7 @@ For that reason, cast functions need to be enabled by developers by defining the
 
 This is an internal callback, not documented by a behaviour, but security is
 important and it is worth explaining the mechanism here. The `__jsv__/2`
-function is rather defined by using the `defcast` macro that is documented.
+function is rather defined by using the `JSV.defcast/1` macro that is documented.
 
 When evaluating `["Elixir.System", "stop"]`, JSV will indeed call the `System`
 module. It will call `System.__jsv__("stop", data)` with the data under
@@ -89,9 +89,8 @@ Cast functions are functions that return a generic result tuple:
 - `{:ok, transformed_data}` for successful transformations.
 - `{:error, reason}` when the transformation fails.
 
-As described in the security section above, JSV needs an identifier for the
-function to call with the data. This is called a "tag" and is a simple bit of
-data. JSV supports strings, positive integers and `-1` for the struct schemas.
+As described in the security section above, JSV needs a tag to identify the
+function to call with the data. JSV supports strings and integers as tags.
 
 To define such functions, the `JSV.defcast/1`, `JSV.defcast/2` or
 `JSV.defcast/3` macros should be used.
@@ -120,7 +119,8 @@ MyApp.Schemas.Cast.to_uppercase("hello")
 ```
 
 It will also define the `to_uppercase/0` function that returns the cast
-information to include in a schema:
+information to include in a schema. As you can see, the default tag of a cast is
+the function name, as string.
 
 ```elixir
 MyApp.Schemas.Cast.to_uppercase()

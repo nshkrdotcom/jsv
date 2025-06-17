@@ -43,9 +43,9 @@ equivalent:
 This is because JSV will normalize the schemas before building a "root", the
 base data structure for data validation.
 
-Note that mixing keys is not recommended. In the following example, JSV will
-build a schema that will successfully validate integers with a minimum of zero.
-However, the choice for the maximum value is not made by JSV.
+Mixing keys is not recommended. In the following example, JSV will build a
+schema that will successfully validate integers with a minimum of zero. However,
+the choice for the maximum value is not made by JSV.
 
 ```elixir
 %{:type => :integer, "minimum" => 0, "maximum" => 10, :maximum => 20}

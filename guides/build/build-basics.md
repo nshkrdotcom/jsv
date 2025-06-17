@@ -123,11 +123,11 @@ To always enable format validation when building a root schema, provide the
 JSV.build(raw_schema, formats: true)
 ```
 
+Format validation is determined at build time. There is no way to change whether
+it is performed once the root schema is built.
+
 This is another reason to wrap `JSV.build/2` with a custom builder module, so
 you don't forget to enable those.
-
-Note that format validation is determined at build time. There is no way to
-change whether it is performed once the root schema is built.
 
 
 ## Enable format validation using vocabularies
@@ -192,7 +192,7 @@ Now it will work as expected. `JSV.validate/2` returns an error tuple without
 needing the `formats: true`.
 
 ```elixir
-{:error, _} = JSV.validate("hello", root)
+{:error, _} = JSV.validate("not a date", root)
 ```
 
 

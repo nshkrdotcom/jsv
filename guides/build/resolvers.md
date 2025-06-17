@@ -4,17 +4,6 @@
 happens with `$schema`, `$ref`, or `$dynamicRef` properties pointing to an
 absolute [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier).
 
-A resolver is also used when a schema references a struct-based schema:
-
-```elixir
-%{
-  type: :object,
-  properties: %{
-    user: MyApp.Schemas.User
-  }
-}
-```
-
 In order to fetch those schemas, JSV requires a resolver. Resolvers are
 user-defined, but JSV provides implementations for common use cases:
 
@@ -160,7 +149,7 @@ resolvers from your own resolver before running some expensive or slow
 computation (such as an HTTP call) because they will be called anyway.
 
 ```elixir
-# DON'T DO THIS
+# You may do this
 
 defmodule MyApp.SchemaResolver do
    def resolve("https://" <> _ = uri, _opts) do
@@ -181,9 +170,12 @@ The built-in resolvers are standard resolvers implementations and adhere to the
 as regular resolvers:
 
 ```elixir
-# Do this instead
+# You should do this instead
+
 root = JSV.build!(schema, resolvers: [JSV.Resolver.Embedded, MyApp.SchemaResolver])
 ```
+
+The `JSV.Resolver.Embedded` resolver will only be called once.
 
 There may be valid use cases for delegation. If you know of one, just let us
 know!

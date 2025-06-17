@@ -19,8 +19,9 @@ Here is what happens when validating with the latest specification:
 
 ### The well-known and official schema
 
-The `https://json-schema.org/draft/2020-12/schema` schema defines the following
-vocabulary:
+The
+[`https://json-schema.org/draft/2020-12/schema`](https://json-schema.org/draft/2020-12/schema)
+schema defines the following vocabulary:
 
 ```json
 {
@@ -36,8 +37,13 @@ vocabulary:
 }
 ```
 
-The vocabulary is split into different parts, here one by object property. More
-information can be found on the [official
+The vocabulary is split into different parts, here one by object property.
+
+The `true` values in the `$vocabulary` keyword do not mean "enabled" but
+"enforced". A `false` value allows libraries to skip the vocabulary if they do
+not implement it.
+
+More information can be found on the [official
 website](https://json-schema.org/learn/glossary#vocabulary).
 
 
@@ -70,22 +76,21 @@ Vocabularies have limitations:
   used and/or override those of the meta-schema. It will only be used by another
   schema referencing your own as its `$schema`.
 
+It is a bit like an object oriented class system where you can only call methods
+from the parent class but neither from the child class or the parent's parent
+class.
+
 
 ### Implementation in libraries and tools
 
 Libraries such as JSV must map this vocabulary to implementations.
-
-Be aware that the `true` values in the `$vocabulary` keyword do not mean
-"enabled" but "enforced". A `false` value allows libraries to skip the
-vocabulary if they do not implement it.
 
 For instance, in JSV, the
 `https://json-schema.org/draft/2020-12/vocab/validation` part that defines the
 `type` keyword is implemented with the `JSV.Vocabulary.V202012.Validation`
 Elixir module.
 
-As JSV is compliant, it will use this implementation to validate data types.
-
-On the other hand, if that vocabulary is not declared in your meta-schema, **the
-`type` keyword will not be used**, as with any other keyword declared by the
-[validation vocabulary](https://json-schema.org/draft/2020-12/vocab/validation).
+If that vocabulary is not declared in your meta-schema, JSV will not use that
+module and **the `type` keyword and any other keyword declared by the
+[validation vocabulary](https://json-schema.org/draft/2020-12/vocab/validation)
+will be ignored during validation**.

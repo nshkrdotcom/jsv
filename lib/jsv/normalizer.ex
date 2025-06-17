@@ -67,7 +67,7 @@ defmodule JSV.Normalizer do
   Returns the given term in a JSON-decoded form without general atoms or structs
   with an accumulator.
 
-  ### What is _JSON-decoded_ form?
+  ### What is "JSON-decoded" form?
 
   By that we mean that the returned data could have been returned by
   `JSON.decode!/1`:
@@ -85,7 +85,7 @@ defmodule JSV.Normalizer do
   ### Options
 
   * `:on_general_atom` - A callback accepting an atom found in the data and the
-    accumulator. Must return a JSON-compatible
+    accumulator. Must return a JSON-decoded value.
 
   ### Examples
 
