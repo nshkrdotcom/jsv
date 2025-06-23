@@ -357,7 +357,7 @@ defmodule JSV.Schema do
 
   @doc """
   Includes the cast function in a schema. The cast function must be given as a
-  2-item list with:
+  list with two items:
 
   * A module, as atom or string
   * A tag, as atom, string or integer.
