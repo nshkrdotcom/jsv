@@ -156,5 +156,17 @@ defmodule JSV.Generated.Draft202012.AtomKeys.EmailTest do
       expected_valid = false
       JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
     end
+
+    test "two email addresses is not valid", x do
+      data = "user1@oceania.org, user2@oceania.org"
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
+
+    test "full \"From\" header is invalid", x do
+      data = "\"Winston Smith\" <winston.smith@recdep.minitrue> (Records Department)"
+      expected_valid = false
+      JsonSchemaSuite.run_test(x.json_schema, x.schema, data, expected_valid, print_errors: false)
+    end
   end
 end

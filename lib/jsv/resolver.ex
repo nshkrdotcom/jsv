@@ -561,7 +561,7 @@ defmodule JSV.Resolver do
   defp fetch_docpath(raw_schema, docpath) do
     case do_fetch_docpath(raw_schema, docpath, []) do
       {:ok, sub} -> {:ok, sub}
-      :error -> {:error, {:invalid_docpath, docpath, raw_schema}}
+      {:error, reason} -> {:error, {:invalid_docpath, docpath, raw_schema, reason}}
     end
   end
 
@@ -573,14 +573,16 @@ defmodule JSV.Resolver do
   # the subschema. We can remove that list building once Draft 7 is not
   # supported anymore.
   defp do_fetch_docpath(list, [h | t], parents) when is_list(list) and is_integer(h) do
-    with {:ok, item} <- Enum.fetch(list, h) do
-      do_fetch_docpath(item, t, [list | parents])
+    case Enum.fetch(list, h) do
+      {:ok, item} -> do_fetch_docpath(item, t, [list | parents])
+      :error -> {:error, {:pointer_error, h, list}}
     end
   end
 
   defp do_fetch_docpath(raw_schema, [h | t], parents) when is_map(raw_schema) and is_binary(h) do
-    with {:ok, sub} <- Map.fetch(raw_schema, h) do
-      do_fetch_docpath(sub, t, [raw_schema | parents])
+    case Map.fetch(raw_schema, h) do
+      {:ok, sub} -> do_fetch_docpath(sub, t, [raw_schema | parents])
+      :error -> {:error, {:pointer_error, h, raw_schema}}
     end
   end
 

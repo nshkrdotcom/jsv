@@ -3,7 +3,7 @@ defmodule JSV.BuildError do
   A simple wrapper for errors returned from `JSV.build/2`.
   """
 
-  @inspect_limit 1000
+  @inspect_limit 20
   @enforce_keys [:reason, :action, :build_path]
   defexception @enforce_keys
 
