@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2025-06-29
+
+### ⚙️ Miscellaneous Tasks
+
+- Export the locals_without_parens formatter opts for public macros
+
 ## [0.8.0] - 2025-06-23
 
 ### 🚀 Features
