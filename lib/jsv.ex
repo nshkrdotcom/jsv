@@ -455,6 +455,9 @@ defmodule JSV do
   Returns a JSON compatible represenation of a `JSV.ValidationError` struct.
 
   See `JSV.ErrorFormatter.normalize_error/2` for options.
+
+  When used without the `:atoms` keys option, a normalized error will correspond
+  to the JSON schema returned by `error_schema/0`.
   """
   @spec normalize_error(ValidationError.t() | Validator.context() | [Validator.Error.t()], keyword) :: map()
   def normalize_error(error, opts \\ [])
@@ -915,6 +918,42 @@ defmodule JSV do
       _ -> major
     catch
       :error, _ -> major
+    end
+  end
+
+  @doc """
+  Returns the schema representing errors returned by `normalize_error/1`.
+
+  Because errors can be nested, the schema is recursive, so this function
+  returns a module based schema (a module name).
+  """
+  @spec error_schema :: module
+  def error_schema do
+    JSV.ErrorFormatter.error_schema()
+  end
+
+  @doc """
+  The Schema Description sigil.
+
+  A sigil used to embed long texts in schemas descriptions. Replaces all
+  combinations of whitespace by a single whitespace and trims the string.
+
+  It does not support any modifier.
+
+  ### Example
+
+      iex> ~SD\"""
+      ...> This schema represents an elixir.
+      ...>
+      ...> An elixir is a potion with positive outcomes!
+      ...> \"""
+      "This schema represents an elixir. An elixir is a potion with positive outcomes!"
+  """
+  defmacro sigil_SD({:<<>>, _, [description]}, []) do
+    formatted = description |> String.replace(~r{\s+}, " ") |> String.trim()
+
+    quote do
+      unquote(formatted)
     end
   end
 end

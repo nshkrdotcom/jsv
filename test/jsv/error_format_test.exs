@@ -83,37 +83,7 @@ defmodule JSV.ErrorFormatTest do
   #   end
   # end
 
-  @error_output_schema %Schema{
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "jsv://error-output",
-    "$defs": %{
-      output_unit:
-        Schema.object(
-          properties: %{
-            valid: Schema.boolean(),
-            schemaLocation: Schema.string(),
-            evaluationPath: Schema.string(),
-            instanceLocation: Schema.string(),
-            # output units have errors, a list of error annotations
-            errors: Schema.items(Schema.ref("#/$defs/error_annot")),
-            # output units have other nested units
-            details: Schema.items(Schema.ref("#/$defs/output_unit"))
-          },
-          required: [:valid]
-        ),
-      error_annot:
-        Schema.object(
-          properties: %{
-            kind: Schema.string(),
-            message: Schema.string(),
-            # Error have details, i.e. a list of sub output units
-            details: Schema.items(Schema.ref("#/$defs/output_unit"))
-          },
-          required: [:kind, :message]
-        )
-    },
-    "$ref": "#/$defs/output_unit"
-  }
+  @error_output_schema JSV.error_schema()
 
   defp assert_output_schema(formatted_error) do
     {:ok, output_schema} = JSV.build(@error_output_schema, resolver: JSV.Test.TestResolver)
@@ -177,7 +147,7 @@ defmodule JSV.ErrorFormatTest do
     ]
 
     assert {:error, validation_error} = JSV.validate(invalid_data, schema)
-    formatted_error = JSV.normalize_error(validation_error)
+    formatted_error = JSV.normalize_error(validation_error, keys: :atoms)
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
   end
@@ -222,7 +192,7 @@ defmodule JSV.ErrorFormatTest do
     invalid_data = %{"a" => %{"b" => %{"foo" => %{"bar" => "baz"}}}}
 
     assert {:error, validation_error} = JSV.validate(invalid_data, schema)
-    formatted_error = JSV.normalize_error(validation_error)
+    formatted_error = JSV.normalize_error(validation_error, keys: :atoms)
 
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
@@ -270,7 +240,7 @@ defmodule JSV.ErrorFormatTest do
     invalid_data = %{"foo" => %{"bar" => 1, "baz" => "a string"}}
 
     assert {:error, validation_error} = JSV.validate(invalid_data, schema)
-    formatted_error = JSV.normalize_error(validation_error)
+    formatted_error = JSV.normalize_error(validation_error, keys: :atoms)
 
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
@@ -321,7 +291,7 @@ defmodule JSV.ErrorFormatTest do
     invalid_data = %{"foo" => %{"bar" => 1, "qux" => 1}}
 
     assert {:error, validation_error} = JSV.validate(invalid_data, schema)
-    formatted_error = JSV.normalize_error(validation_error)
+    formatted_error = JSV.normalize_error(validation_error, keys: :atoms)
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
 
@@ -370,7 +340,7 @@ defmodule JSV.ErrorFormatTest do
     invalid_data = %{"foo" => %{"other" => "nope"}}
 
     assert {:error, validation_error} = JSV.validate(invalid_data, schema)
-    formatted_error = JSV.normalize_error(validation_error)
+    formatted_error = JSV.normalize_error(validation_error, keys: :atoms)
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
 
@@ -432,7 +402,7 @@ defmodule JSV.ErrorFormatTest do
 
     invalid_data = %{"age" => 25}
     assert {:error, validation_error} = JSV.validate(invalid_data, schema)
-    formatted_error = JSV.normalize_error(validation_error)
+    formatted_error = JSV.normalize_error(validation_error, keys: :atoms)
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
 
@@ -450,7 +420,7 @@ defmodule JSV.ErrorFormatTest do
 
     invalid_data = %{"age" => 12, "guardianName" => 123}
     assert {:error, validation_error} = JSV.validate(invalid_data, schema)
-    formatted_error = JSV.normalize_error(validation_error)
+    formatted_error = JSV.normalize_error(validation_error, keys: :atoms)
     assert_output_schema(formatted_error)
     assert valid_message(validation_error) =~ "at:"
     assert_match_error(formatted_error, %{schemaLocation: "#/if/properties/age"})
@@ -494,7 +464,7 @@ defmodule JSV.ErrorFormatTest do
                }
              ]
            } =
-             JSV.normalize_error(err)
+             JSV.normalize_error(err, keys: :atoms)
 
     assert "additional properties are not allowed but found property 'b'" == message
   end
@@ -528,7 +498,7 @@ defmodule JSV.ErrorFormatTest do
     data = [123, "not an integer"]
 
     assert {:error, err} = JSV.validate(data, root)
-    formatted_error = JSV.normalize_error(err)
+    formatted_error = JSV.normalize_error(err, keys: :atoms)
 
     # The schema location should be in the correct anchor definition
     assert_match_error(formatted_error, %{schemaLocation: "https://some-id/somepath#/$defs/foo"})
@@ -552,7 +522,7 @@ defmodule JSV.ErrorFormatTest do
     root = JSV.build!(schema, resolver: OtherResolver)
     data = %{"a" => %{"b" => "not an integer"}}
     assert {:error, err} = JSV.validate(data, root)
-    formatted_error = JSV.normalize_error(err)
+    formatted_error = JSV.normalize_error(err, keys: :atoms)
     # The schema location should be in the correct anchor definition
     assert_match_error(formatted_error, %{
       errors: [%{message: "value is not of type integer", kind: :type}],
@@ -578,7 +548,7 @@ defmodule JSV.ErrorFormatTest do
     root = JSV.build!(schema)
     data = "not an integer"
     assert {:error, err} = JSV.validate(data, root)
-    formatted_error = JSV.normalize_error(err)
+    formatted_error = JSV.normalize_error(err, keys: :atoms)
     # The schema location should not be https://some/extended...
 
     assert_match_error(formatted_error, %{schemaLocation: "https://some/base#/$defs/foo"})
@@ -609,7 +579,7 @@ defmodule JSV.ErrorFormatTest do
     root = JSV.build!(schema)
     data = "not an integer"
     assert {:error, err} = JSV.validate(data, root)
-    formatted_error = JSV.normalize_error(err)
+    formatted_error = JSV.normalize_error(err, keys: :atoms)
 
     # schema locations should not be https://test/extended
 
@@ -672,6 +642,6 @@ defmodule JSV.ErrorFormatTest do
                }
              ]
            } =
-             JSV.normalize_error(err)
+             JSV.normalize_error(err, keys: :atoms)
   end
 end

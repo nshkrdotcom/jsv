@@ -1,4 +1,4 @@
 defmodule JSVTest do
   use ExUnit.Case, async: true
-  doctest JSV
+  doctest JSV, import: true
 end

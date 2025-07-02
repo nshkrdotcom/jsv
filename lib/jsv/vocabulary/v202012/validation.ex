@@ -537,8 +537,8 @@ defmodule JSV.Vocabulary.V202012.Validation do
     "value must have at most #{max_properties} properties, got #{size}"
   end
 
-  def format_error(:enum, %{enum: enum}, _data) do
-    "value must be one of the enum values: #{enum |> Enum.map(&inspect/1) |> verbose_list("or")}"
+  def format_error(:enum, %{enum: enum}, data) do
+    "#{inspect(data)},value must be one of the enum values: #{enum |> Enum.map(&inspect/1) |> verbose_list("or")}"
   end
 
   def format_error(:dependentRequired, %{parent: parent, missing: missing}, _data) do

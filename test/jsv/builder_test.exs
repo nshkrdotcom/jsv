@@ -115,7 +115,7 @@ defmodule JSV.BuilderTest do
                  }
                ]
              } =
-               JSV.normalize_error(err)
+               JSV.normalize_error(err, keys: :atoms)
     end
 
     test "can build a document with two nested schemas" do
@@ -173,7 +173,7 @@ defmodule JSV.BuilderTest do
                    schemaLocation: "str#"
                  }
                ]
-             } = JSV.normalize_error(e)
+             } = JSV.normalize_error(e, keys: :atoms)
 
       assert {:error, e} = JSV.validate("hello", root, key: key_int)
 
@@ -189,7 +189,7 @@ defmodule JSV.BuilderTest do
                  }
                ]
              } =
-               JSV.normalize_error(e)
+               JSV.normalize_error(e, keys: :atoms)
     end
 
     test "nested schema can reference another schema in the document" do
@@ -244,7 +244,7 @@ defmodule JSV.BuilderTest do
                  }
                ]
              } =
-               JSV.normalize_error(error)
+               JSV.normalize_error(error, keys: :atoms)
     end
 
     test "two different documents can reference each other recursively" do
@@ -357,7 +357,7 @@ defmodule JSV.BuilderTest do
                    schemaLocation: "https://example.com/person.json#"
                  }
                ]
-             } = JSV.normalize_error(e)
+             } = JSV.normalize_error(e, keys: :atoms)
     end
   end
 end

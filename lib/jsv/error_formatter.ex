@@ -1,5 +1,6 @@
 defmodule JSV.ErrorFormatter do
   alias JSV.Key
+  alias JSV.Normalizer
   alias JSV.Ref
   alias JSV.ValidationError
   alias JSV.Validator
@@ -15,22 +16,46 @@ defmodule JSV.ErrorFormatter do
   * Evaluation path: the path followed from the root to this schema location
   """
 
-  @type annotation :: %{
+  @type error_unit :: %{
           required(:valid) => boolean,
           required(:instanceLocation) => binary,
           required(:evaluationPath) => binary,
           required(:schemaLocation) => binary,
-          optional(:errors) => [collected_error],
-          optional(:detail) => [annotation]
+          optional(:errors) => [keyword_error]
         }
 
-  @type collected_error :: %{
+  @type keyword_error :: %{
           required(:kind) => atom,
           required(:message) => String.t(),
-          optional(:detail) => [annotation]
+          optional(:details) => [error_unit]
         }
 
   @type raw_path :: [raw_path] | binary | integer | atom
+
+  @doc false
+  @spec error_schema :: module
+  def error_schema do
+    __MODULE__.ErrorSchema
+  end
+
+  @normalize_opts_schema NimbleOptions.new!(
+                           sort: [
+                             type: {:in, [:asc, :desc]},
+                             default: :desc,
+                             doc: """
+                             Controls the sort direction. Errors are sorted by `instanceLocation`.
+                             """
+                           ],
+                           keys: [
+                             type: {:in, [:atoms, :strings]},
+                             default: :strings,
+                             doc: """
+                             Allows to keep atoms as keys for the errors, which makes working with errors easier.
+                             """
+                           ]
+                         )
+
+  @type normalize_opt :: unquote(NimbleOptions.option_typespec(@normalize_opts_schema))
 
   @doc """
   Returns a JSON-able version of the errors contained in the ValidationError.
@@ -40,19 +65,20 @@ defmodule JSV.ErrorFormatter do
 
   ### Options
 
-  * `:sort` - Either `:asc` or `:desc`. Defaults to `:desc` so the most deeply
-    nested errors, _i.e_ the root cause of errors, are displayed first. Errors
-    are sorted by `instanceLocation`.
+  #{NimbleOptions.docs(@normalize_opts_schema)}
   """
   @spec normalize_error(ValidationError.t(), keyword) :: map()
   def normalize_error(%ValidationError{} = e, opts \\ []) do
-    opts =
-      Keyword.update(opts, :sort, :desc, fn
-        :asc -> :asc
-        _ -> :desc
-      end)
+    opts = NimbleOptions.validate!(opts, @normalize_opts_schema)
+    top = %{valid: false, details: normalize_errors(e.errors, opts)}
+    normalize_keys(top, opts)
+  end
 
-    %{valid: false, details: normalize_errors(e.errors, opts)}
+  defp normalize_keys(with_atoms, opts) do
+    case opts[:keys] do
+      :atoms -> with_atoms
+      :strings -> Normalizer.normalize(with_atoms)
+    end
   end
 
   defp normalize_errors(errors, opts) do
@@ -111,7 +137,7 @@ defmodule JSV.ErrorFormatter do
   nested details of an error. Mostly used to show multiple validated schemas
   with `:oneOf`.
   """
-  @spec valid_annot(Validator.validator(), Validator.context()) :: annotation
+  @spec valid_annot(Validator.validator(), Validator.context()) :: error_unit
 
   def valid_annot(subschema, vctx) do
     evaluation_path = format_eval_path(vctx.eval_path)
@@ -164,7 +190,7 @@ defmodule JSV.ErrorFormatter do
   end
 
   def format_schema_path({:alias_of, key}) do
-    [Key.to_iodata(key)]
+    Key.to_iodata(key)
   end
 
   def format_schema_path(%{schema_path: sp}) do
@@ -197,4 +223,119 @@ defmodule JSV.ErrorFormatter do
       other -> raise "invalid eval path segment: #{inspect(other)}"
     end
   end
+end
+
+defmodule JSV.ErrorFormatter.KeywordErrorSchema do
+  import JSV
+  import JSV.Schema
+
+  @moduledoc false
+
+  # @kinds ~w(
+  #     additionalItems additionalProperties allOf anyOf arithmetic_error boolean_schema
+  #     const dependentRequired enum exclusiveMaximum exclusiveMinimum format
+  #     if/else if/then items items_as_prefix maxContains maximum
+  #     maxItems maxLength maxProperties minContains minimum minItems
+  #     minLength minProperties multipleOf not oneOf pattern
+  #     patternProperties prefixItems properties required type uniqueItems
+  #   )
+
+  defschema %{
+    type: :object,
+    title: "JSV:KeywordErrorSchema",
+    description: ~SD"""
+    Represents an returned by a single keyword like `type` or `required`, or
+    a combination of keywords like `if` and `else`.
+
+    Such annotations can contain nested error units, for instance `oneOf`
+    may contain errors units for all subschemas when no subschema listed in
+    `oneOf` did match the input value.
+
+    The list of possible values includes
+    """,
+    properties: %{
+      kind:
+        string(
+          description: ~SD"""
+          The keyword or internal operation that invalidated the data,
+          like "type", or a combination like "if/else".
+
+          Custom vocabularies can create their own kinds over the built-in ones.
+          """
+        ),
+      message: string(description: "An error message related to the invalidating keyword"),
+      details: array_of(JSV.ErrorFormatter.ErrorUnitSchema)
+    },
+    additionalProperties: false,
+    required: [:kind, :message]
+  }
+end
+
+defmodule JSV.ErrorFormatter.ErrorUnitSchema do
+  import JSV
+  import JSV.Schema
+
+  @moduledoc false
+
+  defschema %{
+    type: :object,
+    title: "JSV:ErrorUnitSchema",
+    description: ~SD"""
+    Describes all errors found at given instanceLocation raised by the same
+    sub-schema (same schemaLocation and evaluationPath).
+
+    It may also represent a positive validation result, (when `valid` is `true`)
+    needed when for instance multiple schemas under `oneOf` validates the input
+    sucessfully.
+    """,
+    properties: %{
+      valid: boolean(),
+      schemaLocation:
+        string(
+          description: ~SD"""
+          A JSON path pointing to the part of the schema that invalidated the data.
+          """
+        ),
+      evaluationPath:
+        string(
+          description: ~SD"""
+          A JSON path pointing to the part of the schema that invalidated the data,
+          but going through all indirections like $ref within the schema, starting
+          from the root schema.
+          """
+        ),
+      instanceLocation:
+        string(
+          description: ~SD"""
+          A JSON path pointing to the invalid part in the input data.
+          """
+        ),
+      errors: array_of(JSV.ErrorFormatter.KeywordErrorSchema)
+    },
+    additionalProperties: false,
+    required: [:valid]
+  }
+end
+
+defmodule JSV.ErrorFormatter.ErrorSchema do
+  import JSV
+  import JSV.Schema
+
+  @moduledoc false
+
+  defschema %{
+    type: :object,
+    title: "JSV:ErrorUnitSchema",
+    description: ~SD"""
+    This represents a normalized `JSV.ValidationError` in a JSON-encodable way.
+
+    It contains a list of error units.
+    """,
+    properties: %{
+      valid: %{const: false},
+      details: array_of(JSV.ErrorFormatter.ErrorUnitSchema)
+    },
+    additionalProperties: false,
+    required: [:valid]
+  }
 end
