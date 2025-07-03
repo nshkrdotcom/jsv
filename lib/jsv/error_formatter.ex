@@ -35,7 +35,7 @@ defmodule JSV.ErrorFormatter do
   @doc false
   @spec error_schema :: module
   def error_schema do
-    __MODULE__.ErrorSchema
+    __MODULE__.ValidationErrorSchema
   end
 
   @normalize_opts_schema NimbleOptions.new!(
@@ -242,7 +242,7 @@ defmodule JSV.ErrorFormatter.KeywordErrorSchema do
 
   defschema %{
     type: :object,
-    title: "JSV:KeywordErrorSchema",
+    title: "JSV:KeywordError",
     description: ~SD"""
     Represents an returned by a single keyword like `type` or `required`, or
     a combination of keywords like `if` and `else`.
@@ -264,14 +264,14 @@ defmodule JSV.ErrorFormatter.KeywordErrorSchema do
           """
         ),
       message: string(description: "An error message related to the invalidating keyword"),
-      details: array_of(JSV.ErrorFormatter.ErrorUnitSchema)
+      details: array_of(JSV.ErrorFormatter.ValidationUnitSchema)
     },
     additionalProperties: false,
     required: [:kind, :message]
   }
 end
 
-defmodule JSV.ErrorFormatter.ErrorUnitSchema do
+defmodule JSV.ErrorFormatter.ValidationUnitSchema do
   import JSV
   import JSV.Schema
 
@@ -279,7 +279,7 @@ defmodule JSV.ErrorFormatter.ErrorUnitSchema do
 
   defschema %{
     type: :object,
-    title: "JSV:ErrorUnitSchema",
+    title: "JSV:ValidationUnit",
     description: ~SD"""
     Describes all errors found at given instanceLocation raised by the same
     sub-schema (same schemaLocation and evaluationPath).
@@ -317,7 +317,7 @@ defmodule JSV.ErrorFormatter.ErrorUnitSchema do
   }
 end
 
-defmodule JSV.ErrorFormatter.ErrorSchema do
+defmodule JSV.ErrorFormatter.ValidationErrorSchema do
   import JSV
   import JSV.Schema
 
@@ -325,7 +325,7 @@ defmodule JSV.ErrorFormatter.ErrorSchema do
 
   defschema %{
     type: :object,
-    title: "JSV:ErrorSchema",
+    title: "JSV:ValidationError",
     description: ~SD"""
     This represents a normalized `JSV.ValidationError` in a JSON-encodable way.
 
@@ -333,7 +333,7 @@ defmodule JSV.ErrorFormatter.ErrorSchema do
     """,
     properties: %{
       valid: %{const: false},
-      details: array_of(JSV.ErrorFormatter.ErrorUnitSchema)
+      details: array_of(JSV.ErrorFormatter.ValidationUnitSchema)
     },
     additionalProperties: false,
     required: [:valid]
