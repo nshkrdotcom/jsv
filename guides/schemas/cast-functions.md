@@ -210,7 +210,7 @@ validated data.
 
 This will be called when JSV errors are normalized to be JSON-encodable.
 
-<!-- rdmx :section name:example_error -->
+<!-- rdmx :section name:example_error format:true -->
 ```elixir
 defmodule MyApp.Schemas.Cast do
   import JSV

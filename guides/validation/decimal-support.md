@@ -32,7 +32,7 @@ The following validations work when the data is a `Decimal` struct:
 
 When validating integers, decimal values are replaced with integers.
 
-<!-- rdmx :section name:example_integer -->
+<!-- rdmx :section name:example_integer format:true -->
 ```elixir
 schema = %{
   type: :array,
@@ -53,7 +53,7 @@ JSV.validate([1, Decimal.new("2.0")], root)
 <!-- rdmx /:eval -->
 
 When validating numbers, decimal values with zero decimal part are preserved.
-<!-- rdmx :section name:example_number -->
+<!-- rdmx :section name:example_number format:true -->
 ```elixir
 schema = %{
   type: :array,
