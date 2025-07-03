@@ -360,4 +360,21 @@ defmodule JSV.BuilderTest do
              } = JSV.normalize_error(e, keys: :atoms)
     end
   end
+
+  describe "building schema arrays with empty lists" do
+    test "cannot build with oneOf: []" do
+      assert {:error, %JSV.BuildError{reason: :empty_schema_array, action: :oneOf}} =
+               JSV.build(%{"oneOf" => []})
+    end
+
+    test "cannot build with allOf: []" do
+      assert {:error, %JSV.BuildError{reason: :empty_schema_array, action: :allOf}} =
+               JSV.build(%{"allOf" => []})
+    end
+
+    test "cannot build with anyOf: []" do
+      assert {:error, %JSV.BuildError{reason: :empty_schema_array, action: :anyOf}} =
+               JSV.build(%{"anyOf" => []})
+    end
+  end
 end

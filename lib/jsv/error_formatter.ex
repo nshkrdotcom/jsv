@@ -325,7 +325,7 @@ defmodule JSV.ErrorFormatter.ErrorSchema do
 
   defschema %{
     type: :object,
-    title: "JSV:ErrorUnitSchema",
+    title: "JSV:ErrorSchema",
     description: ~SD"""
     This represents a normalized `JSV.ValidationError` in a JSON-encodable way.
 

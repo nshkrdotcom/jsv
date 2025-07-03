@@ -59,14 +59,26 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     {[{:prefixItems, subvalidators} | acc], builder}
   end
 
+  take_keyword :allOf, [], _acc, builder, _ do
+    Builder.fail(builder, :empty_schema_array, :allOf)
+  end
+
   take_keyword :allOf, [_ | _] = all_of, acc, builder, _ do
     {subvalidators, builder} = build_sub_list(:allOf, all_of, builder)
     {[{:allOf, subvalidators} | acc], builder}
   end
 
+  take_keyword :anyOf, [], _acc, builder, _ do
+    Builder.fail(builder, :empty_schema_array, :anyOf)
+  end
+
   take_keyword :anyOf, [_ | _] = any_of, acc, builder, _ do
     {subvalidators, builder} = build_sub_list(:anyOf, any_of, builder)
     {[{:anyOf, subvalidators} | acc], builder}
+  end
+
+  take_keyword :oneOf, [], _acc, builder, _ do
+    Builder.fail(builder, :empty_schema_array, :oneOf)
   end
 
   take_keyword :oneOf, [_ | _] = one_of, acc, builder, _ do

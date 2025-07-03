@@ -20,19 +20,19 @@ defmodule JSV.BuildError do
   end
 
   @impl true
-  def message(%{reason: reason, action: {m, f, a}}) when is_atom(m) and is_atom(f) and (is_list(a) or is_integer(a)) do
+  def message(%{action: {m, f, a}} = e) when is_atom(m) and is_atom(f) and (is_list(a) or is_integer(a)) do
     """
-    could not build JSON schema
+    could not build JSON schema at #{e.build_path}
 
     REASON
-    #{inspect(reason, pretty: true, limit: @inspect_limit)}
+    #{inspect(e.reason, pretty: true, limit: @inspect_limit)}
 
-    action
+    CONTEXT
     #{Exception.format_mfa(m, f, a)}
     """
   end
 
   def message(e) do
-    "could not build JSON schema got error: #{inspect(e.reason, limit: @inspect_limit)} in context #{inspect(e.action, limit: @inspect_limit)}"
+    "could not build JSON schema at #{e.build_path}, got error: #{inspect(e.reason, limit: @inspect_limit)} for #{inspect(e.action, limit: @inspect_limit)}"
   end
 end
