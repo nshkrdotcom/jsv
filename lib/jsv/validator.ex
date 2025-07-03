@@ -150,6 +150,7 @@ defmodule JSV.Validator do
     sub_vctx = %{
       vctx
       | evaluated: [%{}],
+        errors: [],
         eval_path: append_eval_path(eval_path, add_eval_path),
         schema_path: append_schema_path(schema_path, add_eval_path)
     }
