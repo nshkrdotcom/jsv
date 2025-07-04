@@ -212,7 +212,19 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     validators = finalize_if_then_else(validators)
     validators = finalize_items(validators)
     validators = finalize_contains(validators)
-    validators
+    Enum.sort_by(validators, &cast_priority/1)
+  end
+
+  # This makes deterministic which subschema cast function will be applied when
+  # multiple cast functions are registered for the same schema level.
+  defp cast_priority({kw, _}) do
+    case kw do
+      :oneOf -> 0
+      :anyOf -> 1
+      :jsv@if -> 2
+      :allOf -> 3
+      _ -> 255
+    end
   end
 
   defp finalize_properties(validators) do
@@ -407,7 +419,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
     {to_validate, vctx, eval_path, meta} =
       case Validator.validate_detach(data, "if", if_vds, vctx) do
         {:ok, _, ok_vctx} ->
-          {then_vds, Validator.merge_evaluated(vctx, ok_vctx), "then", ok_if_vctx: ok_vctx, ok_if_subschema: if_vds}
+          {then_vds, Validator.merge_tracked(vctx, ok_vctx), "then", ok_if_vctx: ok_vctx, ok_if_subschema: if_vds}
 
         {:error, err_vctx} ->
           {else_vds, vctx, "else", err_if_vctx: err_vctx}
@@ -420,7 +432,7 @@ defmodule JSV.Vocabulary.V202012.Applicator do
       sub ->
         case Validator.validate_detach(data, eval_path, sub, vctx) do
           {:ok, data, ok_vctx} ->
-            {:ok, data, Validator.merge_evaluated(vctx, ok_vctx)}
+            {:ok, data, Validator.merge_tracked(vctx, ok_vctx)}
 
           {:error, err_vctx} ->
             {:error, Validator.with_error(vctx, :jsv@if, data, [{:after_err_vctx, err_vctx} | meta])}
@@ -522,10 +534,9 @@ defmodule JSV.Vocabulary.V202012.Applicator do
       Enum.reduce(subschemas, {[], [], vctx, _index = 0}, fn subschema, {valids, invalids, vctx, index} ->
         case Validator.validate_detach(data, {kind, index}, subschema, vctx) do
           {:ok, data, detached_vctx} ->
-            # Valid subschemas must produce "annotations" for the data they
-            # validate. For us it means that we merge the evaluated properties
-            # for successful schemas.
-            vctx = Validator.merge_evaluated(vctx, detached_vctx)
+            # Valid subschemas must produce "annotations" (like evaluated
+            # properties) and casts. for the data they validate.
+            vctx = Validator.merge_tracked(vctx, detached_vctx)
             {[{index, data, subschema, detached_vctx} | valids], invalids, vctx, index + 1}
 
           {:error, err_vctx} ->

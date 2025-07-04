@@ -276,12 +276,14 @@ defmodule JSV.Vocabulary.V202012.Validation do
   with_decimal do
     def validate_keyword({:multipleOf, n}, %Decimal{} = data, vctx) do
       data
-      |> Decimal.div(to_decimal(n))
-      |> Decimal.integer?()
+      |> Decimal.rem(to_decimal(n))
+      |> Decimal.eq?(0)
       |> case do
         true -> {:ok, data, vctx}
         false -> {:error, Validator.with_error(vctx, :multipleOf, data, multipleOf: n)}
       end
+    rescue
+      _ in Decimal.Error -> {:error, Validator.with_error(vctx, :arithmetic_error, data, context: "multipleOf")}
     end
   end
 

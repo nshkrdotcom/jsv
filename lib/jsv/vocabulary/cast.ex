@@ -1,7 +1,12 @@
 defmodule JSV.Vocabulary.Cast do
   alias JSV.Helpers.StringExt
   alias JSV.Validator
-  use JSV.Vocabulary, priority: 900
+
+  use JSV.Vocabulary,
+    # Priority is meaningless here as this vocabulary is handled by the library
+    # core. But it takes precedences over all other vocabularies when registering
+    # a cast during validation, so we mark it as zero.
+    priority: :internal
 
   @moduledoc false
 
@@ -26,7 +31,6 @@ defmodule JSV.Vocabulary.Cast do
   end
 
   @impl true
-
   def validate(data, %{"jsv-cast": {module, arg}}, vctx) do
     cond do
       Validator.error?(vctx) ->

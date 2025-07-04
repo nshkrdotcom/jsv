@@ -1,6 +1,7 @@
 # credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.CastTest do
-  require JSV
+  alias JSV.Resolver.Internal
+  import JSV
   use ExUnit.Case, async: true
 
   describe "using the defcast macro" do
@@ -17,7 +18,6 @@ defmodule JSV.CastTest do
       }
 
       root = JSV.build!(schema)
-
       # The cast is called after validation so it should not be called
       assert {:ok, :some_cast_value} = JSV.validate("hello", root)
     end
@@ -35,7 +35,6 @@ defmodule JSV.CastTest do
       }
 
       root = JSV.build!(schema)
-
       assert {:error, _validation_error} = JSV.validate("hello", root)
     end
 
@@ -58,9 +57,7 @@ defmodule JSV.CastTest do
       }
 
       root = JSV.build!(schema)
-
       assert {:error, validation_error} = JSV.validate("hello", root)
-
       # The error is normalizable
       assert %{
                valid: false,
@@ -80,9 +77,7 @@ defmodule JSV.CastTest do
       }
 
       root = JSV.build!(schema)
-
       assert {:error, validation_error} = JSV.validate("hello", root)
-
       # The error is normalizable
       assert %{
                valid: false,
@@ -108,9 +103,7 @@ defmodule JSV.CastTest do
       }
 
       root = JSV.build!(schema)
-
       # Since the error is not on the __jsv__ call it should rise
-
       assert_raise UndefinedFunctionError, ~r/UnknownModule.a_function.*is undefined/, fn ->
         JSV.validate("hello", root)
       end
@@ -129,9 +122,7 @@ defmodule JSV.CastTest do
       }
 
       root = JSV.build!(schema)
-
       assert {:error, validation_error} = JSV.validate("hello", root)
-
       # The error is normalizable
       assert %{
                valid: false,
@@ -161,9 +152,7 @@ defmodule JSV.CastTest do
       }
 
       root = JSV.build!(schema)
-
       # Since the error is not on the __jsv__ call it should rise
-
       assert_raise FunctionClauseError, ~r/no function clause matching in.*NestedFunctionClauseError.local_fun/, fn ->
         JSV.validate("hello", root)
       end
@@ -258,7 +247,6 @@ defmodule JSV.CastTest do
 
       # Ensure we implement the format error examples for documentation
       assert %{} = JSV.normalize_error(e)
-
       reason
     end
 
@@ -271,7 +259,6 @@ defmodule JSV.CastTest do
       if fun != nil do
         # The /0 arity function returns the schema pointer
         assert [to_string(CastExample), tag] == apply(CastExample, fun, [])
-
         # The /1 arity function is defined and corresponds to the user code
         assert {:ok, ^valid_cast} = apply(CastExample, fun, [valid_data])
       end
@@ -322,7 +309,6 @@ defmodule JSV.CastTest do
       assert_raise ArgumentError, ~r/invalid defcast/, fn ->
         defmodule UsesHeadFun do
           import JSV
-
           defcast with_head_fun(data)
         end
       end
@@ -340,7 +326,6 @@ defmodule JSV.CastTest do
       assert_raise ArgumentError, ~r/invalid defcast/, fn ->
         defmodule UsesHeadFun do
           import JSV
-
           defcast :aaa, 1234
         end
       end
@@ -354,6 +339,140 @@ defmodule JSV.CastTest do
           end
         end
       end
+    end
+  end
+
+  describe "casting from sub applicators" do
+    defmodule Child do
+      import JSV
+      defschema %{type: :object, properties: %{foo: %{type: :string}}, required: [:foo]}
+    end
+
+    defmodule OtherChild do
+      import JSV
+      defschema %{type: :object, properties: %{baz: %{type: :string}}, required: [:baz]}
+    end
+
+    defcast topcast(value) do
+      {:ok, {:top, value}}
+    end
+
+    # Tests made to fix a bug.
+    #
+    # When using oneOf with a desfchema module in the oneOf, the value is cast
+    # before some keywords are executed, like required: ["foo"] that will not
+    # work since the value has been casted to a struct with a :foo key.
+    #
+    # To solve oneOf we can just change priorities of vocabularies. But the core
+    # has a low priority, but core handles $ref as well that can result in a
+    # cast.
+    #
+    # Other cases may arise: different cast in properties/foo and
+    # patternProperties/f.*o that will apply to the same data
+    test "casting from oneOf will skip other properties" do
+      # in this test, as there is no other cast, we will cast the value to
+      # the subschema in oneOf and the `bar` property will be lost.
+      schema = %{
+        type: :object,
+        properties: %{
+          bar: %{type: :integer}
+        },
+        required: [:bar],
+        oneOf: [Child]
+      }
+
+      root = JSV.build!(schema)
+      data = %{"foo" => "hello", "bar" => 1}
+      assert %Child{} = JSV.validate!(data, root)
+    end
+
+    test "casting from ref will skip other properties" do
+      # Here to the "bar" property will be lost
+      schema = %{
+        type: :object,
+        properties: %{
+          bar: %{type: :integer}
+        },
+        required: [:bar],
+        "$ref": Internal.module_to_uri(Child)
+      }
+
+      root = JSV.build!(schema)
+      data = %{"foo" => "hello", "bar" => 1}
+      assert %Child{} = JSV.validate!(data, root)
+    end
+
+    test "casting from oneOf/ref will skip other properties" do
+      # Here to the "bar" property will be lost
+      schema = %{
+        type: :object,
+        properties: %{
+          bar: %{type: :integer}
+        },
+        required: [:bar],
+        oneOf: [
+          %{"$ref": Internal.module_to_uri(Child)}
+        ]
+      }
+
+      root = JSV.build!(schema)
+      data = %{"foo" => "hello", "bar" => 1}
+      assert %Child{} = JSV.validate!(data, root)
+    end
+
+    test "cast from allOf will cast if there is a single module" do
+      schema = %{
+        type: :object,
+        allOf: [
+          %{properties: %{bar: %{type: :integer}}, required: [:bar]},
+          Child
+        ]
+      }
+
+      root = JSV.build!(schema)
+      data = %{"foo" => "hello", "bar" => 1}
+      assert %Child{} = JSV.validate!(data, root)
+    end
+
+    test "multiple cast from allOf use the first one" do
+      schema = %{
+        type: :object,
+        allOf: [Child, OtherChild]
+      }
+
+      root = JSV.build!(schema)
+      data = %{"foo" => "hello", "bar" => 1, "baz" => "goodbye"}
+      assert %Child{} = JSV.validate!(data, root)
+    end
+
+    test "parent cast overrides the child" do
+      schema = %{
+        type: :object,
+        "jsv-cast": [__MODULE__, "topcast"],
+        allOf: [
+          %{properties: %{bar: %{type: :integer}}, required: [:bar]},
+          Child
+        ]
+      }
+
+      root = JSV.build!(schema)
+      data = %{"foo" => "hello", "bar" => 1}
+      assert {:top, %{"bar" => 1, "foo" => "hello"}} = JSV.validate!(data, root)
+    end
+
+    test "with if/else" do
+      # The "if" will take priority as defined in the cast_priority function of
+      # the applicator vocabulary.
+      schema = %{
+        type: :object,
+        if: %{required: [:bar]},
+        then: Child,
+        allOf: [OtherChild]
+      }
+
+      root = JSV.build!(schema)
+      data = %{"foo" => "hello", "bar" => 1, "baz" => "goodbye"}
+      assert %Child{} = JSV.validate!(data, root)
     end
   end
 end

@@ -6,6 +6,7 @@ defmodule JSV.Validator do
   alias JSV.Subschema
   alias JSV.ValidationError
   alias JSV.Validator.Error
+  alias JSV.Vocabulary
 
   @moduledoc """
   This is the home of the recursive validation logic.
@@ -28,7 +29,7 @@ defmodule JSV.Validator do
     # :eval_path stores both the current keyword nesting leading to an error, and
     # the namespace changes for error absolute location.
 
-    @enforce_keys [:validators, :scope, :errors, :evaluated, :data_path, :eval_path, :schema_path, :opts]
+    @enforce_keys [:validators, :scope, :errors, :evaluated, :data_path, :eval_path, :schema_path, :opts, :cast_stacks]
     defstruct @enforce_keys
 
     @type t :: %__MODULE__{}
@@ -50,7 +51,8 @@ defmodule JSV.Validator do
       scope: [Key.namespace_of(entrypoint)],
       errors: [],
       evaluated: [%{}],
-      opts: opts
+      opts: opts,
+      cast_stacks: %{}
     }
   end
 
@@ -83,15 +85,90 @@ defmodule JSV.Validator do
     end)
   end
 
+  # TODO if the :cast option is disabled for the validator, we should skip all
+  # the cast stack shenanigans.
+
   # Executes all validators with the given data, collecting errors on the way,
   # then return either ok or error with all errors.
   def validate(data, %Subschema{} = sub, vctx) do
-    %{validators: validators} = sub
-    vctx = reset_schema_path(vctx, sub)
+    %{validators: validators, cast: cast} = sub
+    %{cast_stacks: cast_stacks, data_path: data_path} = vctx
 
-    reduce(validators, data, vctx, fn {module, mod_validators}, data, vctx ->
-      module.validate(data, mod_validators, vctx)
-    end)
+    # * Set the path of the current validator to he one of the subschema
+    # * push the cast of the subschema into the stack. after validation
+    vctx = %{
+      vctx
+      | schema_path: sub.schema_path,
+        cast_stacks: push_cast(cast_stacks, data_path, cast)
+    }
+
+    vdr_result =
+      reduce(validators, data, vctx, fn {module, mod_validators}, data, vctx ->
+        module.validate(data, mod_validators, vctx)
+      end)
+
+    case vdr_result do
+      {:ok, value, vctx} -> pop_apply_cast(value, data_path, vctx)
+      {:error, _} = err -> err
+    end
+  end
+
+  # Pushing a cast from a subschema is special. Multiple casts can be attempted
+  # to be set for the same data path (for instance with allOf) and we cannot
+  # support that, so pushes are ignored when a cast is already present.
+  #
+  # But why do we keep all the nils in the stack? Because we want to apply the
+  # casts at the last moment, in the topmost validator for the same data_path.
+  #
+  # To do so, when pushing a real cast like {module, tag}, the cast is pushed
+  # "up" the cast (down to the tail) instead of being the new head:
+  #
+  # * The validate/3 function call that pushed it will pop a nil in return, and
+  #   will not change the data that still needs to be validated by other
+  #   keywords/oneOf-scopes/etc.
+  # * The topmost validator that pushed a nil will pop the real cast and apply
+  #   it after all validations have been done.
+  #
+  # As the stack can only contain a non-nil value, instead of using a list we
+  # use a {level, value} tuple.
+  defp push_cast(cast_stacks, data_path, cast) do
+    case cast_stacks do
+      # If the stack is already defined with nil we increment it and add the
+      # cast
+      %{^data_path => {n, nil}} ->
+        %{cast_stacks | data_path => {n + 1, cast}}
+
+      # If the stack is already defined with a cast we increment it and silently
+      # ignore the new cast.
+      #
+      # We ignore it silently because while we had an implementation that could
+      # track multiple casts added at the same sublevels, it was warrning false
+      # positives too much. We would have to also track if we are in an allOf or
+      # if/then vs. oneOf to only warn about actual conflicts.
+      %{^data_path => {n, existing}} ->
+        %{cast_stacks | data_path => {n + 1, existing}}
+
+      # Define a new stack
+      _ when not is_map_key(cast_stacks, data_path) ->
+        Map.put(cast_stacks, data_path, {0, cast})
+    end
+  end
+
+  defp pop_apply_cast(value, data_path, vctx) do
+    %{cast_stacks: %{^data_path => stack} = cast_stacks} = vctx
+
+    case stack do
+      {0, nil} ->
+        vctx = %{vctx | cast_stacks: Map.delete(cast_stacks, data_path)}
+        {:ok, value, vctx}
+
+      {0, cast} ->
+        vctx = %{vctx | cast_stacks: Map.delete(cast_stacks, data_path)}
+        Vocabulary.Cast.validate(value, cast, vctx)
+
+      {n, cast} when n > 0 ->
+        {:ok, value, %{vctx | cast_stacks: %{cast_stacks | data_path => {n - 1, cast}}}}
+    end
   end
 
   @doc """
@@ -115,25 +192,25 @@ defmodule JSV.Validator do
   in the end if some error arose.
   """
   @spec reduce(Enumerable.t(), term, context, function) :: result
-  def reduce(enum, accin, vctx, fun) when is_function(fun, 3) do
-    {new_acc, new_vctx} =
-      Enum.reduce(enum, {accin, vctx}, fn item, {acc, vctx} ->
-        case fun.(item, acc, vctx) do
+  def reduce(enum, datain, vctx, fun) when is_function(fun, 3) do
+    {new_data, new_vctx} =
+      Enum.reduce(enum, {datain, vctx}, fn item, {data, vctx} ->
+        case fun.(item, data, vctx) do
           # When returning :ok, the errors may be empty or not, depending on
           # previous iterations.
-          {:ok, new_acc, new_vctx} ->
-            {new_acc, new_vctx}
+          {:ok, new_data, new_vctx} ->
+            {new_data, new_vctx}
 
           # When returning :error, an error MUST be set
           {:error, %ValidationContext{errors: [_ | _]} = new_vctx} ->
-            {acc, new_vctx}
+            {data, new_vctx}
 
           other ->
-            raise "Invalid return from #{Exception.format_fa(fun, 3)}, expected {:ok, acc, context} or {:error, term}, got: #{inspect(other)}"
+            raise "Invalid return from #{Exception.format_fa(fun, 3)}, expected {:ok, data, context} or {:error, term}, got: #{inspect(other)}"
         end
       end)
 
-    return(new_acc, new_vctx)
+    return(new_data, new_vctx)
   end
 
   @doc """
@@ -213,6 +290,7 @@ defmodule JSV.Validator do
       vctx
       | eval_path: append_eval_path(eval_path, add_eval_path),
         schema_path: append_schema_path(schema_path, add_eval_path),
+        cast_stacks: %{},
         errors: [],
         evaluated: [%{} | evaluated]
     }
@@ -220,7 +298,7 @@ defmodule JSV.Validator do
     case validate(data, subvalidators, sub_vctx) do
       {:ok, data, sub_vctx} ->
         # There should not be errors in sub at this point ?
-        new_vctx = vctx |> merge_evaluated(sub_vctx) |> merge_errors(sub_vctx)
+        new_vctx = vctx |> merge_tracked(sub_vctx) |> merge_errors(sub_vctx)
         {:ok, data, new_vctx}
 
       {:error, %ValidationContext{errors: [_ | _]} = sub_vctx} ->
@@ -242,7 +320,7 @@ defmodule JSV.Validator do
 
     case validate(data, subvalidators, separate_vctx) do
       {:ok, data, separate_vctx} ->
-        {:ok, data, merge_evaluated(vctx, separate_vctx)}
+        {:ok, data, merge_tracked(vctx, separate_vctx)}
 
       {:error, %ValidationContext{errors: [_ | _]} = separate_vctx} ->
         {:error, merge_errors(vctx, separate_vctx)}
@@ -306,10 +384,6 @@ defmodule JSV.Validator do
     schema_path
   end
 
-  defp reset_schema_path(%ValidationContext{} = vctx, %Subschema{} = sub) do
-    %{vctx | schema_path: sub.schema_path}
-  end
-
   defp merge_errors(%ValidationContext{} = vctx, %ValidationContext{} = sub) do
     %{errors: vctx_errors} = vctx
     %{errors: sub_errors} = sub
@@ -330,11 +404,29 @@ defmodule JSV.Validator do
     [vctx_errors, sub_errors]
   end
 
-  @spec merge_evaluated(context, context) :: context
-  def merge_evaluated(%ValidationContext{} = vctx, %ValidationContext{} = sub) do
-    %{evaluated: [top_vctx | rest_vctx]} = vctx
-    %{evaluated: [top_sub | _rest_sub]} = sub
-    %{vctx | evaluated: [Map.merge(top_vctx, top_sub) | rest_vctx]}
+  @doc """
+  Merges tracking data from the sub context into the main context. This is
+  useful to keep information defined by subschemas for the same data level as
+  the parent schema. Such sub schemas are defined with oneOf/allOf/... or $ref.
+
+  Tracking data:
+
+  * Evaluated paths, to work with unevaluated properties/items
+  * Cast functions (defschema,defcast)
+  """
+  @spec merge_tracked(context, context) :: context
+  def merge_tracked(%ValidationContext{} = vctx, %ValidationContext{} = sub) do
+    %{cast_stacks: top_cast_stacks, evaluated: [top_vctx | rest_vctx]} = vctx
+    %{cast_stacks: sub_cast_stacks, evaluated: [top_sub | _rest_sub]} = sub
+
+    cast_stacks =
+      Map.merge(top_cast_stacks, sub_cast_stacks, fn
+        _dpath, same, same -> same
+        _dpath, {n, nil}, {_, nil} -> {n, nil}
+        _dpath, {n, nil}, {_, cast} -> {n, cast}
+      end)
+
+    %{vctx | cast_stacks: cast_stacks, evaluated: [Map.merge(top_vctx, top_sub) | rest_vctx]}
   end
 
   @spec return(term, context) :: result

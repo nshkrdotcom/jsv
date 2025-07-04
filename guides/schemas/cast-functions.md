@@ -153,7 +153,7 @@ defcast "my_custom_tag", to_uppercase(data) do
   {:ok, String.upcase(data)}
 end
 
-# Using an integer tag (passed as a character code to be more meaningful)
+# Using an integer tag
 defcast ?u, to_uppercase(data) do
   {:ok, data}
 end

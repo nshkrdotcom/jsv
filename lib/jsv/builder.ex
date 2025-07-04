@@ -353,10 +353,21 @@ defmodule JSV.Builder do
     #       other -> IO.warn("got some leftovers: #{inspect(other)}", [])
     #     end
 
+    # Pull the cast from the internal vocabulary so we do not have to dig into
+    # each subschema's validators when validating.
+    {cast, schema_validators} =
+      case List.keytake(schema_validators, Vocabulary.Cast, 0) do
+        nil -> {nil, schema_validators}
+        {{Vocabulary.Cast, cast}, svs} -> {cast, svs}
+      end
+
     # Reverse the list to keep the priority order from builder.vocabularies
     schema_validators = :lists.reverse(schema_validators)
 
-    {%JSV.Subschema{validators: schema_validators, schema_path: rev_path}, builder}
+    {
+      %JSV.Subschema{validators: schema_validators, schema_path: rev_path, cast: cast},
+      builder
+    }
   end
 
   defp do_build_sub(valid?, rev_path, builder) when is_boolean(valid?) do

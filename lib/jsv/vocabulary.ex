@@ -62,7 +62,7 @@ defmodule JSV.Vocabulary do
   terms (such as structs or dates) should be done by vocabularies with a
   priority of 1000 and above.
   """
-  @callback priority() :: pos_integer()
+  @callback priority() :: non_neg_integer()
 
   @doc """
   By using this module you will:
@@ -75,10 +75,18 @@ defmodule JSV.Vocabulary do
     priority_callback =
       case Keyword.fetch(opts, :priority) do
         {:ok, n} when is_integer(n) and n > 0 ->
-          quote bind_quoted: [n: n] do
+          quote do
             @impl true
             def priority do
               unquote(n)
+            end
+          end
+
+        {:ok, :internal} ->
+          quote do
+            @impl true
+            def priority do
+              0
             end
           end
 

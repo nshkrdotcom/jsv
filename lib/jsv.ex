@@ -790,7 +790,7 @@ defmodule JSV do
       iex> JSV.Schema.cast(MyApp.Cast.to_existing_atom())
       %JSV.Schema{"jsv-cast": ["Elixir.MyApp.Cast", "to_existing_atom"]}
 
-  With a`jsv-cast` property defined in a schema, data will be cast when the
+  With a `jsv-cast` property defined in a schema, data will be cast when the
   schema is validated:
 
       iex> schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Cast.to_existing_atom())

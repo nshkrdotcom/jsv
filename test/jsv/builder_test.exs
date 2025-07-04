@@ -1,6 +1,7 @@
 defmodule JSV.BuilderTest do
   alias JSV.Ref
   alias JSV.Schema
+  require JSV
   use ExUnit.Case, async: true
 
   describe "resolving base meta schemas" do
