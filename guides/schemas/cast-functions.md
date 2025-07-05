@@ -131,7 +131,7 @@ And finally, it will define the appropriate `__jsv__/2` function to be used in a
 schema:
 
 ```elixir
-schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Schemas.Cast.to_uppercase())
+schema = JSV.Schema.string() |> JSV.Schema.with_cast(MyApp.Schemas.Cast.to_uppercase())
 # => %JSV.Schema{
 #      type: :string,
 #      "jsv-cast": ["Elixir.MyApp.Schemas.Cast", "to_uppercase"]
@@ -226,7 +226,7 @@ defmodule MyApp.Schemas.Cast do
   end
 end
 
-schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Schemas.Cast.safe_to_atom())
+schema = JSV.Schema.string() |> JSV.Schema.with_cast(MyApp.Schemas.Cast.safe_to_atom())
 
 root = JSV.build!(schema)
 {:error, err} = JSV.validate("some string", root)

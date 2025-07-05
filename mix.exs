@@ -112,7 +112,9 @@ defmodule JSV.MixProject do
       "guides/build/vocabularies.md",
       # Validation
       "guides/validation/validation-basics.md",
-      "guides/validation/decimal-support.md"
+      "guides/validation/decimal-support.md",
+      # Dev Log
+      "guides/dev-log/api-changes-v0.9.md"
     ]
 
     case existing_guides -- defined_guides do
@@ -138,28 +140,33 @@ defmodule JSV.MixProject do
     [
       Schemas: ~r/guides\/schemas\/.?/,
       Build: ~r/guides\/build\/.?/,
-      Validation: ~r/guides\/validation\/.?/
+      Validation: ~r/guides\/validation\/.?/,
+      "Dev Log": ~r/guides\/dev-log\/.?/
     ]
   end
 
   defp groups_for_modules do
     [
       "Main API": [JSV],
-      "Schema Definition": [JSV.Schema],
+      "Schema Definition": [JSV.Schema, JSV.Schema.Helpers],
       Build: [JSV.FormatValidator, JSV.BuildError],
       Validation: [JSV.Root, JSV.ValidationError],
       Resolvers: [JSV.Resolver, JSV.Resolver.Httpc, JSV.Resolver.Embedded, JSV.Resolver.Internal, JSV.Resolver.Local],
       Vocabulary: [JSV.Vocabulary, ~r/^JSV\.Vocabulary\./],
-      Utilities: [JSV.Normalizer, JSV.Normalizer.Normalize, JSV.Codec, JSV.Helpers.MapExt, JSV.Helpers.Traverse],
+      Utilities: [
+        JSV.Normalizer,
+        JSV.Normalizer.Normalize,
+        JSV.Codec,
+        JSV.Helpers.MapExt,
+        JSV.Helpers.Traverse,
+        JSV.Schema.Composer
+      ],
       Internal: ~r/.*/
     ]
   end
 
   defp groups_for_docs do
-    [
-      "Schema Definition Utilities": &(&1[:section] == :schema_utilities && &1[:sub_section] != :schema_casters),
-      "Schema Casts": &(&1[:sub_section] == :schema_casters)
-    ]
+    []
   end
 
   defp package do

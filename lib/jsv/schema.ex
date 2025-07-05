@@ -1,6 +1,6 @@
 defmodule JSV.Schema do
   alias JSV.Resolver.Internal
-  import JSV.Schema.Defcompose
+  import JSV.Schema.HelperCompiler
 
   @t_doc "`%#{inspect(__MODULE__)}{}` struct"
 
@@ -177,12 +177,44 @@ defmodule JSV.Schema do
   defstruct @all_keys
 
   @type t :: %__MODULE__{}
+  @type attributes :: %{(binary | atom) => term} | [{atom | binary, term}]
   @type schema_data :: %{optional(binary) => schema_data} | [schema_data] | number | binary | boolean | nil
-  @type overrides :: map | [{atom | binary, term}]
-  @type base :: map | [{atom | binary, term}] | struct | nil
-  @type property_key :: atom | binary
-  @type properties :: [{property_key, schema}] | %{optional(property_key) => schema}
+  @type merge_base :: attributes | [{atom | binary, term}] | struct | nil
   @type schema :: true | false | map
+
+  @doc """
+  Use this module to define module-based schemas or schemas with the helpers
+  API.
+
+  * Imports struct and cast definitions from `JSV`.
+  * Imports the `JSV.Schema.Helpers` module with the `string`, `integer`,
+    `enum`, _etc._ helpers.
+
+  ### Example
+
+      defmodule MySchema do
+        use JSV.Schema
+
+        defschema %{
+          type: :object,
+          properties: %{
+            foo: string(description: "Some foo!"),
+            bar: integer(minimum: 100) |> with_cast(__MODULE__,:hashid),
+            sub: props(sub_foo: string(), sub_bar: integer()) pp
+          }
+        }
+
+        defcast hashid(bar) do
+          {:ok, Hashids.decode!(bar, cipher())}
+        end
+      end
+  """
+  defmacro __using__(_) do
+    quote do
+      import JSV, only: :macros
+      import JSV.Schema.Helpers
+    end
+  end
 
   @doc """
   Returns a new empty schema.
@@ -195,7 +227,7 @@ defmodule JSV.Schema do
   @doc """
   Returns a new schema with the given key/values.
   """
-  @spec new(t | overrides) :: t
+  @spec new(t | attributes) :: t
   def new(%__MODULE__{} = schema) do
     schema
   end
@@ -207,6 +239,8 @@ defmodule JSV.Schema do
   @doc """
   Merges the given key/values into the base schema. The merge is shallow and
   will overwrite any pre-existing key.
+
+  This function is defined to work with the `JSV.Schema.Composer` API.
 
   The resulting schema is always a map or a struct but the actual type depends
   on the given base. It follows the followng rules:
@@ -249,111 +283,45 @@ defmodule JSV.Schema do
       iex> JSV.Schema.merge([description: "base"], %{type: :integer})
       %JSV.Schema{description: "base", type: :integer}
   """
-  @doc section: :schema_utilities
-  @spec merge(base, overrides) :: schema
+  @spec merge(merge_base, attributes) :: schema()
   def merge(nil, values) do
     new(values)
   end
 
-  def merge(base, values) when is_list(base) do
-    struct!(new(base), values)
+  def merge(merge_base, values) when is_list(merge_base) do
+    struct!(new(merge_base), values)
   end
 
-  def merge(%mod{} = base, values) do
-    struct!(base, values)
+  def merge(%mod{} = merge_base, values) do
+    struct!(merge_base, values)
   rescue
     e in KeyError ->
       reraise %{e | message: "struct #{inspect(mod)} does not accept key #{inspect(e.key)}"}, __STACKTRACE__
   end
 
-  def merge(base, values) when is_map(base) do
-    Enum.into(values, base)
+  def merge(merge_base, values) when is_map(merge_base) do
+    Enum.into(values, merge_base)
   end
 
-  @doc "Alias for `merge/2`."
-  @deprecated "Use `merge/2`"
-  @spec override(base, overrides) :: schema
-  def override(base, values) do
-    merge(base, values)
+  @doc """
+  Merges two sets of attributes into a single map. Attributes can be a keyword
+  list or a map.
+  """
+  @spec combine(attributes, attributes) :: schema
+  def combine(map, attributes) when is_map(map) do
+    Enum.into(attributes, map)
   end
 
-  defcompose :boolean, type: :boolean
+  def combine(list, attributes) when is_list(list) do
+    Enum.into(attributes, Map.new(list))
+  end
 
-  defcompose :integer, type: :integer
-  defcompose :number, type: :number
-  defcompose :pos_integer, type: :integer, minimum: 1
-  defcompose :non_neg_integer, type: :integer, minimum: 0
-  defcompose :neg_integer, type: :integer, maximum: -1
-
-  @doc """
-  See `props/2` to define the properties as well.
-  """
-  defcompose :object, type: :object
-
-  @doc """
-  Does **not** set the `type: :array` on the schema. Use `array_of/2` for a
-  shortcut.
-  """
-  defcompose :items, items: item_schema :: schema
-  defcompose :array_of, type: :array, items: item_schema :: schema
-
-  defcompose :string, type: :string
-  defcompose :date, type: :string, format: :date
-  defcompose :datetime, type: :string, format: :"date-time"
-  defcompose :uri, type: :string, format: :uri
-  defcompose :uuid, type: :string, format: :uuid
-  defcompose :email, type: :string, format: :email
-  defcompose :non_empty_string, type: :string, minLength: 1
-
-  @doc """
-  Does **not** set the `type: :string` on the schema. Use `string_of/2` for a
-  shortcut.
-  """
-  defcompose :format, [format: format] when is_binary(format) when is_atom(format)
-  defcompose :string_of, [type: :string, format: format] when is_binary(format) when is_atom(format)
-
-  @doc """
-  A struct-based schema module name is not a valid reference. Modules should be
-  passed directly where a schema (and not a `$ref`) is expected.
-
-  #### Example
-
-  For instance to define a `user` property, this is valid:
-  ```
-  props(user: UserSchema)
-  ```
-
-  The following is invalid:
-  ```
-  # Do not do this
-  props(user: ref(UserSchema))
-  ```
-  """
-  defcompose :ref, "$ref": ref :: String.t()
-
-  @doc """
-  Does **not** set the `type: :object` on the schema. Use `props/2` for a
-  shortcut.
-  """
-
-  defcompose :properties,
-             [
-               properties: Map.new(properties) <- properties :: properties
-             ]
-             when is_list(properties)
-             when is_map(properties)
-
-  defcompose :props,
-             [
-               type: :object,
-               properties: Map.new(properties) <- properties :: properties
-             ]
-             when is_list(properties)
-             when is_map(properties)
-
-  defcompose :all_of, [allOf: schemas :: [schema]] when is_list(schemas)
-  defcompose :any_of, [anyOf: schemas :: [schema]] when is_list(schemas)
-  defcompose :one_of, [oneOf: schemas :: [schema]] when is_list(schemas)
+  @deprecated "Use `JSV.Schema.Composer.merge/2`."
+  @doc false
+  @spec override(merge_base, attributes) :: schema
+  def override(merge_base, values) do
+    merge(merge_base, values)
+  end
 
   @doc """
   Includes the cast function in a schema. The cast function must be given as a
@@ -366,20 +334,26 @@ defmodule JSV.Schema do
 
   ### Examples
 
-      iex> JSV.Schema.cast([MyApp.Cast, :a_cast_function])
+      iex> JSV.Schema.with_cast([MyApp.Cast, :a_cast_function])
       %JSV.Schema{"jsv-cast": ["Elixir.MyApp.Cast", "a_cast_function"]}
 
-      iex> JSV.Schema.cast([MyApp.Cast, 1234])
+      iex> JSV.Schema.with_cast([MyApp.Cast, 1234])
       %JSV.Schema{"jsv-cast": ["Elixir.MyApp.Cast", 1234]}
 
-      iex> JSV.Schema.cast(["some_erlang_module", "custom_tag"])
+      iex> JSV.Schema.with_cast(["some_erlang_module", "custom_tag"])
       %JSV.Schema{"jsv-cast": ["some_erlang_module", "custom_tag"]}
   """
-  @doc sub_section: :schema_casters
-  @spec cast(base, [atom | binary | integer, ...]) :: schema()
-  def cast(base \\ nil, [mod, tag] = _mod_tag)
+  @spec with_cast(merge_base, [atom | binary | integer, ...]) :: schema()
+  def with_cast(merge_base \\ nil, [mod, tag] = _mod_tag)
       when (is_atom(mod) or is_binary(mod)) and (is_atom(tag) or is_binary(tag) or is_integer(tag)) do
-    merge(base, "jsv-cast": [to_string_if_atom(mod), to_string_if_atom(tag)])
+    merge(merge_base, "jsv-cast": [to_string_if_atom(mod), to_string_if_atom(tag)])
+  end
+
+  @doc false
+  @deprecated "Use `with_cast/2` instead."
+  @spec cast(merge_base(), [atom | binary | integer, ...]) :: schema()
+  def cast(merge_base \\ nil, mod_tag) do
+    with_cast(merge_base, mod_tag)
   end
 
   defp to_string_if_atom(value) when is_atom(value) do
@@ -388,97 +362,6 @@ defmodule JSV.Schema do
 
   defp to_string_if_atom(value) do
     value
-  end
-
-  @doc sub_section: :schema_casters
-  defcompose :string_to_integer, type: :string, "jsv-cast": JSV.Cast.string_to_integer()
-
-  @doc sub_section: :schema_casters
-  defcompose :string_to_float, type: :string, "jsv-cast": JSV.Cast.string_to_float()
-
-  @doc sub_section: :schema_casters
-  defcompose :string_to_number, type: :string, "jsv-cast": JSV.Cast.string_to_number()
-
-  @doc sub_section: :schema_casters
-  defcompose :string_to_boolean, type: :string, "jsv-cast": JSV.Cast.string_to_boolean()
-
-  @doc sub_section: :schema_casters
-  defcompose :string_to_existing_atom, type: :string, "jsv-cast": JSV.Cast.string_to_existing_atom()
-
-  @doc sub_section: :schema_casters
-  defcompose :string_to_atom, type: :string, "jsv-cast": JSV.Cast.string_to_atom()
-
-  @doc """
-  Accepts a list of atoms and validates that a given value is a string
-  representation of one of the given atoms.
-
-  On validation, a cast will be made to return the original atom value.
-
-  This is useful when dealing with enums that are represented as atoms in the
-  codebase, such as Oban job statuses or other Ecto enum types.
-
-      iex> schema = JSV.Schema.props(status: JSV.Schema.string_to_atom_enum([:executing, :pending]))
-      iex> root = JSV.build!(schema)
-      iex> JSV.validate(%{"status" => "pending"}, root)
-      {:ok, %{"status" => :pending}}
-
-  > #### Does not support `nil` {: .warning}
-  >
-  > This function sets the `string` type on the schema. If `nil` is given in the
-  > enum, the corresponding valid JSON value will be the `"nil"` string rather
-  > than `null`
-  """
-  @doc sub_section: :schema_casters
-  defcompose :string_to_atom_enum,
-             [
-               type: :string,
-               # We need to cast atoms to string, otherwise if `nil` is provided
-               # it will be JSON-encoded as `nil` instead of `"null". But this
-               # caster only accepts strings.
-               enum: Enum.map(enum, &Atom.to_string/1) <- enum :: [atom],
-               "jsv-cast": JSV.Cast.string_to_atom()
-             ]
-             when is_list(enum)
-
-  @doc """
-  Defines a JSON Schema with `required: keys` or adds the given `keys` if the
-  [base schema](JSV.Schema.html#merge/2) already has a `:required`
-  definition.
-
-  Existing required keys are preserved.
-
-  ### Examples
-
-      iex> JSV.Schema.required(%{}, [:a, :b])
-      %{required: [:a, :b]}
-
-      iex> JSV.Schema.required(%{required: nil}, [:a, :b])
-      %{required: [:a, :b]}
-
-      iex> JSV.Schema.required(%{required: [:c]}, [:a, :b])
-      %{required: [:a, :b, :c]}
-
-      iex> JSV.Schema.required(%{required: [:a]}, [:a])
-      %{required: [:a, :a]}
-
-  Use `merge/2` to replace existing required keys.
-
-      iex> JSV.Schema.merge(%{required: [:a, :b, :c]}, required: [:x, :y, :z])
-      %{required: [:x, :y, :z]}
-  """
-  @doc section: :schema_utilities
-  @spec required(base, [atom | binary]) :: t
-  def required(base \\ nil, key_or_keys)
-
-  def required(nil, keys) when is_list(keys) do
-    new(required: keys)
-  end
-
-  def required(base, keys) when is_list(keys) do
-    case merge(base, []) do
-      %{required: list} = cast_base when is_list(list) -> merge(cast_base, required: keys ++ list)
-      cast_base -> merge(cast_base, required: keys)
-    end
   end
 
   @doc """
@@ -573,4 +456,38 @@ defmodule JSV.Schema do
       MapExt.from_struct_no_nils(schema)
     end
   end
+
+  defcompose_deprecated(:boolean, 0)
+  defcompose_deprecated(:date, 0)
+  defcompose_deprecated(:datetime, 0)
+  defcompose_deprecated(:email, 0)
+  defcompose_deprecated(:integer, 0)
+  defcompose_deprecated(:neg_integer, 0)
+  defcompose_deprecated(:non_empty_string, 0)
+  defcompose_deprecated(:non_neg_integer, 0)
+  defcompose_deprecated(:number, 0)
+  defcompose_deprecated(:object, 0)
+  defcompose_deprecated(:pos_integer, 0)
+  defcompose_deprecated(:string_to_atom, 0)
+  defcompose_deprecated(:string_to_boolean, 0)
+  defcompose_deprecated(:string_to_existing_atom, 0)
+  defcompose_deprecated(:string_to_float, 0)
+  defcompose_deprecated(:string_to_integer, 0)
+  defcompose_deprecated(:string_to_number, 0)
+  defcompose_deprecated(:string, 0)
+  defcompose_deprecated(:uri, 0)
+  defcompose_deprecated(:uuid, 0)
+
+  defcompose_deprecated(:all_of, 1)
+  defcompose_deprecated(:any_of, 1)
+  defcompose_deprecated(:array_of, 1)
+  defcompose_deprecated(:format, 1)
+  defcompose_deprecated(:items, 1)
+  defcompose_deprecated(:one_of, 1)
+  defcompose_deprecated(:properties, 1)
+  defcompose_deprecated(:props, 1)
+  defcompose_deprecated(:ref, 1)
+  defcompose_deprecated(:required, 1)
+  defcompose_deprecated(:string_of, 1)
+  defcompose_deprecated(:string_to_atom_enum, 1)
 end

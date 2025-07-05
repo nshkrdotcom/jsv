@@ -664,7 +664,7 @@ defmodule JSV do
 
   ```elixir
   defmodule MyApp.Cast do
-    import JSV
+    use JSV.Schema
 
     defcast :to_integer
 
@@ -681,7 +681,7 @@ defmodule JSV do
   end
   ```
 
-      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(["Elixir.MyApp.Cast", "to_integer"])
+      iex> schema = JSV.Schema.string() |> JSV.Schema.with_cast(["Elixir.MyApp.Cast", "to_integer"])
       iex> root = JSV.build!(schema)
       iex> JSV.validate("1234", root)
       {:ok, 1234}
@@ -703,7 +703,7 @@ defmodule JSV do
 
   ```elixir
   defmodule MyApp.Cast do
-    import JSV
+    use JSV.Schema
 
     defcast "to_integer_if_string", :to_integer
 
@@ -720,7 +720,7 @@ defmodule JSV do
   end
   ```
 
-      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(["Elixir.MyApp.Cast", "to_integer_if_string"])
+      iex> schema = JSV.Schema.string() |> JSV.Schema.with_cast(["Elixir.MyApp.Cast", "to_integer_if_string"])
       iex> root = JSV.build!(schema)
       iex> JSV.validate("1234", root)
       {:ok, 1234}
@@ -755,7 +755,7 @@ defmodule JSV do
 
   ```elixir
   defmodule MyApp.Cast do
-    import JSV
+    use JSV.Schema
 
     defcast to_existing_atom(data) do
       {:ok, String.to_existing_atom(data)}
@@ -785,20 +785,20 @@ defmodule JSV do
       iex> MyApp.Cast.to_existing_atom()
       ["Elixir.MyApp.Cast", "to_existing_atom"]
 
-  This is accepted by `JSV.Schema.cast/2`:
+  This is accepted by `JSV.Schema.with_cast/2`:
 
-      iex> JSV.Schema.cast(MyApp.Cast.to_existing_atom())
+      iex> JSV.Schema.with_cast(MyApp.Cast.to_existing_atom())
       %JSV.Schema{"jsv-cast": ["Elixir.MyApp.Cast", "to_existing_atom"]}
 
   With a `jsv-cast` property defined in a schema, data will be cast when the
   schema is validated:
 
-      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Cast.to_existing_atom())
+      iex> schema = JSV.Schema.string() |> JSV.Schema.with_cast(MyApp.Cast.to_existing_atom())
       iex> root = JSV.build!(schema)
       iex> JSV.validate("noreply", root)
       {:ok, :noreply}
 
-      iex> schema = JSV.Schema.string() |> JSV.Schema.cast(MyApp.Cast.to_existing_atom())
+      iex> schema = JSV.Schema.string() |> JSV.Schema.with_cast(MyApp.Cast.to_existing_atom())
       iex> root = JSV.build!(schema)
       iex> {:error, %JSV.ValidationError{}} = JSV.validate(["Elixir.NonExisting"], root)
 
@@ -930,30 +930,5 @@ defmodule JSV do
   @spec error_schema :: module
   def error_schema do
     JSV.ErrorFormatter.error_schema()
-  end
-
-  @doc """
-  The Schema Description sigil.
-
-  A sigil used to embed long texts in schemas descriptions. Replaces all
-  combinations of whitespace by a single whitespace and trims the string.
-
-  It does not support any modifier.
-
-  ### Example
-
-      iex> ~SD\"""
-      ...> This schema represents an elixir.
-      ...>
-      ...> An elixir is a potion with positive outcomes!
-      ...> \"""
-      "This schema represents an elixir. An elixir is a potion with positive outcomes!"
-  """
-  defmacro sigil_SD({:<<>>, _, [description]}, []) do
-    formatted = description |> String.replace(~r{\s+}, " ") |> String.trim()
-
-    quote do
-      unquote(formatted)
-    end
   end
 end

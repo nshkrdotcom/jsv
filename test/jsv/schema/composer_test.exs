@@ -1,9 +1,9 @@
-defmodule JSV.SchemaTest do
+defmodule JSV.Schema.ComposerTest do
   alias JSV.Schema
   alias JSV.Schema.Composer
   use ExUnit.Case, async: true
 
-  doctest JSV.Schema
+  doctest JSV.Schema.Composer, import: true
 
   describe "definition helpers" do
     fun_cases = [
@@ -217,8 +217,8 @@ defmodule JSV.SchemaTest do
         # value.
         schema =
           case Map.get(spec, :base, nil) do
-            nil -> apply(Schema, fun, args)
-            base -> apply(Schema, fun, [base | args])
+            nil -> apply(Composer, fun, args)
+            base -> apply(Composer, fun, [base | args])
           end
 
         root = JSV.build!(schema, formats: true)
@@ -259,53 +259,53 @@ defmodule JSV.SchemaTest do
 
     test "guard clauses are handled by the defcompose helper - properties" do
       # The properties helper accepts maps and lists
-      assert %{properties: %{a: _}} = Schema.properties(a: true)
-      assert %{properties: %{a: _}} = Schema.properties(%{a: true})
+      assert %{properties: %{a: _}} = Composer.properties(a: true)
+      assert %{properties: %{a: _}} = Composer.properties(%{a: true})
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        assert %{properties: %{a: _}} = Schema.properties(1)
+        assert %{properties: %{a: _}} = Composer.properties(1)
       end
     end
 
     test "guard clauses are handled by the defcompose helper - props" do
       # The properties helper accepts maps and lists
-      assert %{properties: %{a: _}} = Schema.props(a: true)
-      assert %{properties: %{a: _}} = Schema.props(%{a: true})
+      assert %{properties: %{a: _}} = Composer.props(a: true)
+      assert %{properties: %{a: _}} = Composer.props(%{a: true})
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        assert %{properties: %{a: _}} = Schema.props(1)
+        assert %{properties: %{a: _}} = Composer.props(1)
       end
     end
 
     test "guard clauses are handled by the defcompose helper - all_of" do
       # The all_of helper accepts lists
-      assert %{allOf: [%{type: :integer}]} = Schema.all_of([%{type: :integer}])
+      assert %{allOf: [%{type: :integer}]} = Composer.all_of([%{type: :integer}])
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        Schema.all_of(%{type: :integer})
+        Composer.all_of(%{type: :integer})
       end
     end
 
     test "guard clauses are handled by the defcompose helper - any_of" do
       # The any_of helper accepts lists
-      assert %{anyOf: [%{type: :integer}]} = Schema.any_of([%{type: :integer}])
+      assert %{anyOf: [%{type: :integer}]} = Composer.any_of([%{type: :integer}])
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        Schema.any_of(%{type: :integer})
+        Composer.any_of(%{type: :integer})
       end
     end
 
     test "guard clauses are handled by the defcompose helper - one_of" do
       # The one_of helper accepts lists
-      assert %{oneOf: [%{type: :integer}]} = Schema.one_of([%{type: :integer}])
+      assert %{oneOf: [%{type: :integer}]} = Composer.one_of([%{type: :integer}])
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        Schema.one_of(%{type: :integer})
+        Composer.one_of(%{type: :integer})
       end
     end
   end
@@ -314,91 +314,68 @@ defmodule JSV.SchemaTest do
     defstruct [:properties, :foo, :required]
   end
 
-  describe "merge/2" do
-    test "merge accepts nil as base and returns a Schema struct" do
-      result = Schema.merge(nil, %{type: :string})
-      assert %Schema{type: :string} = result
+  describe "required/2" do
+    test "with a nil base" do
+      result = Composer.required(nil, [:prop1, :prop2])
+      assert %Schema{required: [:prop1, :prop2]} = result
     end
 
-    test "merge accepts a map as base and keeps it as a map" do
-      base = %{foo: "bar"}
-      assert %{foo: "bar", type: :string} = result = Schema.merge(base, %{type: :string})
-      refute is_struct(result)
+    test "with a map base" do
+      base = %{type: :object}
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %{type: :object, required: [:prop1, :prop2]} = result
     end
 
-    test "merge accepts a Schema struct as base" do
-      base = %Schema{description: "test"}
-      result = Schema.merge(base, %{type: :string})
-      assert %Schema{description: "test", type: :string} = result
+    test "with a map base with predefined required keys" do
+      base = %{type: :object, required: [:existing]}
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %{type: :object, required: [:prop1, :prop2, :existing]} = result
     end
 
-    test "merge fails if another struct is passed and doesn't have the keys" do
+    test "with a keyword list base" do
+      base = [type: :object]
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %Schema{type: :object, required: [:prop1, :prop2]} = result
+    end
+
+    test "with a keyword list base with predefined required keys" do
+      base = [type: :object, required: [:existing]]
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %Schema{type: :object, required: [:prop1, :prop2, :existing]} = result
+    end
+
+    test "with a %Schema{} base" do
+      base = %Schema{type: :object}
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %Schema{type: :object, required: [:prop1, :prop2]} = result
+    end
+
+    test "with a %Schema{} base with predefined required keys" do
+      base = %Schema{type: :object, required: [:existing]}
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %Schema{type: :object, required: [:prop1, :prop2, :existing]} = result
+    end
+
+    test "with a custom struct base" do
       base = %TestCustomStruct{foo: "bar"}
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %TestCustomStruct{foo: "bar", required: [:prop1, :prop2]} = result
+    end
 
-      # the struct accept properties
+    test "with a custom struct base with predefined required keys" do
+      base = %TestCustomStruct{foo: "bar", required: [:existing]}
+      result = Composer.required(base, [:prop1, :prop2])
+      assert %TestCustomStruct{foo: "bar", required: [:prop1, :prop2, :existing]} = result
+    end
 
-      assert %TestCustomStruct{foo: "bar", properties: %{a: %{type: :integer}}} =
-               Schema.merge(base, properties: %{a: %{type: :integer}})
+    defmodule TestCustomStructNoRequired do
+      defstruct []
+    end
 
-      # the struct does not have a :type key
-
-      assert_raise KeyError, ~r/does not accept key :type/, fn ->
-        Schema.merge(base, %{type: :string})
+    test "with a custom struct that does not accept :required" do
+      assert_raise KeyError, ~r/does not accept key :required/, fn ->
+        Composer.required(%TestCustomStructNoRequired{}, [:prop1, :prop2])
       end
-    end
-
-    test "merge does not add unknown keys in a Schema struct" do
-      assert_raise KeyError, ~r/does not accept key :foo/, fn ->
-        Schema.merge(%Schema{}, %{foo: :bar})
-      end
-    end
-
-    test "merge accepts a keyword list as base and returns a Schema struct" do
-      base = [description: "some description"]
-      result = Schema.merge(base, %{type: :string})
-      assert %Schema{description: "some description", type: :string} = result
-      assert is_struct(result)
-    end
-
-    # Same tests but with a defcompose generated helper
-
-    test "compose accepts nil as base and returns a Schema struct" do
-      result = Composer.string(nil)
-      assert %Schema{type: :string} = result
-    end
-
-    test "compose accepts a map as base and keeps it as a map" do
-      base = %{foo: "bar"}
-      assert %{foo: "bar", type: :string} = result = Composer.string(base)
-      refute is_struct(result)
-    end
-
-    test "compose accepts a Schema struct as base" do
-      base = %Schema{description: "test"}
-      result = Composer.string(base)
-      assert %Schema{description: "test", type: :string} = result
-    end
-
-    test "compose fails if another struct is passed and doesn't have the keys" do
-      base = %TestCustomStruct{foo: "bar"}
-
-      # the struct accept properties
-
-      assert %TestCustomStruct{foo: "bar", properties: %{a: %{type: :integer}}} =
-               Schema.properties(base, a: %{type: :integer})
-
-      # the struct does not have a :type key
-
-      assert_raise KeyError, ~r/does not accept key :type/, fn ->
-        Composer.string(base)
-      end
-    end
-
-    test "compose accepts a keyword list as base and returns a Schema struct" do
-      base = [description: "some description"]
-      result = Composer.string(base)
-      assert %Schema{description: "some description", type: :string} = result
-      assert is_struct(result)
     end
   end
 end

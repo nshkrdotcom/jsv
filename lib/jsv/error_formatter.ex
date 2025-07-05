@@ -226,8 +226,7 @@ defmodule JSV.ErrorFormatter do
 end
 
 defmodule JSV.ErrorFormatter.KeywordErrorSchema do
-  import JSV
-  import JSV.Schema
+  use JSV.Schema
 
   @moduledoc false
 
@@ -272,8 +271,7 @@ defmodule JSV.ErrorFormatter.KeywordErrorSchema do
 end
 
 defmodule JSV.ErrorFormatter.ValidationUnitSchema do
-  import JSV
-  import JSV.Schema
+  use JSV.Schema
 
   @moduledoc false
 
@@ -318,8 +316,7 @@ defmodule JSV.ErrorFormatter.ValidationUnitSchema do
 end
 
 defmodule JSV.ErrorFormatter.ValidationErrorSchema do
-  import JSV
-  import JSV.Schema
+  use JSV.Schema
 
   @moduledoc false
 

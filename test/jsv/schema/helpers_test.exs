@@ -1,11 +1,10 @@
-defmodule JSV.SchemaTest do
-  alias JSV.Schema
-  alias JSV.Schema.Composer
+defmodule JSV.Schema.HelpersTest do
+  alias JSV.Schema.Helpers
   use ExUnit.Case, async: true
 
-  doctest JSV.Schema
+  doctest JSV.Schema.Helpers, import: true
 
-  describe "definition helpers" do
+  describe "presets helpers" do
     fun_cases = [
       boolean: %{
         valids: [true, false],
@@ -26,11 +25,6 @@ defmodule JSV.SchemaTest do
       neg_integer: %{
         valids: [-1, -2, -42, -1000, -1.0],
         invalids: [0, 1, 42, -1.5, "string", true, nil]
-      },
-      items: %{
-        args: [%{type: :string}],
-        valids: [["a", "b", "c"], [], "not an array", nil, 123],
-        invalids: [["a", 1, true]]
       },
       array_of: %{
         args: [%{type: :string}],
@@ -83,23 +77,17 @@ defmodule JSV.SchemaTest do
         valids: [%{"prop1" => "value"}, %{"prop2" => 123}, %{"prop1" => "value", "prop2" => 123}, %{}],
         invalids: [%{"prop1" => %{}}, %{"prop2" => %{}}, "not an object", 123, nil]
       },
+      props_as_lists: %{
+        fun: :props,
+        args: [[prop1: %{type: :string}, prop2: %{type: :integer}]],
+        valids: [%{"prop1" => "value"}, %{"prop2" => 123}, %{"prop1" => "value", "prop2" => 123}, %{}],
+        invalids: [%{"prop1" => %{}}, %{"prop2" => %{}}, "not an object", 123, nil]
+      },
       ref: %{
         args: ["#/$defs/an_int"],
         base: %{"$defs": %{an_int: %{type: :integer}}},
         valids: [1],
         invalids: ["not an int", nil]
-      },
-      required: %{
-        args: [[:some_key]],
-        valids: [%{"some_key" => 1}, "not an object", 123],
-        invalids: [%{}]
-      },
-      required_with_existing: %{
-        fun: :required,
-        args: [[:some_key]],
-        base: %{required: [:already_required]},
-        valids: [%{"some_key" => 1, "already_required" => 1}, "not an object", 123],
-        invalids: [%{}, %{"some_key" => 1}, %{"already_required" => 1}]
       },
       string: %{
         valids: ["", "1234", "hello", " "],
@@ -139,14 +127,6 @@ defmodule JSV.SchemaTest do
         valids: ["a", "hello", " "],
         invalids: ["", true, false, 1, %{}, nil]
       },
-      string_to_number: %{
-        valids: ["1", "42", "-10", "0", "1.5", "42.0", "-10.3", "0.0", "1e5", "1.0e-3"],
-        invalids: ["one", "abc", "1a", "", nil, 1, 1.5]
-      },
-      string_to_boolean: %{
-        valids: ["true", "false"],
-        invalids: ["True", "False", "1", "0", "yes", "no", 1, 0, true, false, nil]
-      },
       all_of: %{
         args: [
           [
@@ -179,6 +159,14 @@ defmodule JSV.SchemaTest do
       },
       #
       # Casting cases
+      string_to_number: %{
+        valids: ["1", "42", "-10", "0", "1.5", "42.0", "-10.3", "0.0", "1e5", "1.0e-3"],
+        invalids: ["one", "abc", "1a", "", nil, 1, 1.5]
+      },
+      string_to_boolean: %{
+        valids: ["true", "false"],
+        invalids: ["True", "False", "1", "0", "yes", "no", 1, 0, true, false, nil]
+      },
       string_to_integer: %{
         valids: ["1", "42", "-10", "0"],
         invalids: ["1.5", "one", "abc", "1a", "1e5", "", nil, 123]
@@ -193,13 +181,30 @@ defmodule JSV.SchemaTest do
         invalids: ["some_atom_that_does_not_exist", 123, true, false, :some_existing_atom, nil]
       },
       string_to_atom: %{
-        valids: ["true", "false", "nil", "any_string", "hello world"],
-        invalids: [123, true, false, :any_string, nil]
+        valids: ["true", "false", "nil", "any_string#{:erlang.unique_integer()}", "hello world"],
+        invalids: [123, true, false, :some_atom, nil]
       },
-      string_to_atom_enum: %{
+      const: %{
+        args: [1],
+        valids: [1],
+        invalids: [2, :hello, "1", "HELLO", "null", :null]
+      },
+      enum: %{
+        args: [_enum = [1, "hello", nil]],
+        valids: [1, 1.0, "hello", nil],
+        invalids: [2, :hello, "1", "HELLO", "null", :null]
+      },
+      string_enum_to_atom: %{
+        # nil is encoded as "nil"
         args: [_enum = [:aaa, :bbb, :ccc, nil]],
         valids: ["aaa", "bbb", "ccc", "nil"],
         invalids: ["ddd", 123, true, false, :some_existing_atom, nil, "null", :aaa, :bbb, :ccc]
+      },
+      string_enum_to_atom_or_nil: %{
+        # nil is encoded as "nil"
+        args: [_enum = [:aaa, :bbb, :ccc]],
+        valids: ["aaa", "bbb", "ccc", nil],
+        invalids: ["ddd", 123, true, false, :some_existing_atom, "nil", "null", :aaa, :bbb, :ccc]
       }
     ]
 
@@ -217,9 +222,12 @@ defmodule JSV.SchemaTest do
         # value.
         schema =
           case Map.get(spec, :base, nil) do
-            nil -> apply(Schema, fun, args)
-            base -> apply(Schema, fun, [base | args])
+            nil -> apply(Helpers, fun, args)
+            base -> apply(Helpers, fun, args ++ [base])
           end
+
+        assert is_map(schema)
+        refute is_struct(schema)
 
         root = JSV.build!(schema, formats: true)
 
@@ -257,148 +265,67 @@ defmodule JSV.SchemaTest do
       end
     end)
 
-    test "guard clauses are handled by the defcompose helper - properties" do
+    test "guard clauses are handled by the compiler helper - props" do
       # The properties helper accepts maps and lists
-      assert %{properties: %{a: _}} = Schema.properties(a: true)
-      assert %{properties: %{a: _}} = Schema.properties(%{a: true})
+      assert %{properties: %{a: _}} = Helpers.props(a: true)
+      assert %{properties: %{a: _}} = Helpers.props(%{a: true})
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        assert %{properties: %{a: _}} = Schema.properties(1)
+        assert %{properties: %{a: _}} = Helpers.props(1)
       end
     end
 
-    test "guard clauses are handled by the defcompose helper - props" do
-      # The properties helper accepts maps and lists
-      assert %{properties: %{a: _}} = Schema.props(a: true)
-      assert %{properties: %{a: _}} = Schema.props(%{a: true})
-
-      # but no other kind
-      assert_raise FunctionClauseError, fn ->
-        assert %{properties: %{a: _}} = Schema.props(1)
-      end
-    end
-
-    test "guard clauses are handled by the defcompose helper - all_of" do
+    test "guard clauses are handled by the compiler helper - all_of" do
       # The all_of helper accepts lists
-      assert %{allOf: [%{type: :integer}]} = Schema.all_of([%{type: :integer}])
+      assert %{allOf: [%{type: :integer}]} = Helpers.all_of([%{type: :integer}])
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        Schema.all_of(%{type: :integer})
+        Helpers.all_of(%{type: :integer})
       end
     end
 
-    test "guard clauses are handled by the defcompose helper - any_of" do
+    test "guard clauses are handled by the compiler helper - any_of" do
       # The any_of helper accepts lists
-      assert %{anyOf: [%{type: :integer}]} = Schema.any_of([%{type: :integer}])
+      assert %{anyOf: [%{type: :integer}]} = Helpers.any_of([%{type: :integer}])
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        Schema.any_of(%{type: :integer})
+        Helpers.any_of(%{type: :integer})
       end
     end
 
-    test "guard clauses are handled by the defcompose helper - one_of" do
+    test "guard clauses are handled by the compiler helper - one_of" do
       # The one_of helper accepts lists
-      assert %{oneOf: [%{type: :integer}]} = Schema.one_of([%{type: :integer}])
+      assert %{oneOf: [%{type: :integer}]} = Helpers.one_of([%{type: :integer}])
 
       # but no other kind
       assert_raise FunctionClauseError, fn ->
-        Schema.one_of(%{type: :integer})
+        Helpers.one_of(%{type: :integer})
       end
     end
   end
 
-  defmodule TestCustomStruct do
-    defstruct [:properties, :foo, :required]
-  end
+  describe "the ~> operator" do
+    test "mergin two schemas" do
+      import Helpers
 
-  describe "merge/2" do
-    test "merge accepts nil as base and returns a Schema struct" do
-      result = Schema.merge(nil, %{type: :string})
-      assert %Schema{type: :string} = result
-    end
+      schema =
+        pos_integer(description: "old")
+        ~> string_of("date", description: "new")
+        ~> any_of([integer(), string()])
 
-    test "merge accepts a map as base and keeps it as a map" do
-      base = %{foo: "bar"}
-      assert %{foo: "bar", type: :string} = result = Schema.merge(base, %{type: :string})
-      refute is_struct(result)
-    end
+      assert %{
+               # type and description are overriden
+               type: :string,
+               description: "new",
 
-    test "merge accepts a Schema struct as base" do
-      base = %Schema{description: "test"}
-      result = Schema.merge(base, %{type: :string})
-      assert %Schema{description: "test", type: :string} = result
-    end
-
-    test "merge fails if another struct is passed and doesn't have the keys" do
-      base = %TestCustomStruct{foo: "bar"}
-
-      # the struct accept properties
-
-      assert %TestCustomStruct{foo: "bar", properties: %{a: %{type: :integer}}} =
-               Schema.merge(base, properties: %{a: %{type: :integer}})
-
-      # the struct does not have a :type key
-
-      assert_raise KeyError, ~r/does not accept key :type/, fn ->
-        Schema.merge(base, %{type: :string})
-      end
-    end
-
-    test "merge does not add unknown keys in a Schema struct" do
-      assert_raise KeyError, ~r/does not accept key :foo/, fn ->
-        Schema.merge(%Schema{}, %{foo: :bar})
-      end
-    end
-
-    test "merge accepts a keyword list as base and returns a Schema struct" do
-      base = [description: "some description"]
-      result = Schema.merge(base, %{type: :string})
-      assert %Schema{description: "some description", type: :string} = result
-      assert is_struct(result)
-    end
-
-    # Same tests but with a defcompose generated helper
-
-    test "compose accepts nil as base and returns a Schema struct" do
-      result = Composer.string(nil)
-      assert %Schema{type: :string} = result
-    end
-
-    test "compose accepts a map as base and keeps it as a map" do
-      base = %{foo: "bar"}
-      assert %{foo: "bar", type: :string} = result = Composer.string(base)
-      refute is_struct(result)
-    end
-
-    test "compose accepts a Schema struct as base" do
-      base = %Schema{description: "test"}
-      result = Composer.string(base)
-      assert %Schema{description: "test", type: :string} = result
-    end
-
-    test "compose fails if another struct is passed and doesn't have the keys" do
-      base = %TestCustomStruct{foo: "bar"}
-
-      # the struct accept properties
-
-      assert %TestCustomStruct{foo: "bar", properties: %{a: %{type: :integer}}} =
-               Schema.properties(base, a: %{type: :integer})
-
-      # the struct does not have a :type key
-
-      assert_raise KeyError, ~r/does not accept key :type/, fn ->
-        Composer.string(base)
-      end
-    end
-
-    test "compose accepts a keyword list as base and returns a Schema struct" do
-      base = [description: "some description"]
-      result = Composer.string(base)
-      assert %Schema{description: "some description", type: :string} = result
-      assert is_struct(result)
+               # non-clashing values from all 3 schemas are kept
+               minimum: 1,
+               format: "date",
+               anyOf: [%{type: :integer}, %{type: :string}]
+             } = schema
     end
   end
 end

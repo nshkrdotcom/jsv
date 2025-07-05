@@ -60,7 +60,7 @@ For instance, with this module definition schema:
 
 ```elixir
 defmodule MyApp.UserSchema do
-  import JSV
+  use JSV.Schema
 
   defschema(%{
     type: :object,

@@ -16,6 +16,7 @@ public_macros = [defschema: 1, defschema_for: 2, defcast: 1, defcast: 2, defcast
         take_keyword: 6,
         consume_keyword: 1,
         defcompose: 2,
+        defpreset: 2,
         with_decimal: 1,
         debang: 1
       ],

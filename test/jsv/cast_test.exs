@@ -1,7 +1,7 @@
 # credo:disable-for-this-file Credo.Check.Readability.Specs
 defmodule JSV.CastTest do
   alias JSV.Resolver.Internal
-  import JSV
+  use JSV.Schema
   use ExUnit.Case, async: true
 
   describe "using the defcast macro" do
@@ -160,7 +160,7 @@ defmodule JSV.CastTest do
   end
 
   defmodule CastExample do
-    import JSV
+    use JSV.Schema
 
     defp to_upper_if_string(data) do
       if is_binary(data) do
@@ -296,7 +296,7 @@ defmodule JSV.CastTest do
     test "guards are not supported" do
       assert_raise ArgumentError, ~r/defcast does not support guards/, fn ->
         defmodule UsesGuard do
-          import JSV
+          use JSV.Schema
 
           defcast with_guard(data) when data > 10 when data != "hello" do
             {:ok, nil}
@@ -308,14 +308,14 @@ defmodule JSV.CastTest do
     test "bad calls" do
       assert_raise ArgumentError, ~r/invalid defcast/, fn ->
         defmodule UsesHeadFun do
-          import JSV
+          use JSV.Schema
           defcast with_head_fun(data)
         end
       end
 
       assert_raise ArgumentError, ~r/invalid defcast signature/, fn ->
         defmodule UsesHeadFun do
-          import JSV
+          use JSV.Schema
 
           defcast with_args(too, much, args) do
             {:ok, too}
@@ -325,14 +325,14 @@ defmodule JSV.CastTest do
 
       assert_raise ArgumentError, ~r/invalid defcast/, fn ->
         defmodule UsesHeadFun do
-          import JSV
+          use JSV.Schema
           defcast :aaa, 1234
         end
       end
 
       assert_raise ArgumentError, ~r/invalid defcast/, fn ->
         defmodule UsesHeadFun do
-          import JSV
+          use JSV.Schema
 
           defcast :tag, hello(data) do
             {:ok, data}
@@ -344,12 +344,12 @@ defmodule JSV.CastTest do
 
   describe "casting from sub applicators" do
     defmodule Child do
-      import JSV
+      use JSV.Schema
       defschema %{type: :object, properties: %{foo: %{type: :string}}, required: [:foo]}
     end
 
     defmodule OtherChild do
-      import JSV
+      use JSV.Schema
       defschema %{type: :object, properties: %{baz: %{type: :string}}, required: [:baz]}
     end
 

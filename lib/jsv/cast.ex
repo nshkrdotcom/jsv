@@ -1,5 +1,5 @@
 defmodule JSV.Cast do
-  import JSV
+  import JSV, only: [defcast: 2]
 
   @moduledoc false
 
@@ -62,6 +62,14 @@ defmodule JSV.Cast do
       {:ok, String.to_atom(data)}
     else
       {:error, "not an atom representation"}
+    end
+  end
+
+  defcast string_to_atom_or_nil(data) do
+    case data do
+      b when is_binary(b) -> {:ok, String.to_atom(data)}
+      nil -> {:ok, nil}
+      _ -> {:error, "not an atom representation or nil"}
     end
   end
 
