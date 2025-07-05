@@ -93,15 +93,11 @@ unexpected attributes.
 The new `JSV.Schema.Helpers` module provides functions with a more intuitive
 argument order.
 
-
-
-
 We also took the liberty to change some function names like
 `string_enum_to_atom` instead of `string_to_atom_enum`.
 
 <!-- rdmx :section name:enum_example format:true -->
 ```elixir
-# New API - cleaner and more intuitive
 schema = %{
   properties: %{
     age: integer(description: "The age"),
