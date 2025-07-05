@@ -24,7 +24,7 @@ JSV is a JSON Schema Validation library for Elixir with full support for the lat
 ```elixir
 def deps do
   [
-    {:jsv, "~> 0.8"},
+    {:jsv, "~> 0.9"},
   ]
 end
 ```

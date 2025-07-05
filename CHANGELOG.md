@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2025-07-05
+
+### 🚀 Features
+
+- Provide a schema representing normalized validation errors
+- Deprecated the schema composition API in favor of presets
+
+### 🐛 Bug Fixes
+
+- Emit a build error with empty oneOf/allOf/anyOf
+- Reset errors when using a detached validator
+- Ensure casts are applied after all validations
+- Revert default normalized error to atoms
+
+### ⚙️ Miscellaneous Tasks
+
+- Define titles for normal validation error schemas
+
 ## [0.8.1] - 2025-06-29
 
 ### ⚙️ Miscellaneous Tasks
