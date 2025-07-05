@@ -48,9 +48,11 @@ defmodule JSV.ErrorFormatter do
                            ],
                            keys: [
                              type: {:in, [:atoms, :strings]},
-                             default: :strings,
                              doc: """
-                             Allows to keep atoms as keys for the errors, which makes working with errors easier.
+                             Define the type of the keys in the normalized errors maps.
+
+                             While truly "normalized" JSON data should not have atom keys,
+                             this option defaults to :atoms for backward compatibility reasons.
                              """
                            ]
                          )
@@ -69,7 +71,11 @@ defmodule JSV.ErrorFormatter do
   """
   @spec normalize_error(ValidationError.t(), keyword) :: map()
   def normalize_error(%ValidationError{} = e, opts \\ []) do
-    opts = NimbleOptions.validate!(opts, @normalize_opts_schema)
+    opts =
+      opts
+      |> NimbleOptions.validate!(@normalize_opts_schema)
+      |> Keyword.put_new(:keys, :atoms)
+
     top = %{valid: false, details: normalize_errors(e.errors, opts)}
     normalize_keys(top, opts)
   end

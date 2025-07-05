@@ -239,21 +239,21 @@ The code above gies the following normalized error:
 <!-- rdmx :eval section:example_error  -->
 ```elixir
 %{
-  "details" => [
+  details: [
     %{
-      "errors" => [
+      errors: [
         %{
-          "kind" => "cast",
-          "message" => "could not cast to existing atom: \"some string\""
+          kind: :cast,
+          message: "could not cast to existing atom: \"some string\""
         }
       ],
-      "evaluationPath" => "#",
-      "instanceLocation" => "#",
-      "schemaLocation" => "#",
-      "valid" => false
+      evaluationPath: "#",
+      instanceLocation: "#",
+      schemaLocation: "#",
+      valid: false
     }
   ],
-  "valid" => false
+  valid: false
 }
 ```
 <!-- rdmx /:eval -->

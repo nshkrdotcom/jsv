@@ -90,7 +90,7 @@ defmodule JSV.Test.JsonSchemaSuite do
   defp assert_error_format(validator, opts, _schema) do
     error = Validator.to_error(validator)
     _ = assert %ValidationError{} = error
-    formatted = JSV.normalize_error(error)
+    formatted = JSV.normalize_error(error, keys: :strings)
 
     case JSV.validate(formatted, @error_vroot) do
       {:ok, _} ->
