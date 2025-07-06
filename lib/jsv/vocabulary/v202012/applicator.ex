@@ -404,9 +404,6 @@ defmodule JSV.Vocabulary.V202012.Applicator do
 
   def validate_keyword({:allOf, subschemas}, data, vctx) do
     case validate_split(subschemas, :allOf, data, vctx) do
-      # If multiple schemas validate the data, we take the casted value of the
-      # first one, arbitrarily. TODO if multiple casts are applied we should use
-      # that data recursively.
       {[{_, data, _subschema_, _detached_vctx} | _], [], vctx} ->
         {:ok, data, vctx}
 
