@@ -104,7 +104,7 @@ defmodule JSV.NormalizerTest do
       end
     end
 
-    test "converts modules that export schema/0 to refs" do
+    test "converts modules that export json_schema/0 to refs" do
       defmodule ExportsSchema do
         @spec schema :: no_return()
         def schema do
@@ -115,7 +115,7 @@ defmodule JSV.NormalizerTest do
       assert %{"$ref" => Internal.module_to_uri(ExportsSchema)} == Schema.normalize(ExportsSchema)
     end
 
-    test "converts Elixir modules that do not export schema/0 to string" do
+    test "converts Elixir modules that do not export json_schema/0 to string" do
       # This is enforced because we expect the atom to be a valid module
       defmodule DoesNotExportSchema do
       end
@@ -123,7 +123,7 @@ defmodule JSV.NormalizerTest do
       assert to_string(DoesNotExportSchema) == Schema.normalize(DoesNotExportSchema)
     end
 
-    test "converts Erlang modules that do not export schema/0 to string" do
+    test "converts Erlang modules that do not export json_schema/0 to string" do
       # This is not an Elixir module, so we cannot know if it's a custom type, format, etc.
       defmodule unquote(:test_schema_module_to_ref) do
       end
@@ -132,7 +132,7 @@ defmodule JSV.NormalizerTest do
       assert "test_schema_module_to_ref" == Schema.normalize(:test_schema_module_to_ref)
     end
 
-    test "converts Erlang modules that export schema/0 to $ref" do
+    test "converts Erlang modules that export schema_schema/0 to $ref" do
       # This is not an Elixir module, so we cannot know if it's a custom type, format, etc.
       defmodule unquote(:test_schema_module_to_ref_with_schema) do
         @spec schema :: no_return()

@@ -14,8 +14,8 @@ defmodule JSV.Resolver.Internal do
 
   This resolver will resolve `jsv:module:MODULE` URIs where `MODULE` is a string
   representation of an Elixir module. Modules pointed at with such references
-  MUST export a `schema/0` function that returns a normalized (with binary keys
-  and values) JSON schema.
+  MUST export a `json_schema/0` function that returns a normalized JSON schema
+  with binary keys and values.
   """
 
   @uri_prefix "jsv:module:"
@@ -25,7 +25,7 @@ defmodule JSV.Resolver.Internal do
 
   def resolve(@uri_prefix <> module_string, _) do
     case StringExt.safe_string_to_existing_module(module_string) do
-      {:ok, module} -> {:ok, module.schema()}
+      {:ok, module} -> {:ok, JSV.Schema.from_module(module)}
       {:error, reason} -> {:error, reason}
     end
   rescue

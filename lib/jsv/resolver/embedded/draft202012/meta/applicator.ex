@@ -1,8 +1,15 @@
 defmodule JSV.Resolver.Embedded.Draft202012.Meta.Applicator do
   @moduledoc false
 
+  @deprecated "use #{inspect(__MODULE__)}.json_schema/0 instead"
+  @doc false
   @spec schema :: map
   def schema do
+    json_schema()
+  end
+
+  @spec json_schema :: map
+  def json_schema do
     %{
       "$defs" => %{
         "schemaArray" => %{

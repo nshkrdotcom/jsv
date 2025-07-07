@@ -523,10 +523,10 @@ defmodule JSV.StructSchemaTest do
 
       assert {:ok, root} = JSV.build(RecursiveSelfWithCustomId)
 
-      assert [RecursiveSelfWithCustomId.schema()."$id", "jsv:module:#{Atom.to_string(RecursiveSelfWithCustomId)}"] ==
+      assert [RecursiveSelfWithCustomId.json_schema()."$id", "jsv:module:#{Atom.to_string(RecursiveSelfWithCustomId)}"] ==
                Enum.sort(Map.keys(root.validators))
 
-      assert {:alias_of, RecursiveSelfWithCustomId.schema()."$id"} ==
+      assert {:alias_of, RecursiveSelfWithCustomId.json_schema()."$id"} ==
                root.validators["jsv:module:#{Atom.to_string(RecursiveSelfWithCustomId)}"]
     end
   end

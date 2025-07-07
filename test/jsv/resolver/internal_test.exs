@@ -18,13 +18,13 @@ defmodule JSV.Resolver.InternalTest do
     uri = Internal.module_to_uri(EmptyModule)
 
     assert {:error, {:invalid_schema_module, e}} = Internal.resolve(uri, [])
-    assert %UndefinedFunctionError{arity: 0, function: :schema, module: EmptyModule} = e
+    assert %UndefinedFunctionError{arity: 0, function: :json_schema, module: EmptyModule} = e
   end
 
   test "will resolve a module with the proper callback" do
     defmodule CorrectModule do
-      @spec schema :: term
-      def schema do
+      @spec json_schema :: term
+      def json_schema do
         %{type: :integer}
       end
     end

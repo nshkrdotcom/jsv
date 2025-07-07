@@ -1,4 +1,4 @@
-defmodule JSV.Resolver.Embedded.Draft202012.Meta.Unevaluated do
+defmodule JSV.Resolver.Embedded.Draft202012.Meta.FormatAssertion do
   @moduledoc false
 
   @deprecated "use #{inspect(__MODULE__)}.json_schema/0 instead"
@@ -12,13 +12,10 @@ defmodule JSV.Resolver.Embedded.Draft202012.Meta.Unevaluated do
   def json_schema do
     %{
       "$dynamicAnchor" => "meta",
-      "$id" => "https://json-schema.org/draft/2020-12/meta/unevaluated",
+      "$id" => "https://json-schema.org/draft/2020-12/meta/format-assertion",
       "$schema" => "https://json-schema.org/draft/2020-12/schema",
-      "properties" => %{
-        "unevaluatedItems" => %{"$dynamicRef" => "#meta"},
-        "unevaluatedProperties" => %{"$dynamicRef" => "#meta"}
-      },
-      "title" => "Unevaluated applicator vocabulary meta-schema",
+      "properties" => %{"format" => %{"type" => "string"}},
+      "title" => "Format vocabulary meta-schema for assertion results",
       "type" => ["object", "boolean"]
     }
   end

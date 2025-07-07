@@ -62,6 +62,8 @@ defmodule JSV.FormatValidationTest do
           "format" => "ipv4"
         }
 
+      metaroot = JSV.build!(%{"$ref" => "https://json-schema.org/draft/2020-12/schema"})
+      JSV.validate(json_schema, metaroot)
       {:ok, json_schema: json_schema}
     end
 

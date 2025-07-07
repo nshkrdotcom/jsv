@@ -12,6 +12,7 @@ defmodule JSV.Resolver.Embedded do
     "https://json-schema.org/draft/2020-12/meta/unevaluated" => __MODULE__.Draft202012.Meta.Unevaluated,
     "https://json-schema.org/draft/2020-12/meta/meta-data" => __MODULE__.Draft202012.Meta.MetaData,
     "https://json-schema.org/draft/2020-12/meta/format-annotation" => __MODULE__.Draft202012.Meta.FormatAnnotation,
+    "https://json-schema.org/draft/2020-12/meta/format-assertion" => __MODULE__.Draft202012.Meta.FormatAssertion,
     "https://json-schema.org/draft/2020-12/meta/content" => __MODULE__.Draft202012.Meta.Content
   }
 
@@ -34,7 +35,7 @@ defmodule JSV.Resolver.Embedded do
 
   Enum.each(mapping, fn {url, module} ->
     def resolve(unquote(url), _) do
-      {:normal, unquote(module).schema()}
+      {:normal, unquote(module).json_schema()}
     end
   end)
 

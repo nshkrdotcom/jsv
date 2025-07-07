@@ -317,7 +317,7 @@ defmodule JSV do
   end
 
   defp ensure_map_schema(module) when is_atom(module) do
-    module.schema()
+    JSV.Schema.from_module(module)
   end
 
   defp schema_to_key(raw_schema) do
@@ -612,7 +612,18 @@ defmodule JSV do
       @enforce_keys required
       defstruct keys_no_defaults ++ default_pairs
 
+      @deprecated "use #{inspect(__MODULE__)}.json_schema/0 instead"
+      @doc false
       def schema do
+        IO.warn(
+          "the #{inspect(__MODULE__)}.schema/0 is deprecated and will not be automatically defined in future versions, " <>
+            " use #{inspect(__MODULE__)}.json_schema/0 instead"
+        )
+
+        json_schema()
+      end
+
+      def json_schema do
         @jsv_schema
       end
 
@@ -621,6 +632,8 @@ defmodule JSV do
         pairs = JSV.StructSupport.take_keycast(data, @jsv_keycast)
         {:ok, struct!(__MODULE__, pairs)}
       end
+
+      defoverridable schema: 0
     end
   end
 
@@ -639,7 +652,18 @@ defmodule JSV do
                   |> Map.put(:"jsv-cast", [Atom.to_string(__MODULE__), @jsv_tag])
                   |> Map.put_new(:"$id", Internal.module_to_uri(__MODULE__))
 
+      @deprecated "use #{inspect(__MODULE__)}.json_schema/0 instead"
+      @doc false
       def schema do
+        IO.warn(
+          "the #{inspect(__MODULE__)}.schema/0 is deprecated and will not be automatically defined in future versions, " <>
+            " use #{inspect(__MODULE__)}.json_schema/0 instead"
+        )
+
+        json_schema()
+      end
+
+      def json_schema do
         @jsv_schema
       end
 
@@ -650,6 +674,8 @@ defmodule JSV do
 
         {:ok, struct!(@target, pairs)}
       end
+
+      defoverridable schema: 0
     end
   end
 
