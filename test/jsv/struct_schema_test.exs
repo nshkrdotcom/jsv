@@ -62,7 +62,7 @@ defmodule JSV.StructSchemaTest do
         name: Schema.string(),
         sub_a: RecursiveA
       },
-      # Sub is not required otherwise this is infinit recursion
+      # Sub is not required otherwise this is infinite recursion
       required: []
     })
   end
@@ -74,7 +74,7 @@ defmodule JSV.StructSchemaTest do
         name: Schema.string(),
         sub_self: __MODULE__
       },
-      # Sub is not required otherwise this is infinit recursion
+      # Sub is not required otherwise this is infinite recursion
       required: []
     })
   end
@@ -87,7 +87,7 @@ defmodule JSV.StructSchemaTest do
         name: Schema.string(),
         sub_self: __MODULE__
       },
-      # Sub is not required otherwise this is infinit recursion
+      # Sub is not required otherwise this is infinite recursion
       required: []
     })
   end
@@ -154,7 +154,7 @@ defmodule JSV.StructSchemaTest do
     test "the required keys will be defined and enforced" do
       %WithRequired{} = struct!(WithRequired, name: "hello", age: 123)
 
-      assert_raise ArgumentError, ~r/the following keys/, fn ->
+      assert_raise ArgumentError, ~r/the following keys.+\[:name\]/, fn ->
         struct!(WithRequired, age: 123)
       end
     end
@@ -162,7 +162,7 @@ defmodule JSV.StructSchemaTest do
     test "a module can reference another module in its properties" do
       %RefsAnother{} = struct!(RefsAnother, with_req: :stuff)
 
-      assert_raise ArgumentError, ~r/the following keys/, fn ->
+      assert_raise ArgumentError, ~r/the following keys.+\[:with_req\]/, fn ->
         struct!(RefsAnother, [])
       end
     end
@@ -171,7 +171,7 @@ defmodule JSV.StructSchemaTest do
       %RecursiveA{} = struct!(RecursiveA, sub_b: :stuff)
       %RecursiveB{} = struct!(RecursiveB, sub_a: :stuff)
 
-      assert_raise ArgumentError, ~r/the following keys/, fn ->
+      assert_raise ArgumentError, ~r/the following keys.+\[:sub_b\]/, fn ->
         struct!(RecursiveA, [])
       end
     end
@@ -611,6 +611,146 @@ defmodule JSV.StructSchemaTest do
               some_unknown_key: %{}
             }
           })
+        end
+      end
+    end
+  end
+
+  describe "defschema with property list syntax" do
+    defmodule WithPropertyList do
+      use JSV.Schema
+
+      defschema foo: integer(),
+                bar: string(default: "hello")
+    end
+
+    defmodule WithPropertyListAllRequired do
+      use JSV.Schema
+
+      defschema name: string(),
+                age: integer()
+    end
+
+    defmodule WithPropertyListMixed do
+      use JSV.Schema
+
+      defschema id: integer(),
+                name: string(default: "Anonymous"),
+                active: boolean(default: true)
+    end
+
+    defmodule EmptyStruct do
+      use JSV.Schema
+      defschema []
+    end
+
+    test "can define a struct with property list syntax" do
+      assert %WithPropertyList{foo: nil, bar: "hello"} == WithPropertyList.__struct__()
+
+      %WithPropertyList{} = struct!(WithPropertyList, foo: 123)
+
+      assert_raise ArgumentError, ~r/the following keys.+\[:foo\]/, fn ->
+        struct!(WithPropertyList, bar: "world")
+      end
+    end
+
+    test "exported schema has correct structure" do
+      assert %{
+               title: "WithPropertyList",
+               type: :object,
+               properties: %{
+                 foo: %{type: :integer},
+                 bar: %{type: :string, default: "hello"}
+               },
+               required: [:foo],
+               "jsv-cast": [to_string(WithPropertyList), 0]
+             } == WithPropertyList.json_schema()
+    end
+
+    test "validation works with property list syntax" do
+      valid_data = %{"foo" => 42}
+      invalid_data = %{"foo" => "not an integer"}
+      assert {:ok, root} = JSV.build(WithPropertyList)
+      assert {:ok, %WithPropertyList{foo: 42, bar: "hello"}} = JSV.validate(valid_data, root)
+      assert {:error, _} = JSV.validate(invalid_data, root)
+    end
+
+    test "all properties without defaults are required" do
+      assert %{
+               title: "WithPropertyListAllRequired",
+               type: :object,
+               properties: %{
+                 name: %{type: :string},
+                 age: %{type: :integer}
+               },
+               required: [:name, :age],
+               "jsv-cast": [to_string(WithPropertyListAllRequired), 0]
+             } == WithPropertyListAllRequired.json_schema()
+
+      assert_raise ArgumentError, ~r/the following keys.+\[:age\]/, fn ->
+        struct!(WithPropertyListAllRequired, name: "Alice")
+      end
+
+      assert_raise ArgumentError, ~r/the following keys.+\[:name\]/, fn ->
+        struct!(WithPropertyListAllRequired, age: 30)
+      end
+
+      %WithPropertyListAllRequired{} = struct!(WithPropertyListAllRequired, name: "Alice", age: 30)
+    end
+
+    test "mixed properties with some defaults" do
+      assert %{
+               title: "WithPropertyListMixed",
+               type: :object,
+               properties: %{
+                 id: %{type: :integer},
+                 name: %{type: :string, default: "Anonymous"},
+                 active: %{type: :boolean, default: true}
+               },
+               required: [:id],
+               "jsv-cast": [to_string(WithPropertyListMixed), 0]
+             } == WithPropertyListMixed.json_schema()
+
+      %WithPropertyListMixed{} = struct!(WithPropertyListMixed, id: 1)
+
+      assert_raise ArgumentError, ~r/the following keys.+\[:id\]/, fn ->
+        struct!(WithPropertyListMixed, name: "Alice", active: false)
+      end
+    end
+
+    test "validation with mixed properties" do
+      assert {:ok, root} = JSV.build(WithPropertyListMixed)
+
+      assert {:ok, %WithPropertyListMixed{id: 1, name: "Anonymous", active: true}} =
+               JSV.validate(%{"id" => 1}, root)
+
+      assert {:ok, %WithPropertyListMixed{id: 2, name: "Alice", active: false}} =
+               JSV.validate(%{"id" => 2, "name" => "Alice", "active" => false}, root)
+
+      assert {:error, _} = JSV.validate(%{"name" => "Alice"}, root)
+    end
+
+    test "empty property list creates empty struct" do
+      assert %EmptyStruct{} == EmptyStruct.__struct__()
+
+      assert %{
+               title: "EmptyStruct",
+               type: :object,
+               properties: %{},
+               required: [],
+               "jsv-cast": [to_string(EmptyStruct), 0]
+             } == EmptyStruct.json_schema()
+
+      assert {:ok, root} = JSV.build(EmptyStruct)
+      assert {:ok, %EmptyStruct{}} = JSV.validate(%{}, root)
+
+      assert {:ok, %EmptyStruct{}} = JSV.validate(%{"ignored" => "value"}, root)
+    end
+
+    test "property list with non-atom keys should fail" do
+      assert_raise ArgumentError, ~r/properties must be defined with atom keys/, fn ->
+        defmodule BadPropertyList do
+          JSV.defschema([{"string_key", %{type: :string}}])
         end
       end
     end

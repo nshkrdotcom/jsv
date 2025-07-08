@@ -225,6 +225,42 @@ defmodule JSV.StructSupport do
     end)
   end
 
+  @doc """
+  Returns a JSON schema definition from the given keyword list. The keyword
+  describes the properties of the schema. The returned value will return a map
+  with `type: :object`, `properties: properties` and `:required` will be defined
+  from all properties that do not have a `:default` value in the schema.
+  """
+  @spec props_to_schema(keyword, overrides :: map) :: %{type: :object, properties: map, required: list}
+  def props_to_schema(properties, overrides) when is_list(properties) do
+    # We will not validate that the keys are atoms, this is done when validating
+    # the returned schema from macros.
+    required =
+      Enum.flat_map(properties, fn
+        {k, prop_schema} when is_map(prop_schema) ->
+          case fetch_default(prop_schema) do
+            # No default, the property is required
+            :error -> [k]
+            {:ok, _} -> []
+          end
+
+        {k, prop_schema} when is_boolean(prop_schema) ->
+          [k]
+
+        _ ->
+          raise ArgumentError, errmsg("as properties must be a keyword list, got: #{inspect(properties)}")
+      end)
+
+    Map.merge(
+      %{
+        type: :object,
+        properties: Map.new(properties),
+        required: required
+      },
+      overrides
+    )
+  end
+
   defp errmsg(msg) do
     "schema given to defschema/1 " <> msg
   end

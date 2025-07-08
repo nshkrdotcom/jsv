@@ -111,5 +111,22 @@ The module can also be used in other schemas:
 }
 ```
 
+An alternative syntax can be used, by passing only the properties schemas as a
+list.
+
+```elixir
+defmodule MyApp.UserSchema do
+  use JSV.Schema
+
+  defschema name: %{type: :string, default: ""},
+            age: %{type: :integer, default: 0}
+end
+```
+
+In that case, properties that do not have a default value are automatically
+required, and the `type` of the schema is automatically set to `object`. The
+`title` of the schema is set as the last segment of the module name.
+
+
 Struct defining schemas are a special case of the generic cast mechanism built
 in JSV. Make sure to check that guide out as well.

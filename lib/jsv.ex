@@ -528,20 +528,35 @@ defmodule JSV do
   If the `cast: false` option is given to `JSV.validate/3`, the additional
   properties will be kept.
 
-  ### Example
+  ### Property List Syntax
+
+  Alternatively, you can use a keyword list to define the properties where each
+  property is defined as `{key, schema}`. The following rules apply:
+
+  - All properties without a `default` value are automatically marked as
+    required and are enforced at the struct level.
+  - The resulting schema will have `type: :object` set automatically.
+  - The `title` of the schema is set as the last segment of the module name.
+
+  This provides a more concise way to define simple object schemas.
+  ### Examples
 
   Given the following module definition:
 
       defmodule MyApp.UserSchema do
-        require JSV
+        import JSV
 
-        JSV.defschema(%{
+        defschema %{
           type: :object,
           properties: %{
             name: %{type: :string, default: ""},
             age: %{type: :integer, default: 123}
           }
-        })
+        }
+
+        # Or alternatively
+        defschema name: %{type: :string, default: ""},
+                  age: %{type: :integer, default: 123}
       end
 
   We can get the struct with default values:
@@ -597,9 +612,18 @@ defmodule JSV do
           age: 999
         }
       }}
+
+
   """
-  defmacro defschema(schema) do
-    quote bind_quoted: binding() do
+  defmacro defschema(schema_or_properties) do
+    quote bind_quoted: [schema_or_properties: schema_or_properties] do
+      schema =
+        if is_list(schema_or_properties) do
+          JSV.StructSupport.props_to_schema(schema_or_properties, %{title: List.last(Module.split(__MODULE__))})
+        else
+          schema_or_properties
+        end
+
       :ok = JSV.StructSupport.validate!(schema)
       @jsv_keycast JSV.StructSupport.keycast_pairs(schema)
       {keys_no_defaults, default_pairs} = JSV.StructSupport.data_pairs_partition(schema)
