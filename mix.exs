@@ -212,6 +212,7 @@ defmodule JSV.MixProject do
       before_commit: [
         &readmix/1,
         {:add, "README.md"},
+        {:add, "guides"},
         &gen_changelog/1,
         {:add, "CHANGELOG.md"}
       ]
