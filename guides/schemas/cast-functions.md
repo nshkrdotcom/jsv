@@ -226,7 +226,7 @@ defmodule MyApp.Schemas.Cast do
   end
 end
 
-schema = JSV.Schema.string() |> JSV.Schema.with_cast(MyApp.Schemas.Cast.safe_to_atom())
+schema = JSV.Schema.Helpers.string() |> JSV.Schema.with_cast(MyApp.Schemas.Cast.safe_to_atom())
 
 root = JSV.build!(schema)
 {:error, err} = JSV.validate("some string", root)

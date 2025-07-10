@@ -864,4 +864,312 @@ defmodule JSV.StructSchemaTest do
       assert {:ok, ^valid_data_self} = JSV.validate(valid_data_self, root_self, cast: false)
     end
   end
+
+  defschema SubMod,
+    age: integer(),
+    name: string(default: "alice")
+
+  defschema SubMod.Wrapper,
+            ~SD"""
+            A submodule embedded in another one
+            """,
+            user: SubMod
+
+  # Recursive schemas using defschema/3 syntax
+  defschema RecursiveSubA,
+            ~SD"""
+            Recursive schema A that references B
+            """,
+            name: string(),
+            sub_b: JSV.StructSchemaTest.RecursiveSubB
+
+  defschema RecursiveSubB,
+            ~SD"""
+            Recursive schema B that references A
+            """,
+            name: string(),
+            sub_a: optional(RecursiveSubA)
+
+  defschema SelfRecursiveSub,
+            ~SD"""
+            Schema that recursively references itself
+            """,
+            name: string(),
+            sub_self: optional(__MODULE__)
+
+  # Test module using defschema/3 with full schema map
+  defschema FullSchemaUser,
+            "User defined with full schema map",
+            %{
+              type: :object,
+              properties: %{
+                id: %{type: :integer},
+                name: %{type: :string, default: "Anonymous"},
+                email: %{type: :string},
+                active: %{type: :boolean, default: true}
+              },
+              required: [:id, :email],
+              additionalProperties: false
+            }
+
+  describe "defschema/3 that defines modules" do
+    test "module is defined as an alias when defined as a nested module" do
+      assert "Elixir.#{inspect(__MODULE__)}.SubMod" == to_string(SubMod)
+    end
+
+    test "module is defined with a struct and handles defauts" do
+      assert "alice" == %SubMod{age: 123}.name
+    end
+
+    test "the title and description are defined" do
+      assert nil == SubMod.json_schema().description
+      assert "A submodule embedded in another one" == SubMod.Wrapper.json_schema().description
+
+      assert "SubMod" == SubMod.json_schema().title
+      assert "SubMod.Wrapper" == SubMod.Wrapper.json_schema().title
+    end
+
+    test "recursive schemas using defschema/3 - mutual recursion A/B" do
+      # Test struct creation
+      assert %RecursiveSubA{} = struct!(RecursiveSubA, name: "A1", sub_b: %RecursiveSubB{name: "B1"})
+      assert %RecursiveSubB{} = struct!(RecursiveSubB, name: "B1")
+
+      # Test that required fields are enforced
+      assert_raise ArgumentError, ~r/the following keys.+\[:name, :sub_b\]/, fn ->
+        struct!(RecursiveSubA, [])
+      end
+
+      assert_raise ArgumentError, ~r/the following keys.+\[:name\]/, fn ->
+        struct!(RecursiveSubB, [])
+      end
+
+      # Test schema generation
+      assert %{
+               type: :object,
+               title: "RecursiveSubA",
+               description: "Recursive schema A that references B",
+               required: [:name, :sub_b],
+               properties: %{
+                 name: %{type: :string},
+                 sub_b: RecursiveSubB
+               },
+               "jsv-cast": [to_string(RecursiveSubA), 0]
+             } == RecursiveSubA.json_schema()
+
+      assert %{
+               type: :object,
+               title: "RecursiveSubB",
+               description: "Recursive schema B that references A",
+               required: [:name],
+               properties: %{
+                 name: %{type: :string},
+                 sub_a: RecursiveSubA
+               },
+               "jsv-cast": [to_string(RecursiveSubB), 0]
+             } == RecursiveSubB.json_schema()
+
+      # Test validation
+      valid_data = %{
+        "name" => "A1",
+        "sub_b" => %{
+          "name" => "B1",
+          "sub_a" => %{
+            "name" => "A2",
+            "sub_b" => %{"name" => "B2"}
+          }
+        }
+      }
+
+      invalid_data = %{
+        "name" => "A1",
+        "sub_b" => %{
+          "name" => "B1",
+          "sub_a" => %{
+            "name" => "A2",
+            "sub_b" => "not an object"
+          }
+        }
+      }
+
+      assert {:ok, root} = JSV.build(RecursiveSubA)
+      assert {:error, _} = JSV.validate(invalid_data, root)
+
+      assert {:ok, result} = JSV.validate(valid_data, root)
+
+      assert %RecursiveSubA{
+               name: "A1",
+               sub_b: %RecursiveSubB{
+                 name: "B1",
+                 sub_a: %RecursiveSubA{
+                   name: "A2",
+                   sub_b: %RecursiveSubB{name: "B2", sub_a: nil}
+                 }
+               }
+             } = result
+
+      # Test with casting disabled
+      assert {:ok, ^valid_data} = JSV.validate(valid_data, root, cast: false)
+    end
+
+    test "recursive schemas using defschema/3 - self recursion" do
+      # Test struct creation
+      assert %SelfRecursiveSub{} = struct!(SelfRecursiveSub, name: "Self1")
+
+      # Test that required fields are enforced
+      assert_raise ArgumentError, ~r/the following keys.+\[:name\]/, fn ->
+        struct!(SelfRecursiveSub, [])
+      end
+
+      # Test schema generation
+      assert %{
+               type: :object,
+               title: "SelfRecursiveSub",
+               description: "Schema that recursively references itself",
+               required: [:name],
+               properties: %{
+                 name: %{type: :string},
+                 sub_self: SelfRecursiveSub
+               },
+               "jsv-cast": [to_string(SelfRecursiveSub), 0]
+             } == SelfRecursiveSub.json_schema()
+
+      # Test validation
+      valid_data = %{
+        "name" => "Self1",
+        "sub_self" => %{
+          "name" => "Self2",
+          "sub_self" => %{
+            "name" => "Self3"
+          }
+        }
+      }
+
+      invalid_data = %{
+        "name" => "Self1",
+        "sub_self" => %{
+          # Should be string
+          "name" => 123
+        }
+      }
+
+      assert {:ok, root} = JSV.build(SelfRecursiveSub)
+
+      # Test that there's only one entry in validators for self-recursion
+      # (should be similar to the other self-recursive test)
+      assert [:root, "jsv:module:Elixir.JSV.StructSchemaTest.SelfRecursiveSub"] == Enum.sort(Map.keys(root.validators))
+
+      assert {:error, _} = JSV.validate(invalid_data, root)
+      assert {:ok, result} = JSV.validate(valid_data, root)
+
+      assert %SelfRecursiveSub{
+               name: "Self1",
+               sub_self: %SelfRecursiveSub{
+                 name: "Self2",
+                 sub_self: %SelfRecursiveSub{
+                   name: "Self3",
+                   sub_self: nil
+                 }
+               }
+             } = result
+
+      # Test with casting disabled
+      assert {:ok, ^valid_data} = JSV.validate(valid_data, root, cast: false)
+    end
+
+    test "recursive schemas as sub-schemas in other structures" do
+      # Test using recursive schemas as properties in other schemas
+      wrapper_schema = %{
+        type: :object,
+        properties: %{
+          recursive_a: RecursiveSubA,
+          recursive_self: SelfRecursiveSub
+        }
+      }
+
+      valid_data = %{
+        "recursive_a" => %{
+          "name" => "A1",
+          "sub_b" => %{"name" => "B1"}
+        },
+        "recursive_self" => %{
+          "name" => "Self1",
+          "sub_self" => %{"name" => "Self2"}
+        }
+      }
+
+      assert {:ok, root} = JSV.build(wrapper_schema)
+      assert {:ok, result} = JSV.validate(valid_data, root)
+
+      assert %{
+               "recursive_a" => %RecursiveSubA{
+                 name: "A1",
+                 sub_b: %RecursiveSubB{name: "B1", sub_a: nil}
+               },
+               "recursive_self" => %SelfRecursiveSub{
+                 name: "Self1",
+                 sub_self: %SelfRecursiveSub{name: "Self2", sub_self: nil}
+               }
+             } = result
+
+      # Test with casting disabled
+      assert {:ok, ^valid_data} = JSV.validate(valid_data, root, cast: false)
+    end
+
+    test "defschema/3 with full schema map instead of property list" do
+      # Test that the module was created properly with full schema map
+      assert %FullSchemaUser{} = struct!(FullSchemaUser, id: 1, email: "test@example.com")
+
+      # Test defaults are applied
+      assert %JSV.StructSchemaTest.FullSchemaUser{
+               active: true,
+               id: 1,
+               name: "Anonymous",
+               email: "test@example.com"
+             } == %FullSchemaUser{id: 1, email: "test@example.com"}
+
+      # Test that required fields are enforced
+      assert_raise ArgumentError, ~r/the following keys.+\[:id, :email\]/, fn ->
+        struct!(FullSchemaUser, [])
+      end
+
+      assert_raise ArgumentError, ~r/the following keys.+\[:email\]/, fn ->
+        struct!(FullSchemaUser, id: 1)
+      end
+
+      assert %{
+               type: :object,
+               properties: %{
+                 active: %{default: true, type: :boolean},
+                 id: %{type: :integer},
+                 name: %{default: "Anonymous", type: :string},
+                 email: %{type: :string}
+               },
+               additionalProperties: false,
+               required: [:id, :email],
+               "jsv-cast": ["Elixir.JSV.StructSchemaTest.FullSchemaUser", 0]
+             } == FullSchemaUser.json_schema()
+
+      valid_data = %{"id" => 123, "email" => "user@example.com"}
+      invalid_data_missing_req = %{"id" => 123}
+      invalid_data_extra_prop = %{"id" => 123, "email" => "user@example.com", "extra" => "value"}
+
+      assert {:ok, root} = JSV.build(FullSchemaUser)
+
+      assert {:ok, result} = JSV.validate(valid_data, root)
+      assert %FullSchemaUser{id: 123, email: "user@example.com", name: "Anonymous", active: true} = result
+
+      assert {:error, _} = JSV.validate(invalid_data_missing_req, root)
+      assert {:error, _} = JSV.validate(invalid_data_extra_prop, root)
+
+      assert {:ok, ^valid_data} = JSV.validate(valid_data, root, cast: false)
+    end
+
+    test "modules created this way automatically derive JSON encoders" do
+      data = %RecursiveSubA{name: "hello", sub_b: %RecursiveSubB{name: "world"}}
+
+      assert is_binary(Jason.encode!(data))
+      assert is_binary(Poison.encode!(data))
+      assert is_binary(JSON.encode!(data))
+    end
+  end
 end

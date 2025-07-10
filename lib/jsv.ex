@@ -659,27 +659,127 @@ defmodule JSV do
     end
   end
 
-  # defmacro defschema(module, description \\ nil, schema_or_properties) do
-  #   module |> dbg()
-  #   # not giving the caller env so we do not expand the module name to its FQMN
-  #   submodule = inspect(Macro.expand_literals(module,__ENV__))
+  @doc """
+  Defines a new module with a JSON Schema struct.
 
-  #   quote bind_quoted: binding() do
-  #     defmodule module do
-  #       use JSV.Schema
-  #       @moduledoc description
+  This macro is similar to `defschema/1` but it also takes a module name and
+  defines a nested module in the context where it is called. An optional
+  description can be given, used as the `@moduledoc` and the description when a
+  keyword list of properties is given.
 
-  #       schema =
-  #         if is_list(schema_or_properties) do
-  #           JSV.StructSupport.props_to_schema(schema_or_properties, %{title: submodule, description: description})
-  #         else
-  #           schema_or_properties
-  #         end
+  The module's struct will automatically `@derive` `Jason.Encoder` and
+  `JSON.Encoder` if those modules are found during compilation.
 
-  #       defschema schema
-  #     end
-  #   end
-  # end
+  ### Title and Description Behavior
+
+  When passing properties as a keyword list instead of a schema, the `title` and
+  `description` parameters are automatically applied to the generated schema:
+
+  - `title` is set from the module name (without outer module prefix if any)
+  - `description` is set from the description parameter
+
+  When passing a full schema map, the title and description from the parameters
+  are not applied - the schema map is used as-is. Only the `description`
+  parameter is used as the module's `@moduledoc`.
+
+  ### Examples
+
+  Basic module definition with keyword list:
+
+      defschema User,
+        name: string(),
+        age: integer(default: 0)
+
+  Module with description using keyword list:
+
+      defschema User,
+                "A user in the system",
+                name: string(),
+                age: integer(default: 0)
+
+  Module with full schema map:
+
+      defschema User,
+                "User schema",
+                %{
+                  type: :object,
+                  title: "Custom Title",
+                  description: "Custom Desc",
+                  properties: %{
+                    name: %{type: :string},
+                    age: %{type: :integer, default: 18}
+                  },
+                  required: [:name]
+                }
+
+  ## Usage
+
+  The created module can be used like any struct:
+
+      %User{name: "Alice", age: 25}
+
+  And as a JSON Schema for validation:
+
+      {:ok, root} = JSV.build(User)
+      JSV.validate(%{"name" => "Bob"}, root)
+      #=> {:ok, %User{name: "Bob", age: 0}}
+
+  ## Module References
+
+  Modules can reference other modules in their properties:
+
+      defschema Address,
+                street: string(),
+                city: string()
+
+      defschema User,
+                name: string(),
+                address: Address
+
+  Use `__MODULE__` for self-references:
+
+      defschema Category,
+                name: string(),
+                parent: optional(__MODULE__)
+  """
+  defmacro defschema(module, description \\ nil, schema_or_properties) do
+    # not giving the caller env so we do not expand the module name to its FQMN
+    module_name = inspect(Macro.expand_literals(module, __ENV__))
+
+    quoted =
+      quote do
+        defmodule unquote(module) do
+          schema_or_properties = unquote(schema_or_properties)
+          description = unquote(description)
+
+          use JSV.Schema
+
+          @moduledoc description
+
+          schema =
+            if is_list(schema_or_properties) do
+              overrides = %{title: unquote(module_name), description: description}
+              JSV.StructSupport.props_to_schema(schema_or_properties, overrides)
+            else
+              schema_or_properties
+            end
+
+          if Code.ensure_loaded?(JSON.Encoder) do
+            @derive JSON.Encoder
+          end
+
+          if Code.ensure_loaded?(Jason.Encoder) do
+            @derive Jason.Encoder
+          end
+
+          defschema schema
+        end
+      end
+
+    # I'm not sure why ElixirLS points to this macro's line when using
+    # go-to-definition on defined modules. This does not seem to solve it.
+    Macro.update_meta(quoted, &Keyword.put(&1, :line, __CALLER__.line))
+  end
 
   @doc false
   defmacro defschema_for(target, schema) do

@@ -60,7 +60,7 @@ defmodule JSV.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:readmix, "~> 0.3", only: [:dev, :test], runtime: false},
+      {:readmix, "~> 0.6", only: [:dev, :test], runtime: false},
       {:modkit, "~> 0.6", only: [:dev, :test], runtime: false},
 
       # Test
@@ -210,7 +210,7 @@ defmodule JSV.MixProject do
     [
       annotate: true,
       before_commit: [
-        &update_readme/1,
+        &readmix/1,
         {:add, "README.md"},
         &gen_changelog/1,
         {:add, "CHANGELOG.md"}
@@ -218,8 +218,14 @@ defmodule JSV.MixProject do
     ]
   end
 
-  def update_readme(vsn) do
-    :ok = Readmix.update_file(Readmix.new(vars: %{app_vsn: vsn}), "README.md")
+  def readmix(vsn) do
+    rdmx = Readmix.new(vars: %{app_vsn: vsn})
+    :ok = Readmix.update_file(rdmx, "README.md")
+
+    :ok =
+      Enum.each(Path.wildcard("guides/**/*.md"), fn path ->
+        :ok = Readmix.update_file(rdmx, path)
+      end)
   end
 
   defp gen_changelog(vsn) do

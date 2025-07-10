@@ -1,4 +1,4 @@
-public_macros = [defschema: 1, defschema_for: 2, defcast: 1, defcast: 2, defcast: 3, schema: 2, schema: 3]
+public_macros = [defschema: 1, defschema: 2, defschema: 3, defschema_for: 2, defcast: 1, defcast: 2, defcast: 3]
 
 # Used by "mix format"
 [
