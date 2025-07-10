@@ -90,18 +90,22 @@ defmodule JSV.CodecTest do
         IO.puts("no native JSON codec test")
     end
 
-    test "all codecs declare formatting support" do
-      if Code.ensure_loaded?(JasonCodec) do
+    if Code.ensure_loaded?(JasonCodec) do
+      test "formatting support from Jason" do
         assert is_boolean(JasonCodec.supports_ordered_formatting?())
         assert is_boolean(JasonCodec.supports_formatting?())
       end
+    end
 
-      if Code.ensure_loaded?(PoisonCodec) do
+    if Code.ensure_loaded?(PoisonCodec) do
+      test "formatting support from Poison" do
         assert is_boolean(PoisonCodec.supports_ordered_formatting?())
         assert is_boolean(PoisonCodec.supports_formatting?())
       end
+    end
 
-      if Code.ensure_loaded?(NativeCodec) do
+    if Code.ensure_loaded?(NativeCodec) do
+      test "formatting support from native" do
         assert is_boolean(NativeCodec.supports_ordered_formatting?())
         assert is_boolean(NativeCodec.supports_formatting?())
       end

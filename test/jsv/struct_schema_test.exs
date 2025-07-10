@@ -1164,12 +1164,19 @@ defmodule JSV.StructSchemaTest do
       assert {:ok, ^valid_data} = JSV.validate(valid_data, root, cast: false)
     end
 
-    test "modules created this way automatically derive JSON encoders" do
+    test "modules created this way automatically derive JSON encoders - libraries" do
       data = %RecursiveSubA{name: "hello", sub_b: %RecursiveSubB{name: "world"}}
 
       assert is_binary(Jason.encode!(data))
       assert is_binary(Poison.encode!(data))
-      assert is_binary(JSON.encode!(data))
+    end
+
+    if Code.ensure_compiled?(JSON) do
+      test "modules created this way automatically derive JSON encoders - native codec" do
+        data = %RecursiveSubA{name: "hello", sub_b: %RecursiveSubB{name: "world"}}
+
+        assert is_binary(JSON.encode!(data))
+      end
     end
   end
 end
