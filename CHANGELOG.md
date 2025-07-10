@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2025-07-10
+
+### 🚀 Features
+
+- Define and expect schema modules to export json_schema/0 instead of schema/0
+- Allow to call defschema with a list of properties
+- Added the defschema/3 macro to define schemas as submodules
+
+### 🐛 Bug Fixes
+
+- Ensure defschema with keyword syntax supports module-based properties
+
 ## [0.9.0] - 2025-07-05
 
 ### 🚀 Features
