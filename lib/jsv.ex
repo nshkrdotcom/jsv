@@ -612,8 +612,6 @@ defmodule JSV do
           age: 999
         }
       }}
-
-
   """
   defmacro defschema(schema_or_properties) do
     quote bind_quoted: [schema_or_properties: schema_or_properties] do
@@ -660,6 +658,28 @@ defmodule JSV do
       defoverridable schema: 0
     end
   end
+
+  # defmacro defschema(module, description \\ nil, schema_or_properties) do
+  #   module |> dbg()
+  #   # not giving the caller env so we do not expand the module name to its FQMN
+  #   submodule = inspect(Macro.expand_literals(module,__ENV__))
+
+  #   quote bind_quoted: binding() do
+  #     defmodule module do
+  #       use JSV.Schema
+  #       @moduledoc description
+
+  #       schema =
+  #         if is_list(schema_or_properties) do
+  #           JSV.StructSupport.props_to_schema(schema_or_properties, %{title: submodule, description: description})
+  #         else
+  #           schema_or_properties
+  #         end
+
+  #       defschema schema
+  #     end
+  #   end
+  # end
 
   @doc false
   defmacro defschema_for(target, schema) do

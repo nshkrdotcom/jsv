@@ -216,4 +216,24 @@ defmodule JSV.Schema.Helpers do
   ```
   """
   defpreset :ref, "$ref": ref :: String.t()
+
+  @doc """
+  Marks a schema as optional when using the keyword list syntax with
+  `JSV.defschema/1`.
+
+  This is useful for recursive module references where you want to avoid
+  infinite nesting requirements. When used in property list syntax with
+  `defschema`, the property will not be marked as required.
+
+  #### Example
+
+  ```
+  defschema name: string(),
+            parent: optional(MySelfReferencingModule)
+  ```
+  """
+  @spec optional(term) :: {:optional, term}
+  def optional(schema) do
+    {:optional, schema}
+  end
 end

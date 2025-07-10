@@ -2,6 +2,7 @@ defmodule JSV.StructSchemaTest do
   alias JSV.Schema
   require JSV
   use ExUnit.Case, async: true
+  use JSV.Schema
 
   defmodule BasicDefine do
     JSV.defschema(%Schema{
@@ -118,6 +119,55 @@ defmodule JSV.StructSchemaTest do
 
     # Schema should be defineable from a function call
     JSV.defschema(get_in(schema, [:"$defs", :user]))
+  end
+
+  defmodule WithKW do
+    use JSV.Schema
+
+    defschema foo: integer(),
+              bar: string(default: "hello")
+  end
+
+  defmodule WithKWAllRequired do
+    use JSV.Schema
+
+    defschema name: string(),
+              age: integer()
+  end
+
+  defmodule WithKWMixed do
+    use JSV.Schema
+
+    defschema id: integer(),
+              name: string(default: "Anonymous"),
+              active: boolean(default: true)
+  end
+
+  defmodule EmptyStruct do
+    use JSV.Schema
+    defschema []
+  end
+
+  # Recursive modules using property list syntax
+  defmodule RecursiveAKW do
+    use JSV.Schema
+
+    defschema name: string(),
+              sub_b: JSV.StructSchemaTest.RecursiveBKW
+  end
+
+  defmodule RecursiveBKW do
+    use JSV.Schema
+
+    defschema name: string(),
+              sub_a: optional(RecursiveAKW)
+  end
+
+  defmodule RecursiveSelfKW do
+    use JSV.Schema
+
+    defschema name: Schema.string(),
+              sub_self: optional(__MODULE__)
   end
 
   describe "generating modules from schemas" do
@@ -617,90 +667,63 @@ defmodule JSV.StructSchemaTest do
   end
 
   describe "defschema with property list syntax" do
-    defmodule WithPropertyList do
-      use JSV.Schema
-
-      defschema foo: integer(),
-                bar: string(default: "hello")
-    end
-
-    defmodule WithPropertyListAllRequired do
-      use JSV.Schema
-
-      defschema name: string(),
-                age: integer()
-    end
-
-    defmodule WithPropertyListMixed do
-      use JSV.Schema
-
-      defschema id: integer(),
-                name: string(default: "Anonymous"),
-                active: boolean(default: true)
-    end
-
-    defmodule EmptyStruct do
-      use JSV.Schema
-      defschema []
-    end
-
     test "can define a struct with property list syntax" do
-      assert %WithPropertyList{foo: nil, bar: "hello"} == WithPropertyList.__struct__()
+      assert %WithKW{foo: nil, bar: "hello"} == WithKW.__struct__()
 
-      %WithPropertyList{} = struct!(WithPropertyList, foo: 123)
+      %WithKW{} = struct!(WithKW, foo: 123)
 
       assert_raise ArgumentError, ~r/the following keys.+\[:foo\]/, fn ->
-        struct!(WithPropertyList, bar: "world")
+        struct!(WithKW, bar: "world")
       end
     end
 
     test "exported schema has correct structure" do
       assert %{
-               title: "WithPropertyList",
+               title: "WithKW",
                type: :object,
                properties: %{
                  foo: %{type: :integer},
                  bar: %{type: :string, default: "hello"}
                },
                required: [:foo],
-               "jsv-cast": [to_string(WithPropertyList), 0]
-             } == WithPropertyList.json_schema()
+               "jsv-cast": [to_string(WithKW), 0]
+             } == WithKW.json_schema()
     end
 
     test "validation works with property list syntax" do
       valid_data = %{"foo" => 42}
       invalid_data = %{"foo" => "not an integer"}
-      assert {:ok, root} = JSV.build(WithPropertyList)
-      assert {:ok, %WithPropertyList{foo: 42, bar: "hello"}} = JSV.validate(valid_data, root)
+      assert {:ok, root} = JSV.build(WithKW)
+      assert {:ok, %WithKW{foo: 42, bar: "hello"}} = JSV.validate(valid_data, root)
       assert {:error, _} = JSV.validate(invalid_data, root)
     end
 
     test "all properties without defaults are required" do
       assert %{
-               title: "WithPropertyListAllRequired",
+               title: "WithKWAllRequired",
                type: :object,
                properties: %{
                  name: %{type: :string},
                  age: %{type: :integer}
                },
                required: [:name, :age],
-               "jsv-cast": [to_string(WithPropertyListAllRequired), 0]
-             } == WithPropertyListAllRequired.json_schema()
+               "jsv-cast": [to_string(WithKWAllRequired), 0]
+             } == WithKWAllRequired.json_schema()
 
       assert_raise ArgumentError, ~r/the following keys.+\[:age\]/, fn ->
-        struct!(WithPropertyListAllRequired, name: "Alice")
+        struct!(WithKWAllRequired, name: "Alice")
       end
 
       assert_raise ArgumentError, ~r/the following keys.+\[:name\]/, fn ->
-        struct!(WithPropertyListAllRequired, age: 30)
+        struct!(WithKWAllRequired, age: 30)
       end
 
-      %WithPropertyListAllRequired{} = struct!(WithPropertyListAllRequired, name: "Alice", age: 30)
+      %WithKWAllRequired{} = struct!(WithKWAllRequired, name: "Alice", age: 30)
     end
 
     test "mixed properties with some defaults" do
       assert %{
-               title: "WithPropertyListMixed",
+               title: "WithKWMixed",
                type: :object,
                properties: %{
                  id: %{type: :integer},
@@ -708,23 +731,23 @@ defmodule JSV.StructSchemaTest do
                  active: %{type: :boolean, default: true}
                },
                required: [:id],
-               "jsv-cast": [to_string(WithPropertyListMixed), 0]
-             } == WithPropertyListMixed.json_schema()
+               "jsv-cast": [to_string(WithKWMixed), 0]
+             } == WithKWMixed.json_schema()
 
-      %WithPropertyListMixed{} = struct!(WithPropertyListMixed, id: 1)
+      %WithKWMixed{} = struct!(WithKWMixed, id: 1)
 
       assert_raise ArgumentError, ~r/the following keys.+\[:id\]/, fn ->
-        struct!(WithPropertyListMixed, name: "Alice", active: false)
+        struct!(WithKWMixed, name: "Alice", active: false)
       end
     end
 
     test "validation with mixed properties" do
-      assert {:ok, root} = JSV.build(WithPropertyListMixed)
+      assert {:ok, root} = JSV.build(WithKWMixed)
 
-      assert {:ok, %WithPropertyListMixed{id: 1, name: "Anonymous", active: true}} =
+      assert {:ok, %WithKWMixed{id: 1, name: "Anonymous", active: true}} =
                JSV.validate(%{"id" => 1}, root)
 
-      assert {:ok, %WithPropertyListMixed{id: 2, name: "Alice", active: false}} =
+      assert {:ok, %WithKWMixed{id: 2, name: "Alice", active: false}} =
                JSV.validate(%{"id" => 2, "name" => "Alice", "active" => false}, root)
 
       assert {:error, _} = JSV.validate(%{"name" => "Alice"}, root)
@@ -749,10 +772,96 @@ defmodule JSV.StructSchemaTest do
 
     test "property list with non-atom keys should fail" do
       assert_raise ArgumentError, ~r/properties must be defined with atom keys/, fn ->
-        defmodule BadPropertyList do
+        defmodule BadKW do
           JSV.defschema([{"string_key", %{type: :string}}])
         end
       end
+    end
+
+    test "recursive modules with property list syntax" do
+      # Test mutual recursion - recursive fields are optional
+      assert %RecursiveBKW{} = b = struct!(RecursiveBKW, name: "B")
+      assert %RecursiveAKW{} = struct!(RecursiveAKW, name: "A", sub_b: b)
+
+      # Test self recursion
+      assert %RecursiveSelfKW{} = struct!(RecursiveSelfKW, name: "Self")
+
+      # Test schema generation
+      assert %{
+               type: :object,
+               title: "RecursiveAKW",
+               required: [:name, :sub_b],
+               properties: %{
+                 name: %{type: :string},
+                 sub_b: JSV.StructSchemaTest.RecursiveBKW
+               },
+               "jsv-cast": ["Elixir.JSV.StructSchemaTest.RecursiveAKW", 0]
+             } ==
+               RecursiveAKW.json_schema()
+
+      assert %{
+               type: :object,
+               title: "RecursiveBKW",
+               required: [:name],
+               properties: %{
+                 name: %{type: :string},
+                 sub_a: JSV.StructSchemaTest.RecursiveAKW
+               },
+               "jsv-cast": ["Elixir.JSV.StructSchemaTest.RecursiveBKW", 0]
+             } ==
+               RecursiveBKW.json_schema()
+    end
+
+    test "validation with recursive modules using property list syntax" do
+      # Test mutual recursion validation
+      valid_data_a = %{
+        "name" => "A1",
+        "sub_b" => %{
+          "name" => "B1",
+          "sub_a" => %{
+            "name" => "A2",
+            "sub_b" => %{"name" => "B2"}
+          }
+        }
+      }
+
+      assert {:ok, root_a} = JSV.build(RecursiveAKW)
+      assert {:ok, result_a} = JSV.validate(valid_data_a, root_a)
+
+      assert %RecursiveAKW{
+               name: "A1",
+               sub_b: %RecursiveBKW{
+                 name: "B1",
+                 sub_a: %RecursiveAKW{
+                   name: "A2",
+                   sub_b: %RecursiveBKW{name: "B2", sub_a: nil}
+                 }
+               }
+             } = result_a
+
+      # Test self recursion validation
+      valid_data_self = %{
+        "name" => "Self1",
+        "sub_self" => %{
+          "name" => "Self2",
+          "sub_self" => %{"name" => "Self3"}
+        }
+      }
+
+      assert {:ok, root_self} = JSV.build(RecursiveSelfKW)
+      assert {:ok, result_self} = JSV.validate(valid_data_self, root_self)
+
+      assert %RecursiveSelfKW{
+               name: "Self1",
+               sub_self: %RecursiveSelfKW{
+                 name: "Self2",
+                 sub_self: %RecursiveSelfKW{name: "Self3", sub_self: nil}
+               }
+             } = result_self
+
+      # Test validation with disabled casting
+      assert {:ok, ^valid_data_a} = JSV.validate(valid_data_a, root_a, cast: false)
+      assert {:ok, ^valid_data_self} = JSV.validate(valid_data_self, root_self, cast: false)
     end
   end
 end

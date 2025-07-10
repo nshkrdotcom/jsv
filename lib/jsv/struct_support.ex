@@ -235,27 +235,30 @@ defmodule JSV.StructSupport do
   def props_to_schema(properties, overrides) when is_list(properties) do
     # We will not validate that the keys are atoms, this is done when validating
     # the returned schema from macros.
-    required =
-      Enum.flat_map(properties, fn
-        {k, prop_schema} when is_map(prop_schema) ->
+    {props, required} =
+      Enum.map_reduce(properties, _required = [], fn
+        {k, {:optional, prop_schema}}, required when is_map(prop_schema) when is_atom(prop_schema) ->
+          {{k, prop_schema}, required}
+
+        {k, prop_schema}, required when is_map(prop_schema) ->
           case fetch_default(prop_schema) do
             # No default, the property is required
-            :error -> [k]
-            {:ok, _} -> []
+            :error -> {{k, prop_schema}, [k | required]}
+            {:ok, _} -> {{k, prop_schema}, required}
           end
 
-        {k, prop_schema} when is_boolean(prop_schema) ->
-          [k]
+        {k, prop_schema}, required when is_atom(prop_schema) ->
+          {{k, prop_schema}, [k | required]}
 
-        _ ->
+        _, _ ->
           raise ArgumentError, errmsg("as properties must be a keyword list, got: #{inspect(properties)}")
       end)
 
     Map.merge(
       %{
         type: :object,
-        properties: Map.new(properties),
-        required: required
+        properties: Map.new(props),
+        required: :lists.reverse(required)
       },
       overrides
     )
